@@ -11,7 +11,7 @@ mvn package -DskipTests
 ```
 
 This will produce a jar file inside the target dir, using the project name.
-By default, this is `product-template-0.0.1-SNAPSHOT.jar`
+By default, this is `EsNuestro-0.0.1-SNAPSHOT.jar`
 
 Also by default, `mvn package` will run tests before packaging the executable.
 `-DskipTests` will allow for faster packaging, assuming that tests are already
@@ -29,7 +29,7 @@ known to be successful.
 2. After compiling:
 
    ```bash
-   java -jar target/product-template-0.0.1-SNAPSHOT.jar
+   java -jar target/EsNuestro-0.0.1-SNAPSHOT.jar
    ```
 
 3. If both are running, you should be able to access the swagger docs and run requests

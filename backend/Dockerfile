@@ -9,10 +9,10 @@ RUN mvn package -DskipTests
 # Stage 2 (runtime): Run the jar file in a minimal environment
 FROM eclipse-temurin:21-jre AS deploy
 WORKDIR /home/app
-COPY --from=build /home/app/target/product-template-0.0.1-SNAPSHOT.jar /home/app/product-template-0.0.1-SNAPSHOT.jar
+COPY --from=build /home/app/target/EsNuestro-0.0.1-SNAPSHOT.jar /home/app/EsNuestro-0.0.1-SNAPSHOT.jar
 EXPOSE 8080
 HEALTHCHECK \
     --timeout=5s --interval=10s --retries=5 \
     --start-period=30s --start-interval=10s \
     CMD curl --fail --silent http://localhost:8081/actuator/health | grep UP || exit 1
-ENTRYPOINT ["java","-jar","/home/app/product-template-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java","-jar","/home/app/EsNuestro-0.0.1-SNAPSHOT.jar"]
