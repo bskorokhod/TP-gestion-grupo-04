@@ -1,6 +1,0 @@
-.form {
-  display: grid;
-  grid-template-columns: auto auto;
-  align-items: stretch;
-  gap: 1rem;
-}

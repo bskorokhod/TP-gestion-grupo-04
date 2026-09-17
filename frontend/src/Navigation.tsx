@@ -1,11 +1,6 @@
 import { Redirect, Route, Switch } from "wouter";
 
-import { BrandCreateScreen } from "@/screens/BrandCreateScreen";
-import { BrandDetailScreen } from "@/screens/BrandDetailScreen";
-import { BrandListScreen } from "@/screens/BrandListScreen";
-import { LoginScreen } from "@/screens/LoginScreen";
 import { MainScreen } from "@/screens/MainScreen";
-import { SignupScreen } from "@/screens/SignupScreen";
 import { useToken } from "@/services/TokenContext";
 
 export const Navigation = () => {
@@ -15,13 +10,6 @@ export const Navigation = () => {
     case "REFRESHING":
       return (
         <Switch>
-          <Route path="/brands">
-            <BrandListScreen />
-          </Route>
-          <Route path="/brands/new">
-            <BrandCreateScreen />
-          </Route>
-          <Route path="/brands/:id">{({ id }) => <BrandDetailScreen id={id} />}</Route>
           <Route path="/">
             <MainScreen />
           </Route>
@@ -33,12 +21,6 @@ export const Navigation = () => {
     case "LOGGED_OUT":
       return (
         <Switch>
-          <Route path="/login">
-            <LoginScreen />
-          </Route>
-          <Route path="/signup">
-            <SignupScreen />
-          </Route>
           <Route>
             <Redirect href="/signup" />
           </Route>
