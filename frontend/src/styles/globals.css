@@ -45,6 +45,15 @@
     --color-group-request: var(--group-request);
     --shadow-panel: var(--shadow-panel);
     --shadow-group: var(--shadow-group);
+    --color-modal-surface: var(--modal-surface);
+    --color-modal-ink: var(--modal-ink);
+    --color-modal-border: var(--modal-border);
+    --color-modal-primary: var(--modal-primary);
+    --color-modal-primary-foreground: var(--modal-primary-foreground);
+    --color-modal-soft: var(--modal-soft);
+    --color-modal-field: var(--modal-field);
+    --color-modal-muted: var(--modal-muted);
+    --color-modal-amount: var(--modal-amount);
 
     --color-card: var(--card);
     --color-card-foreground: var(--card-foreground);
@@ -105,6 +114,15 @@
     --group-request: oklch(0.43 0.06 295);
     --shadow-panel: 0 18px 36px oklch(0.33 0.025 70 / 0.08);
     --shadow-group: 0 6px 20px oklch(0.33 0.025 70 / 0.06);
+    --modal-surface: oklch(1 0 0);
+    --modal-ink: oklch(0.28723 0.01214 78.101);
+    --modal-border: oklch(0.78619 0.06382 74.619);
+    --modal-primary: oklch(0.49409 0.05025 188.409);
+    --modal-primary-foreground: oklch(0.9703 0.00697 88.642);
+    --modal-soft: oklch(0.94647 0.01398 88.685);
+    --modal-field: oklch(0.9703 0.00697 88.642);
+    --modal-muted: oklch(0.61179 0.02357 85.96);
+    --modal-amount: oklch(0.4583 0.10145 125.523);
 
 
     --card: var(--panel);

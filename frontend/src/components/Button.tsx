@@ -11,6 +11,9 @@ const variants = {
     secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
     ghost: "hover:bg-accent hover:text-accent-foreground",
     link: "text-primary underline-offset-4 hover:underline",
+    modalPrimary: "rounded-full border border-modal-primary bg-modal-primary text-modal-primary-foreground shadow-none hover:bg-modal-primary/90",
+    modalSecondary: "rounded-full border border-modal-border bg-modal-surface text-modal-ink shadow-none hover:bg-modal-field",
+    modalIcon: "rounded-lg bg-modal-soft text-modal-primary shadow-none hover:bg-modal-soft/80",
 };
 
 const sizes = {
@@ -19,6 +22,8 @@ const sizes = {
     lg: "h-10 rounded-md px-8",
     hero: "h-12 px-6 text-base",
     icon: "h-9 w-9",
+    modal: "h-12 px-6 text-sm",
+    modalIcon: "size-7 p-0",
 };
 
 export function Button({className, variant = "default", size = "default", ...props}) {
