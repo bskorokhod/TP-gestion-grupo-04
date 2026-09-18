@@ -6,6 +6,7 @@ import {LoginScreen} from "@/screens/Auth/LoginScreen.tsx";
 import {SignupScreen} from "@/screens/Auth/SignupScreen.tsx";
 import {GroupSelectionScreen} from "@/screens/GroupSelectionScreen.tsx";
 import {ExpensesGroupScreen} from "@/screens/ExpensesGroupScreen.tsx";
+import {UnderConstructionGroupScreen} from "@/screens/UnderConstructionGroupScreen";
 
 export const Navigation = () => {
     const [tokenState] = useToken();
@@ -32,13 +33,13 @@ export const Navigation = () => {
                         <ExpensesGroupScreen />
                     </Route>
                     <Route path="/grupos/:id/reservas">
-                        {/* Tu componente de reservas */}
+                        <UnderConstructionGroupScreen />
                     </Route>
                     <Route path="/grupos/:id/balance">
-                        {/* Tu componente de balance */}
+                        <UnderConstructionGroupScreen />
                     </Route>
                     <Route path="/grupos/:id/configuracion">
-                        {/* Tu componente de configuración */}
+                        <UnderConstructionGroupScreen />
                     </Route>
 
                     <Route>

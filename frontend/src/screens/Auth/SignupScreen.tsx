@@ -21,10 +21,7 @@ export const SignupScreen = () => {
                         <p className="text-xl font-light leading-tight text-warm-muted sm:text-2xl">
                             Bienvenido!
                         </p>
-                        <h1
-                            id="login-title"
-                            className="mt-3 font-display text-3xl font-extrabold leading-none text-ink"
-                        >
+                        <h1 id="login-title" className="mt-3 font-display text-3xl font-extrabold leading-none text-ink">
                             Registrate
                         </h1>
 
@@ -80,12 +77,7 @@ export const SignupScreen = () => {
 
                         <p id="registro" className="mt-4 text-left text-base text-warm-muted">
                             ¿Ya tenes una cuenta?{" "}
-
-                            <Link
-                                key="iniciar-sesion"
-                                href="/login"
-                                className="font-bold text-brand transition-colors hover:text-brand-hover"
-                            >
+                            <Link key="iniciar-sesion" href="/login" className="font-bold text-brand transition-colors hover:text-brand-hover">
                                 Iniciar sesión
                             </Link>
                         </p>
