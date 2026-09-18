@@ -22,6 +22,7 @@ public class User implements UserDetails, UserCredentials {
 
     @Id
     @GeneratedValue
+    @Getter
     private Long id;
 
     @Column(unique = true, nullable = false)
