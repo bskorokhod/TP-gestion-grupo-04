@@ -2,8 +2,10 @@ package EsNuestro.group;
 
 public enum MembershipStatus {
     INVITED,
-    ACTIVE,
     REJECTED,
+    PENDING,
+    ACTIVE,
+    DEACTIVATED,
     LEFT,
     REMOVED
 }

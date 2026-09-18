@@ -14,6 +14,7 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -59,12 +60,19 @@ public class GroupMember {
 
     private Instant joinedAt;
 
-    GroupMember(Group group, User user, String nickname, GroupRole role, MembershipStatus status) {
+    @Column(precision = 5, scale = 2)
+    private BigDecimal percentage;
+
+    @Enumerated(EnumType.STRING)
+    private GroupMemberExitReason exitReason;
+
+    GroupMember(Group group, User user, String nickname, GroupRole role, MembershipStatus status, BigDecimal percentage) {
         this.group = group;
         this.user = user;
         this.nickname = nickname;
         this.role = role;
         this.status = status;
+        this.percentage = percentage;
         this.invitedAt = Instant.now();
         if (status == MembershipStatus.ACTIVE) {
             this.joinedAt = Instant.now();
@@ -73,20 +81,40 @@ public class GroupMember {
     }
 
     void accept() {
+        this.status = MembershipStatus.PENDING;
+    }
+
+    void activate(BigDecimal percentage) {
         this.status = MembershipStatus.ACTIVE;
-        this.joinedAt = Instant.now();
+        this.percentage = percentage;
+        if (this.joinedAt == null) {
+            this.joinedAt = Instant.now();
+        }
+    }
+
+    void updatePercentage(BigDecimal percentage) {
+        this.percentage = percentage;
     }
 
     void reject() {
         this.status = MembershipStatus.REJECTED;
     }
 
-    void leave() {
-        this.status = MembershipStatus.LEFT;
+    void deactivateForLeaving() {
+        this.status = MembershipStatus.DEACTIVATED;
+        this.exitReason = GroupMemberExitReason.LEAVING;
     }
 
-    void remove() {
-        this.status = MembershipStatus.REMOVED;
+    void deactivateForRemoval() {
+        this.status = MembershipStatus.DEACTIVATED;
+        this.exitReason = GroupMemberExitReason.REMOVED;
+    }
+
+    void finalizeExit() {
+        this.status = exitReason == GroupMemberExitReason.LEAVING
+                ? MembershipStatus.LEFT
+                : MembershipStatus.REMOVED;
+        this.percentage = null;
     }
 
     void changeRole(GroupRole newRole) {
@@ -99,6 +127,12 @@ public class GroupMember {
 
     boolean isActive() {
         return status == MembershipStatus.ACTIVE;
+    }
+
+    boolean isViewer() {
+        return status == MembershipStatus.PENDING
+                || status == MembershipStatus.ACTIVE
+                || status == MembershipStatus.DEACTIVATED;
     }
 
     boolean isFounder() {

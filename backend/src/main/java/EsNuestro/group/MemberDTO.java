@@ -1,5 +1,6 @@
 package EsNuestro.group;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public record MemberDTO(
@@ -9,6 +10,7 @@ public record MemberDTO(
         String nickname,
         GroupRole role,
         MembershipStatus status,
+        BigDecimal percentage,
         Instant invitedAt,
         Instant joinedAt
 ) {
@@ -20,6 +22,7 @@ public record MemberDTO(
                 member.getNickname(),
                 member.getRole(),
                 member.getStatus(),
+                member.getPercentage(),
                 member.getInvitedAt(),
                 member.getJoinedAt()
         );

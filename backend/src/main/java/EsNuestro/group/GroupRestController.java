@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import java.util.List;
 
@@ -55,15 +56,21 @@ class GroupRestController {
     @GetMapping(value = "/{groupId}", produces = "application/json")
     @Operation(summary = "Get a group's details")
     @ApiResponse(responseCode = "404", description = "Group not found", content = @Content)
-    GroupDTO get(@PathVariable Long groupId) throws ItemNotFoundException {
-        return groupService.getGroup(groupId);
+    GroupDTO get(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return groupService.getGroup(groupId, principal.username());
     }
 
     @GetMapping(value = "/{groupId}/members", produces = "application/json")
     @Operation(summary = "List a group's members")
     @ApiResponse(responseCode = "404", description = "Group not found", content = @Content)
-    List<MemberDTO> listMembers(@PathVariable Long groupId) throws ItemNotFoundException {
-        return groupService.listMembers(groupId);
+    List<MemberDTO> listMembers(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return groupService.listMembers(groupId, principal.username());
     }
 
     @PostMapping(value = "/{groupId}/members", produces = "application/json")
@@ -146,5 +153,29 @@ class GroupRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
         return groupService.changeRole(groupId, memberId, data.role(), principal.username());
+    }
+
+    @PutMapping(value = "/{groupId}/members/percentages", produces = "application/json")
+    @Operation(summary = "Set/adjust ownership percentages and activate pending members (founder/admin only)")
+    @ApiResponse(responseCode = "403", description = "Caller lacks permission", content = @Content)
+    @ApiResponse(responseCode = "409", description = "Percentages invalid or incomplete", content = @Content)
+    List<MemberDTO> updatePercentages(
+            @PathVariable Long groupId,
+            @Valid @NonNull @RequestBody PercentagesUpdateDTO data,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException, MethodArgumentNotValidException {
+        return groupService.updatePercentages(groupId, data, principal.username());
+    }
+
+    @DeleteMapping(value = "/{groupId}/members/percentages", produces = "application/json")
+    @Operation(summary = "Finalize deactivated members' exit and rebalance remaining active members (founder/admin only)")
+    @ApiResponse(responseCode = "403", description = "Caller lacks permission", content = @Content)
+    @ApiResponse(responseCode = "409", description = "A member isn't deactivated, or percentages don't match", content = @Content)
+    List<MemberDTO> finalizeExits(
+            @PathVariable Long groupId,
+            @Valid @NonNull @RequestBody FinalizeExitsDTO data,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException, MethodArgumentNotValidException {
+        return groupService.finalizeExits(groupId, data, principal.username());
     }
 }

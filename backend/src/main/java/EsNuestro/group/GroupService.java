@@ -10,7 +10,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 
 @Service
 @Transactional
@@ -41,8 +47,9 @@ class GroupService {
                 ? founder.getUsername()
                 : data.founderNickname();
 
-        GroupMember founderMembership =
-                new GroupMember(group, founder, nickname, GroupRole.FOUNDER, MembershipStatus.ACTIVE);
+        GroupMember founderMembership = new GroupMember(
+                group, founder, nickname, GroupRole.FOUNDER, MembershipStatus.ACTIVE, BigDecimal.valueOf(100)
+        );
         groupMemberRepository.save(founderMembership);
 
         return GroupDTO.from(group);
@@ -55,12 +62,13 @@ class GroupService {
                 .toList();
     }
 
-    GroupDTO getGroup(Long groupId) throws ItemNotFoundException {
+    GroupDTO getGroup(Long groupId, String callerUsername) throws ItemNotFoundException {
+        requireViewer(groupId, callerUsername);
         return GroupDTO.from(requireGroup(groupId));
     }
 
-    List<MemberDTO> listMembers(Long groupId) throws ItemNotFoundException {
-        requireGroup(groupId);
+    List<MemberDTO> listMembers(Long groupId, String callerUsername) throws ItemNotFoundException {
+        requireViewer(groupId, callerUsername);
         return groupMemberRepository.findByGroup_Id(groupId).stream()
                 .map(MemberDTO::from)
                 .toList();
@@ -78,8 +86,10 @@ class GroupService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User is already a member of this group");
         }
 
-        GroupMember membership =
-                new GroupMember(group, invitee, data.nickname(), GroupRole.MEMBER, MembershipStatus.INVITED);
+        GroupMember membership = new GroupMember(
+                group, invitee, data.nickname(), GroupRole.MEMBER, MembershipStatus.INVITED, null
+        );
+
         groupMemberRepository.save(membership);
         return MemberDTO.from(membership);
     }
@@ -104,7 +114,9 @@ class GroupService {
                     "The founder cannot leave the group; transfer ownership or delete the group instead"
             );
         }
-        membership.leave();
+
+        // TODO: cuando existan deudas/gastos, bloquear acá si el miembro tiene deuda pendiente
+        membership.deactivateForLeaving();
     }
 
     void removeMember(Long groupId, Long memberId, String actingUsername) throws ItemNotFoundException {
@@ -118,7 +130,12 @@ class GroupService {
         if (target.getRole() == GroupRole.ADMIN && !acting.isFounder()) {
             throw new AccessDeniedException("Only the founder can remove an admin");
         }
-        target.remove();
+        if (!target.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Member is not active");
+        }
+
+        // TODO: cuando existan deudas/gastos, bloquear acá si el miembro tiene deuda pendiente.
+        target.deactivateForRemoval();
     }
 
     MemberDTO changeRole(Long groupId, Long memberId, GroupRole newRole, String actingUsername) throws ItemNotFoundException {
@@ -154,6 +171,106 @@ class GroupService {
         return MemberDTO.from(membership);
     }
 
+    List<MemberDTO> updatePercentages(Long groupId, PercentagesUpdateDTO data, String actingUsername) throws ItemNotFoundException {
+        GroupMember acting = requireActiveMember(groupId, actingUsername);
+        requireAtLeast(acting, GroupRole.ADMIN);
+
+        List<GroupMember> groupMembers = groupMemberRepository.findByGroup_Id(groupId);
+        Map<Long, GroupMember> byId = groupMembers.stream()
+                .collect(Collectors.toMap(GroupMember::getId, m -> m));
+
+        List<PercentageEntryDTO> entries = data.percentages();
+        Set<Long> providedIds = entries.stream().map(PercentageEntryDTO::memberId).collect(Collectors.toSet());
+        if (providedIds.size() != entries.size()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate member id in percentages payload");
+        }
+
+        BigDecimal sum = entries.stream()
+                .map(PercentageEntryDTO::percentage)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (sum.compareTo(BigDecimal.valueOf(100)) != 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Percentages must add up to exactly 100, got " + sum);
+        }
+
+        Set<Long> currentActiveIds = groupMembers.stream()
+                .filter(GroupMember::isActive)
+                .map(GroupMember::getId)
+                .collect(Collectors.toSet());
+        if (!providedIds.containsAll(currentActiveIds)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "All currently active members must be included");
+        }
+
+        for (PercentageEntryDTO entry : entries) {
+            GroupMember member = byId.get(entry.memberId());
+            if (member == null) {
+                throw new ItemNotFoundException("group member", entry.memberId());
+            }
+            if (member.getStatus() != MembershipStatus.ACTIVE && member.getStatus() != MembershipStatus.PENDING) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "Member " + entry.memberId() + " is not active or pending"
+                );
+            }
+            if (member.getStatus() == MembershipStatus.PENDING) {
+                member.activate(entry.percentage());
+            } else {
+                member.updatePercentage(entry.percentage());
+            }
+        }
+
+        return groupMemberRepository.findByGroup_Id(groupId).stream().map(MemberDTO::from).toList();
+    }
+
+    List<MemberDTO> finalizeExits(Long groupId, FinalizeExitsDTO data, String actingUsername) throws ItemNotFoundException {
+        GroupMember acting = requireActiveMember(groupId, actingUsername);
+        requireAtLeast(acting, GroupRole.ADMIN);
+
+        List<GroupMember> groupMembers = groupMemberRepository.findByGroup_Id(groupId);
+        Map<Long, GroupMember> byId = groupMembers.stream()
+                .collect(Collectors.toMap(GroupMember::getId, m -> m));
+
+        List<GroupMember> toFinalize = new ArrayList<>();
+        for (Long memberId : data.memberIds()) {
+            GroupMember member = byId.get(memberId);
+            if (member == null || !member.getGroup().getId().equals(groupId)) {
+                throw new ItemNotFoundException("group member", memberId);
+            }
+            if (member.getStatus() != MembershipStatus.DEACTIVATED) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "Member " + memberId + " is not deactivated and cannot be finalized"
+                );
+            }
+            toFinalize.add(member);
+        }
+
+        List<PercentageEntryDTO> entries = data.percentages();
+        Set<Long> providedIds = entries.stream().map(PercentageEntryDTO::memberId).collect(Collectors.toSet());
+        if (providedIds.size() != entries.size()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate member id in percentages payload");
+        }
+
+        BigDecimal sum = entries.stream()
+                .map(PercentageEntryDTO::percentage)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (sum.compareTo(BigDecimal.valueOf(100)) != 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Percentages must add up to exactly 100, got " + sum);
+        }
+
+        Set<Long> remainingActiveIds = groupMembers.stream()
+                .filter(GroupMember::isActive)
+                .map(GroupMember::getId)
+                .collect(Collectors.toSet());
+        if (!providedIds.equals(remainingActiveIds)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Percentages must cover exactly the members that remain active");
+        }
+
+        for (PercentageEntryDTO entry : entries) {
+            byId.get(entry.memberId()).updatePercentage(entry.percentage());
+        }
+        toFinalize.forEach(GroupMember::finalizeExit);
+
+        return groupMemberRepository.findByGroup_Id(groupId).stream().map(MemberDTO::from).toList();
+    }
+
     private User requireUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
@@ -174,6 +291,13 @@ class GroupService {
         GroupMember membership = requireMembership(groupId, username);
         requireStatus(membership, MembershipStatus.ACTIVE);
         return membership;
+    }
+
+    private void requireViewer(Long groupId, String username) throws ItemNotFoundException {
+        GroupMember membership = requireMembership(groupId, username);
+        if (!membership.isViewer()) {
+            throw new AccessDeniedException("You don't have access to this group");
+        }
     }
 
     private GroupMember requireMemberById(Long groupId, Long memberId) throws ItemNotFoundException {
