@@ -1,12 +1,19 @@
+import type {InputHTMLAttributes} from "react";
 import {useState} from "react";
-import {EyeIcon, EyeOffIcon} from "./Icons.tsx";
+import {EyeIcon, EyeOffIcon} from "../Icons.tsx";
 
-export default function PasswordField({id, label, className = "", ...inputProps}) {
+export interface PasswordFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type"> {
+    id: string;
+    label: string;
+    className?: string;
+}
+
+export default function PasswordField({id, label, className = "", ...inputProps}: PasswordFieldProps) {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
         <div className={className}>
-            <label htmlFor={id} className="text-sm font-medium text-ink">
+            <label htmlFor={id} className="text-base font-medium text-ink">
                 {label}
             </label>
             <div className="relative mt-3">
@@ -14,7 +21,7 @@ export default function PasswordField({id, label, className = "", ...inputProps}
                     id={id}
                     type={showPassword ? "text" : "password"}
                     {...inputProps}
-                    className="h-14 w-full rounded-[10px] border border-field bg-input-surface py-3 pl-5 pr-14 text-sm text-ink outline-none transition-shadow placeholder:text-placeholder focus:ring-2 focus:ring-brand/25"
+                    className="h-14 w-full rounded-[10px] border border-field bg-input-surface py-3 pl-5 pr-14 text-base text-ink outline-none transition-shadow focus:ring-2 focus:ring-brand/25"
                 />
                 <button
                     type="button"

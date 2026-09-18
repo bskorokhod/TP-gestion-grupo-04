@@ -1,13 +1,18 @@
+import type {ReactNode} from "react";
+
 import {ErrorBoundary} from "@/components/ErrorBoundary/ErrorBoundary";
 import Navbar from "@/components/Navbar.tsx";
 
-export const CommonLayout = ({children, main_style}: any) => {
+export interface CommonLayoutProps {
+    children: ReactNode;
+    className?: string;
+}
+
+export const CommonLayout = ({children, className}: CommonLayoutProps) => {
     return (
-        <main className={main_style}>
-            <div>
-                <Navbar/>
-                <ErrorBoundary>{children}</ErrorBoundary>
-            </div>
+        <main className={className}>
+            <Navbar/>
+            <ErrorBoundary>{children}</ErrorBoundary>
         </main>
     );
 };

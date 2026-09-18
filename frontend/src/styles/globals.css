@@ -31,13 +31,11 @@
     --color-group-paper: var(--group-paper);
     --color-group-heading: var(--group-heading);
     --color-group-muted: var(--group-muted);
-    --color-group-lilac: var(--group-lilac);
-    --color-group-lilac-soft: var(--group-lilac-soft);
-    --color-group-lilac-faint: var(--group-lilac-faint);
+
     --color-group-green: var(--group-green);
-    --color-group-green-soft: var(--group-green-soft);
     --color-group-amber: var(--group-amber);
     --color-group-amber-soft: var(--group-amber-soft);
+
     --color-group-danger: var(--group-danger);
     --color-group-danger-soft: var(--group-danger-soft);
     --color-group-credit: var(--group-credit);
@@ -54,6 +52,12 @@
     --color-modal-field: var(--modal-field);
     --color-modal-muted: var(--modal-muted);
     --color-modal-amount: var(--modal-amount);
+
+    --color-custom-lilac: var(--custom-lilac);
+    --color-custom-red: var(--custom-red);
+    --color-custom-orange: var(--custom-orange);
+    --color-custom-green: var(--custom-green);
+    --color-custom-me: var(--custom-me);
 
     --color-card: var(--card);
     --color-card-foreground: var(--card-foreground);
@@ -73,8 +77,8 @@
     --color-section: var(--section);
     --color-ink-soft: var(--ink-soft);
     --color-olive: var(--olive);
-    --color-amber: var(--amber);
-    --color-lilac: var(--lilac);
+    --color-amber: var(--group-amber);
+    --color-amber-soft: var(--group-amber-soft);
     --color-footer: var(--footer);
 
     --shadow-soft: 0 6px 18px color-mix(in oklab, var(--foreground) 5%, transparent);
@@ -100,14 +104,22 @@
     --group-paper: oklch(0.97 0.009 85);
     --group-heading: oklch(0.27 0.015 70);
     --group-muted: oklch(0.58 0.018 75);
-    --group-lilac: oklch(0.68 0.035 295);
-    --group-lilac-soft: oklch(0.84 0.025 295);
-    --group-lilac-faint: oklch(0.91 0.018 295);
-    --group-green: oklch(0.59 0.13 120);
-    --group-green-soft: oklch(0.76 0.08 120);
-    --group-amber: oklch(0.62 0.13 72);
-    --group-amber-soft: oklch(0.76 0.09 72);
-    --group-danger: oklch(0.45 0.14 29);
+    --group-green: oklch(59.2% 0.065 157.9 / 0.9);
+
+    /*--group-lilac-soft: oklch(0.84 0.025 295);*/
+    /*--group-lilac-faint: oklch(0.91 0.018 295);*/
+    /*--group-green-soft: oklch(0.76 0.08 120);*/
+
+    --group-amber: oklch(62.2% 0.13 67.2);
+    --group-amber-soft: oklch(72.2% 0.105 74.2);
+
+    --custom-lilac: oklch(71.8% 0.04 298.9/ 0.5);
+    --custom-red: oklch(51.8% 0.156 29.2 / 0.5);
+    --custom-orange: oklch(67.8% 0.123 62.2 / 0.5);
+    --custom-green: oklch(59.9% 0.137 126.3 / 0.5);
+    --custom-me: oklch(49.4% 0.05 188.4 / 0.5);
+
+    --group-danger: oklch(0.511 0.158 24.706 / 0.9);
     --group-danger-soft: oklch(0.91 0.035 29);
     --group-credit: oklch(0.43 0.1 120);
     --group-credit-soft: oklch(0.91 0.045 120);
@@ -143,15 +155,19 @@
     --section: var(--group-paper);
     --ink-soft: var(--warm-muted);
     --olive: var(--group-green);
-    --amber: var(--group-amber);
-    --lilac: var(--group-lilac);
     --footer: oklch(0.27 0.032 187);
+
+    --user-lilac: var(--custom-lilac);
+    --user-red: var(--custom-red);
+    --user-orange: var(--custom-orange);
+    --user-green: var(--custom-green);
+    --user-me: var(--custom-me);
 }
 
 @layer base {
     * {
         box-sizing: border-box;
-        font-family: var(--font-poppins);
+        font-family: var(--font-poppins), serif;
         border-color: var(--color-border);
     }
 
@@ -164,7 +180,7 @@
         min-width: 320px;
         background: var(--background);
         color: var(--foreground);
-        font-family: var(--font-poppins);
+        font-family: var(--font-poppins), serif;
     }
 
     button,

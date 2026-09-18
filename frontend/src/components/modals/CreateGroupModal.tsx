@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 
-import TextField from "@/components/TextField.tsx";
+import TextField from "@/components/Forms/TextField.tsx";
 import { ModalShell } from "./ModalShell";
 
 export interface CreateGroupModalProps {

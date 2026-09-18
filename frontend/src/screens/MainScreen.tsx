@@ -3,6 +3,7 @@ import homeIllustration from "@/assets/home.svg";
 import Button from "@/components/Button.jsx";
 import Footer from "@/components/Footer.jsx";
 import {FeatureCard, SectionHeading, StatsBar, StepCard, TestimonialCard,} from "@/components/Cards.jsx";
+import {Link} from "wouter";
 
 const features = [
     {
@@ -67,94 +68,97 @@ const stats = [
 
 export const MainScreen = () => {
     return (
-        <CommonLayout>
-            <main className="min-h-screen overflow-hidden bg-background text-foreground">
-                <section className="min-h-[80vh] login-backdrop">
-                    <div className="mx-auto flex col-2 min-h-[70vh] max-w-7xl items-end px-6 py-16 md:px-12 pb-0">
-                        <div>
-                            <div className="max-w-xl space-y-6">
-              <span className="inline-flex rounded-full bg-card/80 px-4 py-2 text-xs font-medium text-primary">
-                Gestión colaborativa · Bienes compartidos
-              </span>
-                                <h1 className="text-4xl font-black leading-tight md:text-6xl">
-                                    Tu lugar compartido,
-                                    <br/>
-                                    sin el caos.
-                                </h1>
-                                <p className="max-w-lg text-base leading-relaxed text-ink-soft md:text-lg">
-                                    Coordiná reservas, gastos y decisiones con tu grupo
-                                    <br className="hidden md:block"/> — familia, amigos o socios. Sin caos, sin
-                                    confusiones.
-                                </p>
-                                <Button variant="hero" size="hero" className={undefined}>
-                                    Crear mi grupo gratis
-                                </Button>
-                            </div>
-                        </div>
+        <CommonLayout className="min-h-screen overflow-hidden bg-background text-foreground">
+            <section className="h-[calc(100vh-60px)] login-backdrop">
+                <div className="h-full mx-auto px-6 py-16 md:px-12 pb-0 flex flex-row">
+                    <div className="space-y-6 h-full content-center ps-16 basis-1/2">
+                        <span className="inline-flex rounded-full bg-card/80 px-4 py-2 text-xs font-medium text-primary">
+                            Gestión colaborativa · Bienes compartidos
+                        </span>
+                        <h1 className="text-4xl font-black leading-tight md:text-6xl">
+                            Tu lugar compartido,
+                            <br/>
+                            sin el caos.
+                        </h1>
+                        <p className="max-w-lg text-base leading-relaxed text-ink-soft md:text-lg">
+                            Coordiná reservas, gastos y decisiones con tu grupo
+                            <br className="hidden md:block"/> — familia, amigos o socios. Sin caos, sin
+                            confusiones.
+                        </p>
+                        <Button variant="hero" size="hero" className={undefined}>
+                            <Link key="mis-grupos" href="/grupos">
+                                Crear mi grupo gratis
+                            </Link>
+                        </Button>
+                    </div>
+                    <div className="justify-center h-full content-end basis-1/2">
                         <img
-                            className="hidden w-full md:block"
+                            className="hidden w-full md:block content-end"
                             src={homeIllustration}
                             alt="EsNuestro, gestión colaborativa de bienes compartidos"
                         />
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <StatsBar stats={stats}/>
+            <StatsBar stats={stats}/>
 
-                <section className="px-6 pb-20 pt-8">
-                    <div className="mx-auto max-w-6xl space-y-9">
-                        <SectionHeading
-                            title="Todo lo que necesita tu grupo"
-                            copy="Tres pilares para gestionar cualquier bien compartido entre personas."
-                        />
-                        <div className="grid gap-5 md:grid-cols-3">
-                            {features.map((item) => (
-                                <FeatureCard key={item.title} {...item} />
-                            ))}
-                        </div>
+            <section className="px-6 pb-20 pt-8">
+                <div className="mx-auto max-w-6xl space-y-9">
+                    <SectionHeading
+                        title="Todo lo que necesita tu grupo"
+                        copy="Tres pilares para gestionar cualquier bien compartido entre personas."
+                    />
+                    <div className="grid gap-5 md:grid-cols-3">
+                        {features.map((item) => (
+                            <FeatureCard key={item.title} {...item} />
+                        ))}
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <section className="bg-section px-6 py-16">
-                    <div className="mx-auto max-w-6xl space-y-9">
-                        <SectionHeading
-                            title="Empezá en 3 simples pasos"
-                            copy="¡Sumarte con tu grupo es así de fácil!"
-                        />
-                        <div className="grid gap-5 md:grid-cols-3">
-                            {steps.map(([title, copy], index) => (
-                                <StepCard key={title} index={index + 1} title={title} copy={copy}/>
-                            ))}
-                        </div>
+            <section className="bg-section px-6 py-16">
+                <div className="mx-auto max-w-6xl space-y-9">
+                    <SectionHeading
+                        title="Empezá en 3 simples pasos"
+                        copy="¡Sumarte con tu grupo es así de fácil!"
+                    />
+                    <div className="grid gap-5 md:grid-cols-3">
+                        {steps.map(([title, copy], index) => (
+                            <StepCard key={title} index={index + 1} title={title} copy={copy}/>
+                        ))}
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <section className="px-6 py-20">
-                    <div className="mx-auto max-w-6xl space-y-9">
-                        <SectionHeading
-                            title="Lo que dicen nuestros usuarios"
-                            copy="Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt."
-                        />
-                        <div className="grid gap-5 md:grid-cols-3">
-                            {testimonials.map((item) => (
-                                <TestimonialCard key={item.name} {...item} />
-                            ))}
-                        </div>
+            <section className="px-6 py-20">
+                <div className="mx-auto max-w-6xl space-y-9">
+                    <SectionHeading
+                        title="Lo que dicen nuestros usuarios"
+                        copy="Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt."
+                    />
+                    <div className="grid gap-5 md:grid-cols-3">
+                        {testimonials.map((item) => (
+                            <TestimonialCard key={item.name} {...item} />
+                        ))}
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <section className="bg-primary px-6 py-12 text-center text-primary-foreground">
-                    <h2 className="text-2xl font-black md:text-3xl">¿Listo para organizar tu grupo?</h2>
-                    <p className="mx-auto mt-4 text-sm text-secondary">
-                        Lorem ipsum dolor sit amet consectetur. Empezá gratis hoy, sin tarjeta de crédito.
-                    </p>
-                    <Button className="mt-6" variant="pill">
+            <section className="bg-primary px-6 py-12 text-center text-primary-foreground">
+                <h2 className="text-2xl font-black md:text-3xl">¿Listo para organizar tu grupo?</h2>
+                <p className="mx-auto mt-4 text-base text-secondary">
+                    Lorem ipsum dolor sit amet consectetur. Empezá gratis hoy, sin tarjeta de crédito.
+                </p>
+                <Button className="mt-6" variant="pill">
+                    <Link key="crear-cuenta" href="/signup">
                         Crear cuenta gratis
-                    </Button>
-                </section>
+                    </Link>
+                </Button>
+            </section>
 
-                <Footer/>
-            </main>
+            <Footer/>
+
         </CommonLayout>
     );
 };

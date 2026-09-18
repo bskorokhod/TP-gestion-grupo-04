@@ -1,9 +1,10 @@
-import Navbar from "@/components/Navbar.tsx";
-import TextField from "@/components/TextField.tsx";
-import PasswordField from "@/components/PasswordField.tsx";
-import Checkbox from "@/components/Checkbox.tsx";
-import SubmitButton from "@/components/SubmitButton.tsx";
+import TextField from "@/components/Forms/TextField.tsx";
+import PasswordField from "@/components/Forms/PasswordField.tsx";
+import Checkbox from "@/components/Forms/Checkbox.tsx";
+import SubmitButton from "@/components/Forms/SubmitButton.tsx";
 import loginIllustration from "@/assets/login.svg";
+import {Link} from "wouter";
+import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 
 export const LoginScreen = () => {
     function handleSubmit(event: { preventDefault: () => void; }) {
@@ -11,13 +12,11 @@ export const LoginScreen = () => {
     }
 
     return (
-        <main className="login-backdrop min-h-screen">
-            <Navbar/>
-            <div
-                className="grid min-h-[calc(100vh-5rem)] grid-cols-1 px-5 py-10 sm:px-10 lg:min-h-[calc(100vh-6rem)] lg:grid-cols-[32rem_minmax(0,1fr)] lg:gap-16 lg:px-[8.85vw] lg:py-10">
-                <div className="flex items-center justify-center lg:justify-start">
+        <CommonLayout className="login-backdrop min-h-screen flex flex-col">
+            <div className="grid flex-1 xl:grid-cols-2 grid-cols-1 px-5 py-10 sm:px-10 lg:gap-16 lg:px-[8.85vw] lg:py-10">
+                <div className="content-center justify-center">
                     <section
-                        className="w-full max-w-lg rounded-3xl bg-panel px-7 py-8 shadow-panel sm:px-9 sm:py-10 lg:px-9 lg:py-10"
+                        className="w-full rounded-3xl bg-panel px-7 py-8 shadow-panel sm:px-9 sm:py-10 lg:px-9 lg:py-10"
                         aria-labelledby="login-title"
                     >
                         <p className="text-xl font-light leading-tight text-warm-muted sm:text-2xl">
@@ -37,8 +36,7 @@ export const LoginScreen = () => {
                                 type="text"
                                 label="Email"
                                 autoComplete="Email"
-                                placeholder="Ingresá tu email"
-                            />
+                                placeholder="Ingresá tu email" hint={undefined}/>
 
                             <PasswordField
                                 id="password"
@@ -50,7 +48,7 @@ export const LoginScreen = () => {
                             />
 
                             <div
-                                className="mt-7 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-xs text-warm-muted">
+                                className="mt-7 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-warm-muted text-base">
                                 <Checkbox name="remember">Recordarme</Checkbox>
                                 <a href="#recuperar" className="text-right transition-colors hover:text-brand">
                                     Olvidé mi contraseña
@@ -60,21 +58,24 @@ export const LoginScreen = () => {
                             <SubmitButton className="mt-9">Iniciá sesión</SubmitButton>
                         </form>
 
-                        <p id="registro" className="mt-4 text-left text-sm text-warm-muted">
+                        <p id="registro" className="mt-4 text-left text-base text-warm-muted">
                             ¿No tenés una cuenta ?{" "}
-                            <a href="#crear-cuenta"
-                               className="font-bold text-brand transition-colors hover:text-brand-hover">
+
+                            <Link
+                                key="crear-cuenta"
+                                href="/signup"
+                                className="font-bold text-brand transition-colors hover:text-brand-hover"
+                            >
                                 Registrate
-                            </a>
+                            </Link>
+
                         </p>
                     </section>
                 </div>
-                <div
-                    className="hidden min-h-155 items-center justify-center lg:flex"
-                >
+                <div className="hidden min-h-155 items-center justify-center xl:flex">
                     <img src={loginIllustration} alt='mySvgImage'/>
                 </div>
             </div>
-        </main>
+        </CommonLayout>
     );
 }

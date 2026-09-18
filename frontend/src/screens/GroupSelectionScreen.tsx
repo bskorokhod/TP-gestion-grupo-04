@@ -1,7 +1,8 @@
 import GroupAction from "@/components/GroupAction.tsx";
-import GroupCard from "@/components/GroupCard.tsx";
-import GroupsNavbar from "@/components/GroupsNavbar.tsx";
+import GroupCard, {GroupCardProps} from "@/components/GroupCard.tsx";
 import PendingDecisions from "@/components/PendingDecisions.tsx";
+import {Link} from "wouter";
+import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 
 const groups = [
     {
@@ -13,6 +14,7 @@ const groups = [
             {label: "$25.000", kind: "credit"},
         ],
         turn: "Próximo turno: 12 – 14 sep",
+        link: "123-ABC-123"
     },
     {
         name: "Cuenta de Steam",
@@ -20,20 +22,21 @@ const groups = [
         icon: "green",
         badges: [{label: "$8.200", kind: "expense"}],
         turn: "Sin turnos próximos",
+        link: "#"
     },
     {
         name: "PS5",
         members: 3,
-        icon: "amber",
+        icon: "orange",
         badges: [{label: "$3.500", kind: "credit"}],
         turn: "Tu turno: hoy",
+        link: "#"
     },
 ];
 
-export const GroupsScreen = () => {
+export const GroupSelectionScreen = () => {
     return (
-        <main className="min-h-screen login-backdrop">
-            <GroupsNavbar/>
+        <CommonLayout className="min-h-screen login-backdrop">
             <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
                 <section
                     className="flex flex-col justify-between gap-8 rounded-4xl bg-brand px-8 py-10 sm:px-11 lg:flex-row lg:items-center"
@@ -57,12 +60,14 @@ export const GroupsScreen = () => {
                 <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
                     <section className="space-y-4" aria-label="Listado de grupos">
                         {groups.map((group) => (
-                            <GroupCard key={group.name} {...group} />
+                            <Link key={"grupo-" + group.link} href={"/grupos/" + group.link + "/gastos"} className="block">
+                                <GroupCard key={group.name} {...group} />
+                            </Link>
                         ))}
                     </section>
                     <PendingDecisions/>
                 </div>
             </div>
-        </main>
+        </CommonLayout>
     );
 }

@@ -1,9 +1,19 @@
-export default function GroupAction({children, variant = "filled", href = "#"}) {
-    const variants = {
-        filled: "border-group-paper bg-group-paper text-brand hover:bg-panel",
-        outlined: "border-group-paper/60 text-group-paper hover:bg-group-paper/10",
-    };
+import type {ReactNode} from "react";
 
+const variants = {
+    filled: "border-group-paper bg-group-paper text-brand hover:bg-panel",
+    outlined: "border-group-paper/60 text-group-paper hover:bg-group-paper/10",
+} as const;
+
+export type GroupActionVariant = keyof typeof variants;
+
+export interface GroupActionProps {
+    children: ReactNode;
+    variant?: GroupActionVariant;
+    href?: string;
+}
+
+export default function GroupAction({children, variant = "filled", href = "#"}: GroupActionProps) {
     return (
         <a
             href={href}

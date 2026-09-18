@@ -1,15 +1,31 @@
 const iconStyles = {
-    lilac: "bg-group-lilac-soft before:bg-group-lilac",
-    green: "bg-group-green-soft before:bg-group-green",
-    amber: "bg-group-amber-soft before:bg-group-amber",
-};
+    lilac: "bg-custom-lilac/50 before:bg-custom-lilac",
+    green: "bg-custom-green/50 before:bg-custom-green",
+    orange: "bg-custom-orange/50 before:bg-custom-orange",
+} as const;
 
 const badgeStyles = {
     expense: "bg-group-danger-soft text-group-danger",
     credit: "bg-group-credit-soft text-group-credit",
-};
+} as const;
 
-export default function GroupCard({name, members, icon, badges, turn}) {
+export type GroupCardIcon = keyof typeof iconStyles;
+export type GroupCardBadgeKind = keyof typeof badgeStyles;
+
+export interface GroupCardBadge {
+    label: string;
+    kind: GroupCardBadgeKind;
+}
+
+export interface GroupCardProps {
+    name: string;
+    members: number;
+    icon: GroupCardIcon;
+    badges: GroupCardBadge[];
+    turn: string;
+}
+
+export default function GroupCard({name, members, icon, badges, turn}: GroupCardProps) {
     return (
         <article className="flex min-h-24 items-center gap-5 rounded-xl bg-panel p-6 shadow-group sm:min-h-28">
             <div
