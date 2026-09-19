@@ -23,7 +23,7 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
             onClose={onClose}
             onSubmit={handleSubmit}
         >
-            <p className="text-xs text-modal-muted">
+            <p className="text-base text-modal-muted">
                 Ingresá el código que te compartió el administrador del grupo.
             </p>
             <TextField

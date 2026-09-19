@@ -1,4 +1,4 @@
-import type {ReactNode} from "react";
+import React, {ReactNode} from "react";
 
 const variants = {
     filled: "border-group-paper bg-group-paper text-brand hover:bg-panel",
@@ -10,15 +10,13 @@ export type GroupActionVariant = keyof typeof variants;
 export interface GroupActionProps {
     children: ReactNode;
     variant?: GroupActionVariant;
-    href?: string;
+    onClick?: React.MouseEventHandler;
 }
 
-export default function GroupAction({children, variant = "filled", href = "#"}: GroupActionProps) {
+export default function GroupAction({children, variant = "filled", onClick}: GroupActionProps) {
     return (
-        <a
-            href={href}
-            className={`inline-flex min-h-12 items-center justify-center rounded-full border px-5 text-base font-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-group-paper ${variants[variant]}`}
-        >
+        <a onClick={onClick}
+             className={`inline-flex min-h-12 items-center justify-center rounded-full border px-5 text-base font-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-group-paper ${variants[variant]}`}>
             {children}
         </a>
     );

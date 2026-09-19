@@ -1,8 +1,11 @@
 import GroupAction from "@/components/GroupAction.tsx";
-import GroupCard, {GroupCardProps} from "@/components/GroupCard.tsx";
+import GroupCard from "@/components/GroupCard.tsx";
 import PendingDecisions from "@/components/PendingDecisions.tsx";
 import {Link} from "wouter";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
+import {useState} from "react";
+import {createGroup, joinGroup} from "@/lib/api/groups.ts";
+import {CreateGroupModal, JoinGroupModal} from "@/components/modals";
 
 const groups = [
     {
@@ -34,31 +37,55 @@ const groups = [
     },
 ];
 
+type ModalType = "crear" | "unirme" | null;
+
 export const GroupSelectionScreen = () => {
+    const [modalAbierto, setModalAbierto] = useState<ModalType>(null);
+    const [, setError] = useState<string | null>(null);
+
+    async function handleCreateGroup(name: string) {
+        try {
+            setError(null);
+            await createGroup(name);
+            setModalAbierto(null);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo crear el grupo");
+        }
+    }
+
+    async function handleJoinGroup(code: string) {
+        try {
+            setError(null);
+            await joinGroup(code);
+            setModalAbierto(null);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo unir al grupo");
+        }
+    }
+
     return (
         <CommonLayout className="min-h-screen login-backdrop">
-            <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
+            <div className="mx-auto px-6 py-10 lg:px-30">
                 <section
                     className="flex flex-col justify-between gap-8 rounded-4xl bg-brand px-8 py-10 sm:px-11 lg:flex-row lg:items-center"
                     aria-labelledby="groups-title">
                     <div>
-                        <p className="text-base font-light text-field">Bienvenida otra vez!</p>
                         <h1 id="groups-title" className="mt-1.5 text-4xl font-black text-group-paper">
                             Tus grupos
                         </h1>
                         <p className="mt-1.5 text-base text-field">Gestioná el uso compartido y los gastos de cada
                             bien.</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-4">
-                        <GroupAction variant="outlined" href="#unirme">
-                            Unirme a grupo
-                        </GroupAction>
-                        <GroupAction href="#crear">Crear grupo</GroupAction>
+                    <div className="flex flex-wrap items-center gap-6">
+                        <p className="text-xl text-group-paper text-right">
+                            Mi código de usuario <br/>
+                            <span className="font-bold text-4xl">AAA111</span></p>
+                        <GroupAction onClick={() => setModalAbierto("crear")}>Crear grupo</GroupAction>
                     </div>
                 </section>
 
-                <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
-                    <section className="space-y-4" aria-label="Listado de grupos">
+                <div className="mt-6 grid items-start gap-6 lg:grid-cols-3">
+                    <section className="space-y-4 col-span-2" aria-label="Listado de grupos">
                         {groups.map((group) => (
                             <Link key={"grupo-" + group.link} href={"/grupos/" + group.link + "/gastos"} className="block">
                                 <GroupCard key={group.name} {...group} />
@@ -68,6 +95,20 @@ export const GroupSelectionScreen = () => {
                     <PendingDecisions/>
                 </div>
             </div>
+
+            {modalAbierto === "crear" && (
+                <CreateGroupModal
+                    onClose={() => setModalAbierto(null)}
+                    onCreate={handleCreateGroup}
+                />
+            )}
+            {modalAbierto === "unirme" && (
+                <JoinGroupModal
+                    onClose={() => setModalAbierto(null)}
+                    onJoin={handleJoinGroup}
+                />
+            )}
+
         </CommonLayout>
     );
 }
