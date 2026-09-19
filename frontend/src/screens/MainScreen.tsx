@@ -1,7 +1,6 @@
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout";
 import homeIllustration from "@/assets/home.svg";
 import Button from "@/components/Button.jsx";
-import Footer from "@/components/Footer.jsx";
 import {FeatureCard, SectionHeading, StatsBar, StepCard, TestimonialCard,} from "@/components/Cards.jsx";
 import {Link} from "wouter";
 
@@ -156,8 +155,6 @@ export const MainScreen = () => {
                     </Link>
                 </Button>
             </section>
-
-            <Footer/>
 
         </CommonLayout>
     );

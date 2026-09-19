@@ -2,13 +2,12 @@ import Button from "@/components/Button.tsx"
 
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
-import Footer from "@/components/Footer.tsx";
 import {Link} from "wouter";
 
 export const UnderConstructionGroupScreen = () => {
     return (
         <CommonLayout className="min-h-screen bg-background font-poppins text-foreground flex flex-col">
-            <GroupNavbar/>
+            <GroupNavbar children={undefined}/>
             <section
                 className="grid flex-1 items-center justify-center bg-background px-6 text-center text-foreground">
                 <div className="max-w-md space-y-5">
@@ -27,7 +26,6 @@ export const UnderConstructionGroupScreen = () => {
                     </div>
                 </div>
             </section>
-            <Footer/>
         </CommonLayout>
     );
 }

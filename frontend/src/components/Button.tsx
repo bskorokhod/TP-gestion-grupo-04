@@ -30,6 +30,7 @@ const sizes = {
     icon: "h-9 w-9",
     modal: "h-12 px-6 text-sm",
     modalIcon: "size-7 p-0",
+    xl2: "h-16 px-8 text-xl rounded-full"
 } as const;
 
 export type ButtonVariant = keyof typeof variants;

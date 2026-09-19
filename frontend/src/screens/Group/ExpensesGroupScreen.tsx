@@ -5,7 +5,6 @@ import Button from "@/components/Button.tsx"
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {ProposalCard} from "@/components/Expenses/ExpensesCard.tsx";
-import Footer from "@/components/Footer.tsx";
 import {PerPersonView} from "@/components/Expenses/PerPersonView.tsx";
 import {PerExpenseView} from "@/components/Expenses/PerExpenseView.tsx";
 
@@ -14,7 +13,28 @@ export const ExpensesGroupScreen = () => {
 
   return (
       <CommonLayout className="min-h-screen bg-background font-poppins text-foreground">
-        <GroupNavbar/>
+          <GroupNavbar>
+              <div className="grid grid-cols-3 divide-x divide-brand/20 rounded-full bg-panel px-6 py-4 text-foreground shadow-panel sm:px-8">
+                  <div className="pr-5">
+                      <strong className="block text-xl font-black text-group-danger sm:text-2xl">
+                          $11.500
+                      </strong>
+                      <span className="text-xs font-medium uppercase text-brand"> Debés </span>
+                  </div>
+                  <div className="px-5">
+                      <strong className="block text-xl font-black text-group-green sm:text-2xl">
+                          $25.000
+                      </strong>
+                      <span className="text-xs font-medium uppercase text-brand"> Te deben </span>
+                  </div>
+                  <div className="pl-5">
+                      <strong className="block text-xl font-black text-brand sm:text-2xl">
+                          2
+                      </strong>
+                      <span className="text-xs font-medium uppercase text-brand"> Gastos propuestos </span>
+                  </div>
+              </div>
+          </GroupNavbar>
 
         <div className="mx-auto flex justify-end">
           <button onClick={() => setPersonView((value) => !value)} className="flex items-center gap-3 rounded-b-3xl bg-brand px-6 py-3 text-base text-brand-foreground" aria-pressed={personView}>
@@ -46,7 +66,6 @@ export const ExpensesGroupScreen = () => {
             </div>
           </div>
         </section>
-        <Footer/>
       </CommonLayout>
   );
 }

@@ -23,6 +23,7 @@ export interface GroupCardProps {
     icon: GroupCardIcon;
     badges: GroupCardBadge[];
     turn: string;
+    link: string
 }
 
 export default function GroupCard({name, members, icon, badges, turn}: GroupCardProps) {

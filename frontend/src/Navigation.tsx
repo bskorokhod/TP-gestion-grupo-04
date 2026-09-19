@@ -5,8 +5,10 @@ import {useToken} from "@/services/TokenContext";
 import {LoginScreen} from "@/screens/Auth/LoginScreen.tsx";
 import {SignupScreen} from "@/screens/Auth/SignupScreen.tsx";
 import {GroupSelectionScreen} from "@/screens/GroupSelectionScreen.tsx";
-import {ExpensesGroupScreen} from "@/screens/ExpensesGroupScreen.tsx";
+import {ExpensesGroupScreen} from "@/screens/Group/ExpensesGroupScreen.tsx";
 import {UnderConstructionGroupScreen} from "@/screens/UnderConstructionGroupScreen";
+import {ConfigurationScreen} from "@/screens/Admin/ConfigurationScreen.tsx";
+import {PercentageConfigScreen} from "@/screens/Admin/PercentageConfigScreen.tsx";
 
 export const Navigation = () => {
     const [tokenState] = useToken();
@@ -30,17 +32,22 @@ export const Navigation = () => {
                     </Route>
 
                     <Route path="/grupos/:id/gastos">
-                        <ExpensesGroupScreen />
+                        <ExpensesGroupScreen/>
                     </Route>
                     <Route path="/grupos/:id/reservas">
-                        <UnderConstructionGroupScreen />
+                        <UnderConstructionGroupScreen/>
                     </Route>
                     <Route path="/grupos/:id/balance">
-                        <UnderConstructionGroupScreen />
+                        <UnderConstructionGroupScreen/>
                     </Route>
+
                     <Route path="/grupos/:id/configuracion">
-                        <UnderConstructionGroupScreen />
+                        <ConfigurationScreen/>
                     </Route>
+                    <Route path="/grupos/:id/configuracion/porcentajes">
+                        <PercentageConfigScreen/>
+                    </Route>
+
 
                     <Route>
                         <Redirect href="/"/>

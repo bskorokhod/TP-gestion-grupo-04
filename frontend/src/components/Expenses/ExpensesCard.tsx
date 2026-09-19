@@ -224,4 +224,44 @@ export function ProposalCard({ title, amount, description, assigned, owner, stat
     );
 }
 
-// (Tus DebtCard y OwedCard se mantienen igual, usando el ExpenseCard base como ya hacían)
+export interface DebtCardProps {
+    title: string;
+    amount: string;
+    description: string;
+    children: ReactNode;
+}
+
+export function DebtCard({ title, amount, description, children }: DebtCardProps) {
+    return (
+        <ExpenseCard>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <AmountTitle title={title} amount={amount} tag={undefined} />
+                <button className="text-sm font-medium text-brand" aria-label={`Ver pagos de ${title}`}>2 de 3 pagaron⌄</button>
+            </div>
+            <p className="mt-3 text-sm text-group-muted">{description}</p>
+            <div className="mt-3 space-y-2">{children}</div>
+        </ExpenseCard>
+    );
+}
+
+export interface OwedCardProps {
+    title: string;
+    amount: string;
+    description: string;
+    assigned: PersonName[];
+    owner: PersonName;
+    tag?: string;
+}
+
+export function OwedCard({ title, amount, description, assigned, owner, tag }: OwedCardProps) {
+    return (
+        <ExpenseCard className="flex min-h-48 flex-col justify-between">
+            <div className="space-y-2">
+                <AmountTitle title={title} amount={amount} tag={tag} />
+                <p className="text-sm text-group-muted">{description}</p>
+                <PeopleMeta assigned={assigned} owner={owner} />
+            </div>
+            <div className="mt-4 flex justify-end"><Button variant="success" className={undefined}>Marcar como pagado</Button></div>
+        </ExpenseCard>
+    );
+}

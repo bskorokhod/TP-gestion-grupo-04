@@ -2,6 +2,7 @@ import type {ReactNode} from "react";
 
 import {ErrorBoundary} from "@/components/ErrorBoundary/ErrorBoundary";
 import Navbar from "@/components/Navbar.tsx";
+import Footer from "@/components/Footer.tsx";
 
 export interface CommonLayoutProps {
     children: ReactNode;
@@ -13,6 +14,7 @@ export const CommonLayout = ({children, className}: CommonLayoutProps) => {
         <main className={className}>
             <Navbar/>
             <ErrorBoundary>{children}</ErrorBoundary>
+            <Footer/>
         </main>
     );
 };

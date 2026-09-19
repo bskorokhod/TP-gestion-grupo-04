@@ -10,8 +10,8 @@ export const PerExpenseView = () => {
             <div className="grid gap-4 lg:grid-cols-2">
                 <DebtCard title="Compra de heladera" amount="Total: $60.000 - Individual: $15.000" description="Reemplazo de heladera rota en la cocina">
                     <PersonRow name="Lucia" />
-                    <PersonRow name="Pablo" paid claim />
-                    <PersonRow name="Diego" paid claim />
+                    <PersonRow name="Pablo" status="paid" action="claim" />
+                    <PersonRow name="Diego" status="paid" action="claim" />
                 </DebtCard>
                 <DebtCard title="Fumigación" amount="Total: $15.000 - Individual: $5.000" description="Control de plagas trimestral">
                     <PersonRow name="Rocio" />
