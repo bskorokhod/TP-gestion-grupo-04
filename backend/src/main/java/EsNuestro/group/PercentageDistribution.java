@@ -1,5 +1,7 @@
 package EsNuestro.group;
 
+import EsNuestro.member.GroupMember;
+import EsNuestro.member.dtos.PercentageEntryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 

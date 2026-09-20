@@ -1,5 +1,6 @@
-package EsNuestro.group;
+package EsNuestro.member;
 
+import EsNuestro.group.Group;
 import EsNuestro.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -85,27 +86,27 @@ public class GroupMember {
         group.addMember(this);
     }
 
-    static GroupMember founder(Group group, User user, String nickname, MemberColor color) {
+    public static GroupMember founder(Group group, User user, String nickname, MemberColor color) {
         return new GroupMember(
                 group, user, nickname, color, GroupRole.FOUNDER, MembershipStatus.ACTIVE, BigDecimal.valueOf(100)
         );
     }
 
-    static GroupMember joinRequest(Group group, User user, String nickname, MemberColor color) {
+    public static GroupMember joinRequest(Group group, User user, String nickname, MemberColor color) {
         return new GroupMember(group, user, nickname, color, GroupRole.MEMBER, MembershipStatus.PENDING, null);
     }
 
-    void approve() {
+    public void approve() {
         this.status = MembershipStatus.ACTIVE;
         this.percentage = BigDecimal.ZERO;
         this.joinedAt = Instant.now();
     }
 
-    void reject() {
+    public void reject() {
         this.status = MembershipStatus.REJECTED;
     }
 
-    void requestAgain(String nickname, MemberColor color) {
+    public void requestAgain(String nickname, MemberColor color) {
         this.nickname = nickname;
         this.color = color;
         this.role = GroupRole.MEMBER;
@@ -116,53 +117,53 @@ public class GroupMember {
         this.joinedAt = null;
     }
 
-    void updatePercentage(BigDecimal percentage) {
+    public void updatePercentage(BigDecimal percentage) {
         this.percentage = percentage;
     }
 
-    void deactivateForLeaving() {
+    public void deactivateForLeaving() {
         this.status = MembershipStatus.DEACTIVATED;
         this.exitReason = GroupMemberExitReason.LEAVING;
     }
 
-    void deactivateForRemoval() {
+    public void deactivateForRemoval() {
         this.status = MembershipStatus.DEACTIVATED;
         this.exitReason = GroupMemberExitReason.REMOVED;
     }
 
-    void finalizeExit() {
+    public void finalizeExit() {
         this.status = exitReason == GroupMemberExitReason.LEAVING
                 ? MembershipStatus.LEFT
                 : MembershipStatus.REMOVED;
         this.percentage = null;
     }
 
-    void changeRole(GroupRole newRole) {
+    public void changeRole(GroupRole newRole) {
         this.role = newRole;
     }
 
-    void changeIdentity(String newNickname, MemberColor newColor) {
+    public void changeIdentity(String newNickname, MemberColor newColor) {
         this.nickname = newNickname;
         this.color = newColor;
     }
 
-    boolean isActive() {
+    public boolean isActive() {
         return status == MembershipStatus.ACTIVE;
     }
 
-    boolean isViewer() {
+    public boolean isViewer() {
         return status == MembershipStatus.ACTIVE || status == MembershipStatus.DEACTIVATED;
     }
 
-    boolean isFounder() {
+    public boolean isFounder() {
         return role == GroupRole.FOUNDER;
     }
 
-    boolean holdsOwnership() {
+    public boolean holdsOwnership() {
         return MembershipStatus.OWNERSHIP_HOLDING.contains(status);
     }
 
-    boolean canRequestAgain() {
+    public boolean canRequestAgain() {
         return status == MembershipStatus.REJECTED || status == MembershipStatus.LEFT;
     }
 }

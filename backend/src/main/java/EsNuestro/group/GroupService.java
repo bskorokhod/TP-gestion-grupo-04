@@ -1,6 +1,15 @@
 package EsNuestro.group;
 
 import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.group.dtos.GroupCreateDTO;
+import EsNuestro.group.dtos.GroupDTO;
+import EsNuestro.group.dtos.GroupPreviewDTO;
+import EsNuestro.group.dtos.JoinGroupDTO;
+import EsNuestro.member.*;
+import EsNuestro.member.dtos.FinalizeExitsDTO;
+import EsNuestro.member.dtos.JoinRequestDTO;
+import EsNuestro.member.dtos.MemberDTO;
+import EsNuestro.member.dtos.PercentagesUpdateDTO;
 import EsNuestro.user.User;
 import EsNuestro.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;

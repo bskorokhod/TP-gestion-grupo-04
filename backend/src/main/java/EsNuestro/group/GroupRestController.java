@@ -2,6 +2,12 @@ package EsNuestro.group;
 
 import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.config.security.JwtUserDetails;
+import EsNuestro.group.dtos.GroupCreateDTO;
+import EsNuestro.group.dtos.GroupDTO;
+import EsNuestro.group.dtos.GroupPreviewDTO;
+import EsNuestro.group.dtos.JoinGroupDTO;
+import EsNuestro.member.dtos.*;
+import EsNuestro.member.MembershipStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

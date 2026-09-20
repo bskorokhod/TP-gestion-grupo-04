@@ -1,4 +1,4 @@
-package EsNuestro.group;
+package EsNuestro.member;
 
 /**
  * Por qué un miembro ACTIVE pasó a DEACTIVATED, para que finalizeExits()

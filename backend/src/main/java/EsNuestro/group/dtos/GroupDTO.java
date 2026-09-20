@@ -1,4 +1,7 @@
-package EsNuestro.group;
+package EsNuestro.group.dtos;
+
+import EsNuestro.group.Group;
+import EsNuestro.member.GroupMember;
 
 import java.time.Instant;
 
@@ -10,7 +13,7 @@ public record GroupDTO(
         int memberCount,
         String joinCode
 ) {
-    static GroupDTO from(Group group, boolean includeJoinCode) {
+    public static GroupDTO from(Group group, boolean includeJoinCode) {
         long activeMembers = group.getMembers().stream()
                 .filter(GroupMember::isActive)
                 .count();

@@ -1,5 +1,6 @@
-package EsNuestro.group;
+package EsNuestro.group.dtos;
 
+import EsNuestro.group.Group;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;

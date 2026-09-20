@@ -1,4 +1,4 @@
-package EsNuestro.group;
+package EsNuestro.member.dtos;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;

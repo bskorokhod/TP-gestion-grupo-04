@@ -1,4 +1,9 @@
-package EsNuestro.group;
+package EsNuestro.member.dtos;
+
+import EsNuestro.member.GroupRole;
+import EsNuestro.member.GroupMember;
+import EsNuestro.member.MemberColor;
+import EsNuestro.member.MembershipStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -15,7 +20,7 @@ public record MemberDTO(
         Instant requestedAt,
         Instant joinedAt
 ) {
-    static MemberDTO from(GroupMember member) {
+    public static MemberDTO from(GroupMember member) {
         return new MemberDTO(
                 member.getId(),
                 member.getUser().getId(),
