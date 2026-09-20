@@ -52,6 +52,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/products").hasRole(UserRole.ADMIN.toString())
                         .requestMatchers("/brands/**").authenticated()
                         .requestMatchers("/products/**").authenticated()
+                        .requestMatchers("/groups", "/groups/**").authenticated()
                         .anyRequest().denyAll())
                 .sessionManagement(sessionManager -> sessionManager
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
