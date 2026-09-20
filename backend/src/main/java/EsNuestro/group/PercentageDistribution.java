@@ -18,6 +18,7 @@ import java.util.Map;
 final class PercentageDistribution {
 
     private static final BigDecimal TOTAL = BigDecimal.valueOf(100);
+    private static final BigDecimal TOLERANCE = new BigDecimal("0.01");
 
     private PercentageDistribution() {
     }
@@ -36,7 +37,9 @@ final class PercentageDistribution {
         BigDecimal total = holders.stream()
                 .map(member -> changes.getOrDefault(member.getId(), member.getPercentage()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (total.compareTo(TOTAL) != 0) {
+
+        BigDecimal difference = total.subtract(TOTAL).abs();
+        if (difference.compareTo(TOLERANCE) > 0) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Percentages must add up to exactly 100, got " + total
             );
