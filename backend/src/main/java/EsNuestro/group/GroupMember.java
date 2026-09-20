@@ -18,16 +18,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * A user's membership in a group. This single entity plays the role of founder,
- * admin and plain member (via {@link #role}), and tracks the invitation lifecycle
- * (via {@link #status}), instead of splitting those concerns into separate
- * collections on {@link Group}.
+ * Membresía de un usuario en un grupo. Una única entidad cubre los roles de fundador,
+ * admin y miembro (según {@link #role}) y el ciclo de vida de la solicitud de ingreso
+ * (según {@link #status}). El par (apodo, color) no puede repetirse entre los miembros
+ * que ocupan identidad en el grupo; esa regla la valida el servicio.
  */
 @Entity(name = "group_members")
-@Table(uniqueConstraints = {
-        @UniqueConstraint(name = "uk_group_member_nickname", columnNames = {"group_id", "nickname"}),
-        @UniqueConstraint(name = "uk_group_member_user", columnNames = {"group_id", "user_id"})
-})
+@Table(uniqueConstraints = @UniqueConstraint(name = "uk_group_member_user", columnNames = {"group_id", "user_id"}))
 @NoArgsConstructor
 @Getter
 public class GroupMember {
@@ -49,14 +46,18 @@ public class GroupMember {
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
+    private MemberColor color;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
     private GroupRole role;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private MembershipStatus status;
 
-    @Column(nullable = false, updatable = false)
-    private Instant invitedAt;
+    @Column(nullable = false)
+    private Instant requestedAt;
 
     private Instant joinedAt;
 
@@ -66,38 +67,57 @@ public class GroupMember {
     @Enumerated(EnumType.STRING)
     private GroupMemberExitReason exitReason;
 
-    GroupMember(Group group, User user, String nickname, GroupRole role, MembershipStatus status, BigDecimal percentage) {
+    private GroupMember(
+            Group group, User user, String nickname, MemberColor color,
+            GroupRole role, MembershipStatus status, BigDecimal percentage
+    ) {
         this.group = group;
         this.user = user;
         this.nickname = nickname;
+        this.color = color;
         this.role = role;
         this.status = status;
         this.percentage = percentage;
-        this.invitedAt = Instant.now();
+        this.requestedAt = Instant.now();
         if (status == MembershipStatus.ACTIVE) {
             this.joinedAt = Instant.now();
         }
         group.addMember(this);
     }
 
-    void accept() {
-        this.status = MembershipStatus.PENDING;
+    static GroupMember founder(Group group, User user, String nickname, MemberColor color) {
+        return new GroupMember(
+                group, user, nickname, color, GroupRole.FOUNDER, MembershipStatus.ACTIVE, BigDecimal.valueOf(100)
+        );
     }
 
-    void activate(BigDecimal percentage) {
+    static GroupMember joinRequest(Group group, User user, String nickname, MemberColor color) {
+        return new GroupMember(group, user, nickname, color, GroupRole.MEMBER, MembershipStatus.PENDING, null);
+    }
+
+    void approve() {
         this.status = MembershipStatus.ACTIVE;
-        this.percentage = percentage;
-        if (this.joinedAt == null) {
-            this.joinedAt = Instant.now();
-        }
-    }
-
-    void updatePercentage(BigDecimal percentage) {
-        this.percentage = percentage;
+        this.percentage = BigDecimal.ZERO;
+        this.joinedAt = Instant.now();
     }
 
     void reject() {
         this.status = MembershipStatus.REJECTED;
+    }
+
+    void requestAgain(String nickname, MemberColor color) {
+        this.nickname = nickname;
+        this.color = color;
+        this.role = GroupRole.MEMBER;
+        this.status = MembershipStatus.PENDING;
+        this.percentage = null;
+        this.exitReason = null;
+        this.requestedAt = Instant.now();
+        this.joinedAt = null;
+    }
+
+    void updatePercentage(BigDecimal percentage) {
+        this.percentage = percentage;
     }
 
     void deactivateForLeaving() {
@@ -121,8 +141,9 @@ public class GroupMember {
         this.role = newRole;
     }
 
-    void changeNickname(String newNickname) {
+    void changeIdentity(String newNickname, MemberColor newColor) {
         this.nickname = newNickname;
+        this.color = newColor;
     }
 
     boolean isActive() {
@@ -130,12 +151,18 @@ public class GroupMember {
     }
 
     boolean isViewer() {
-        return status == MembershipStatus.PENDING
-                || status == MembershipStatus.ACTIVE
-                || status == MembershipStatus.DEACTIVATED;
+        return status == MembershipStatus.ACTIVE || status == MembershipStatus.DEACTIVATED;
     }
 
     boolean isFounder() {
         return role == GroupRole.FOUNDER;
+    }
+
+    boolean holdsOwnership() {
+        return MembershipStatus.OWNERSHIP_HOLDING.contains(status);
+    }
+
+    boolean canRequestAgain() {
+        return status == MembershipStatus.REJECTED || status == MembershipStatus.LEFT;
     }
 }

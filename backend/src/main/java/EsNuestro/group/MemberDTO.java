@@ -8,10 +8,11 @@ public record MemberDTO(
         Long userId,
         String username,
         String nickname,
+        MemberColor color,
         GroupRole role,
         MembershipStatus status,
         BigDecimal percentage,
-        Instant invitedAt,
+        Instant requestedAt,
         Instant joinedAt
 ) {
     static MemberDTO from(GroupMember member) {
@@ -20,10 +21,11 @@ public record MemberDTO(
                 member.getUser().getId(),
                 member.getUser().getUsername(),
                 member.getNickname(),
+                member.getColor(),
                 member.getRole(),
                 member.getStatus(),
                 member.getPercentage(),
-                member.getInvitedAt(),
+                member.getRequestedAt(),
                 member.getJoinedAt()
         );
     }

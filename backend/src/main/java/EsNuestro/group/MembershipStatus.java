@@ -1,11 +1,16 @@
 package EsNuestro.group;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 public enum MembershipStatus {
-    INVITED,
     REJECTED,
     PENDING,
     ACTIVE,
     DEACTIVATED,
     LEFT,
-    REMOVED
+    REMOVED;
+
+    static final Set<MembershipStatus> IDENTITY_OCCUPYING = EnumSet.of(PENDING, ACTIVE, DEACTIVATED);
+    static final Set<MembershipStatus> OWNERSHIP_HOLDING = EnumSet.of(ACTIVE, DEACTIVATED);
 }
