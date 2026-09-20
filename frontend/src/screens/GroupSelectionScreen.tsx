@@ -3,7 +3,7 @@ import GroupCard from "@/components/GroupCard.tsx";
 import {Link} from "wouter";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {useState} from "react";
-import {createGroup} from "@/lib/api/groups.ts";
+import {createGroup, joinGroup} from "@/lib/api/groups.ts";
 import {CreateGroupModal, JoinGroupModal} from "@/components/modals";
 
 const groups = [
@@ -52,6 +52,16 @@ export const GroupSelectionScreen = () => {
         }
     }
 
+    async function handleJoinGroup(code: string) {
+        try {
+            setError(null);
+            await joinGroup(code);
+            setModalAbierto(null);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo unir al grupo");
+        }
+    }
+
     return (
         <CommonLayout className="min-h-screen login-backdrop flex flex-col">
             <div className="px-6 py-10 lg:px-30 flex-1">
@@ -66,9 +76,7 @@ export const GroupSelectionScreen = () => {
                             bien.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-6">
-                        <p className="text-xl text-group-paper text-right">
-                            Mi código de usuario <br/>
-                            <span className="font-bold text-4xl">AAA111</span></p>
+                        <GroupAction variant="outlined" onClick={() => setModalAbierto("unirme")}>Unirme a grupo</GroupAction>
                         <GroupAction onClick={() => setModalAbierto("crear")}>Crear grupo</GroupAction>
                     </div>
                 </section>

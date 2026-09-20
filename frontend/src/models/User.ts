@@ -18,7 +18,7 @@ export const MEMBERS: ReadonlyArray<Member> = [
         fullName: "Lucia Fernandez",
         email: "luciaf@gmail.com",
         alias: "lucia.fer.mp",
-        percentage: 50
+        percentage: 25
     },
     {
         id: "222BBB",
@@ -27,6 +27,24 @@ export const MEMBERS: ReadonlyArray<Member> = [
         fullName: "Rocío Nuñez",
         email: "rochi_nu@yahoo.com",
         alias: "rochi",
-        percentage: 50
+        percentage: 25
+    },
+    {
+        id: "222BBB",
+        initial: "R",
+        name: "Rocío",
+        fullName: "Rocío Nuñez",
+        email: "rochi_nu@yahoo.com",
+        alias: "rochi",
+        percentage: 25
+    },
+    {
+        id: "333CCC",
+        initial: "R",
+        name: "Rocío",
+        fullName: "Rocío Nuñez",
+        email: "rochi_nu@yahoo.com",
+        alias: "rochi",
+        percentage: 25
     }
 ]
