@@ -1,9 +1,9 @@
 declare global {
-  interface Window {
-    _env_: {
-      baseApiUrl?: string;
-    };
-  }
+    interface Window {
+        _env_: {
+            baseApiUrl?: string;
+        };
+    }
 }
 
 export {};
