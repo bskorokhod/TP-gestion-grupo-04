@@ -159,6 +159,11 @@ public class GroupMember {
         return role == GroupRole.FOUNDER;
     }
 
+    /** true si el rol es ADMIN o FOUNDER. */
+    public boolean isAdmin() {
+        return role.isAtLeast(GroupRole.ADMIN);
+    }
+
     public boolean holdsOwnership() {
         return MembershipStatus.OWNERSHIP_HOLDING.contains(status);
     }
