@@ -21,7 +21,7 @@ export default function TextField({id, label, hint, centered = false, className 
             <input
                 id={id}
                 {...inputProps}
-                className={`mt-3 h-14 w-full rounded-xl border border-field bg-input-surface px-5 text-base text-ink outline-none transition-shadow focus:ring-2 focus:ring-brand/25 ${centered ? "text-center" : ""}`}
+                className={`mt-3 h-14 w-full rounded-xl border border-field bg-input-surface px-5 text-base text-warm-muted outline-none transition-shadow focus:ring-2 focus:ring-brand/25 ${centered ? "text-center" : ""}`}
             />
         </div>
     );

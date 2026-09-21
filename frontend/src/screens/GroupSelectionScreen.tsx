@@ -16,7 +16,7 @@ const groups: GroupCardProps[] = [
             {label: "$25.000", kind: "credit"},
         ],
         turn: "Próximo turno: 12 – 14 sep",
-        link: "123-ABC-123"
+        link: "1"
     },
     {
         name: "Cuenta de Steam",
@@ -24,7 +24,7 @@ const groups: GroupCardProps[] = [
         icon: "green",
         badges: [{label: "$8.200", kind: "expense"}],
         turn: "Sin turnos próximos",
-        link: "#"
+        link: "2"
     },
     {
         name: "PS5",
@@ -85,6 +85,7 @@ export const GroupSelectionScreen = () => {
                     <section className="space-y-4 col-span-2" aria-label="Listado de grupos">
                         {groups.map((group) => (
                             <Link key={"grupo-" + group.link} href={"/grupos/" + group.link + "/gastos"} className="block">
+                                {/*@ts-ignore*/}
                                 <GroupCard key={group.name} {...group} />
                             </Link>
                         ))}

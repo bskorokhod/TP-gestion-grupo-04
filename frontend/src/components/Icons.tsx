@@ -24,3 +24,20 @@ export function CloseIcon() {
         </svg>
     );
 }
+
+export function ChevronDownIcon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+    );
+}
+
+export function UserIcon() {
+    return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8"/>
+            <path d="M4.5 19.5c1.6-3.3 4.4-5 7.5-5s5.9 1.7 7.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        </svg>
+    );
+}

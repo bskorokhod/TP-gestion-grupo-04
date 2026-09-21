@@ -8,7 +8,7 @@ import {
     UpdateGroupPercentagesRequestSchema,
 } from "@/models/Percentage";
 import {mockFetchGroupPercentages, mockUpdateGroupPercentages} from "@/services/mocks/percentagesMock";
-import {useAccessTokenGetter, useHandleResponse} from "@/services/TokenContext";
+import {useAccessTokenGetter, useHandleResponse} from "@/contexts/TokenContext.tsx";
 
 
 export const USE_MOCK_PERCENTAGES = true;

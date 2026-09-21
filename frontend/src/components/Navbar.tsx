@@ -1,5 +1,10 @@
 import {Link} from "wouter";
 
+import {CurrentGroupSwitcher} from "@/components/Navbars/CurrentGroupSwitcher.tsx";
+import {LoggedInNavbar} from "@/components/Navbars/LoggedInNavbar.tsx";
+import {LoggedOutNavbar} from "@/components/Navbars/LoggedOutNavbar.tsx";
+import {useToken} from "@/contexts/TokenContext.tsx";
+
 export function Brand() {
     return (
         <Link className="inline-flex items-center" aria-label="Es Nuestro, inicio" key="inicio" href="/">
@@ -12,22 +17,18 @@ export function Brand() {
 }
 
 export default function Navbar() {
+    const [tokenState] = useToken();
+    const isLoggedOut = tokenState.state === "LOGGED_OUT";
+
     return (
         <header
             className="relative z-10 grid h-15 grid-cols-[minmax(0,1fr)_auto] items-center border-b border-header-line bg-header px-6 sm:px-13 lg:h-15 lg:px-16">
-            <Brand/>
-            <nav className="flex shrink-0 items-center gap-4 sm:gap-8 lg:gap-12" aria-label="Acceso">
-                <Link key="iniciar-sesion" href="/login" className="hidden text-base font-medium text-brand sm:inline">
-                    Iniciar sesión
-                </Link>
-
-                <Link
-                    key="crear-cuenta"
-                    href="/signup"
-                    className="inline-flex h-9 items-center justify-center rounded-full bg-brand px-5 text-base font-medium text-brand-foreground transition-colors hover:bg-brand-hover sm:h-9 sm:px-7 sm:text-base"
-                >
-                    Crear cuenta
-                </Link>
+            <div className="flex min-w-0 items-center">
+                <Brand/>
+                {!isLoggedOut && <CurrentGroupSwitcher/>}
+            </div>
+            <nav className="flex shrink-0 items-center gap-4 sm:gap-8 lg:gap-12" aria-label="Cuenta">
+                {isLoggedOut ? <LoggedOutNavbar/> : <LoggedInNavbar/>}
             </nav>
         </header>
     );

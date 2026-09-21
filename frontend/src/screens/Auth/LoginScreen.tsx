@@ -1,14 +1,45 @@
 import TextField from "@/components/Forms/TextField.tsx";
 import PasswordField from "@/components/Forms/PasswordField.tsx";
-import Checkbox from "@/components/Forms/Checkbox.tsx";
 import SubmitButton from "@/components/Forms/SubmitButton.tsx";
 import loginIllustration from "@/assets/login.svg";
 import {Link} from "wouter";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
+import {useState} from "react";
+import {useLogin} from "@/services/AuthServices.ts";
+import {LoginSchema} from "@/models/User.ts";
+import {ZodError} from "zod";
+import {BackendError, toast} from "@/hooks/useToast.ts";
 
 export const LoginScreen = () => {
-    function handleSubmit(event: { preventDefault: () => void; }) {
-        event.preventDefault();
+    const [form, setForm] = useState({ username: "", password: "" })
+    const login = useLogin()
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [e.target.name]: e.target.value })
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        try {
+            const parsed = LoginSchema.parse(form)
+            login.mutate(parsed, {
+                onSuccess: () => toast({ title: "Inicio de sesión exitoso" }),
+                onError: (err: BackendError) => {
+                    const backendMessage = err?.response?.data?.message || err?.message
+                    toast({
+                        variant: "destructive",
+                        title: "Error al iniciar sesión",
+                        description: backendMessage,
+                    })
+                },
+            })
+        } catch (err) {
+            if (err instanceof ZodError) {
+                toast({
+                    variant: "destructive",
+                    title: "Error de validación",
+                    description: err.issues[0]?.message,
+                })
+            }
+        }
     }
 
     return (
@@ -36,7 +67,9 @@ export const LoginScreen = () => {
                                 type="text"
                                 label="Email"
                                 autoComplete="Email"
-                                placeholder="Ingresá tu email" hint={undefined}/>
+                                placeholder="Ingresá tu email" hint={undefined}
+                                onChange={handleChange}
+                            />
 
                             <PasswordField
                                 id="password"
@@ -45,17 +78,16 @@ export const LoginScreen = () => {
                                 autoComplete="current-password"
                                 placeholder="Ingresá tu contraseña"
                                 className="mt-10 sm:mt-5"
+                                onChange={handleChange}
                             />
 
-                            <div
-                                className="mt-7 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-warm-muted text-base">
-                                <Checkbox name="remember">Recordarme</Checkbox>
+                            <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-warm-muted text-base">
                                 <a href="#recuperar" className="text-right transition-colors hover:text-brand">
                                     Olvidé mi contraseña
                                 </a>
                             </div>
 
-                            <SubmitButton className="mt-9">Iniciá sesión</SubmitButton>
+                            <SubmitButton className="mt-5">Iniciá sesión</SubmitButton>
                         </form>
 
                         <p id="registro" className="mt-4 text-left text-base text-warm-muted">
