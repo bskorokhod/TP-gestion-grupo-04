@@ -1,13 +1,32 @@
+import {useState} from "react";
+
 import {SectionBanner} from "@/components/Expenses/SectionBanner.tsx";
-import {DebtCard, OwedCard, PersonRow} from "@/components/Expenses/ExpensesCard.tsx";
+import {
+    DebtCard,
+    OwedCard,
+    PersonRow,
+} from "@/components/Expenses/ExpensesCard.tsx";
+import {NewExpenseModal} from "@/components/modals";
+
 
 export const PerExpenseView = () => {
+    const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] =
+      useState(false);
+
     return (
-    <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
-        <div className="space-y-4">
-            <SectionBanner title="Gastos que me deben" description="Estas son las deudas que otros tienen con vos. Revisá el estado del pago de cada uno y reclamá pagos cuando corresponda."
-                           variant="othersDebt" action="Agregar gasto" />
-            <div className="grid gap-4 lg:grid-cols-2">
+      <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
+          <div className="space-y-4">
+              <SectionBanner
+                title="Gastos que me deben"
+                description="Estas son las deudas que otros tienen con vos. Revisá el estado del pago de cada uno y reclamá pagos cuando corresponda."
+                variant="othersDebt"
+                action="Agregar gasto"
+                onAction={() =>
+                  setIsNewExpenseModalOpen(true)
+                }
+              />
+
+              <div className="grid gap-4 lg:grid-cols-2">
                 <DebtCard title="Compra de heladera" amount="Total: $60.000 - Individual: $15.000" description="Reemplazo de heladera rota en la cocina">
                     <PersonRow name="Lucia" />
                     <PersonRow name="Pablo" status="paid" action="claim" />
@@ -28,6 +47,19 @@ export const PerExpenseView = () => {
                 <OwedCard title="Arreglo de reja" amount="Total: $21.000 - Individual: $7.000" description="Soldadura de la reja del frente" assigned={["Diego", "Yo"]} owner="Pablo" tag="Único" />
             </div>
         </div>
+
+          {isNewExpenseModalOpen && (
+            <NewExpenseModal
+              onClose={() =>
+                setIsNewExpenseModalOpen(false)
+              }
+              onSave={(expense) => {
+                  console.log("Nuevo gasto:", expense);
+
+                  setIsNewExpenseModalOpen(false);
+              }}
+            />
+          )}
     </section>
     )
 }

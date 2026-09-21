@@ -1,7 +1,14 @@
-import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
-import { PersonBalanceCard } from "@/components/Expenses/ExpensesCard.tsx";
-import type { PersonBalanceCardProps } from "@/components/Expenses/ExpensesCard.tsx";
+import {useState} from "react";
 
+import {SectionBanner} from "@/components/Expenses/SectionBanner.tsx";
+import {
+    PersonBalanceCard,
+} from "@/components/Expenses/ExpensesCard.tsx";
+import type {
+    PersonBalanceCardProps,
+} from "@/components/Expenses/ExpensesCard.tsx";
+
+import {NewExpenseModal} from "@/components/modals";
 
 const people: PersonBalanceCardProps[] = [
     {
@@ -34,20 +41,42 @@ const people: PersonBalanceCardProps[] = [
 ];
 
 export const PerPersonView = () => {
-    return (
-        <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
-            <SectionBanner
-                title="Gastos por persona"
-                description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
-                variant="allDebt"
-                action="Agregar gasto"
-            />
+    const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] =
+      useState(false);
 
-            <div className="grid gap-4 lg:grid-cols-2 items-start">
-                {people.map((person) => (
-                    <PersonBalanceCard key={person.name} {...person} />
-            ))}
-        </div>
-        </section>
+    return (
+      <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
+          <SectionBanner
+            title="Gastos por persona"
+            description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
+            variant="allDebt"
+            action="Agregar gasto"
+            onAction={() =>
+              setIsNewExpenseModalOpen(true)
+            }
+          />
+
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+              {people.map((person) => (
+                <PersonBalanceCard
+                  key={person.name}
+                  {...person}
+                />
+              ))}
+          </div>
+
+          {isNewExpenseModalOpen && (
+            <NewExpenseModal
+              onClose={() =>
+                setIsNewExpenseModalOpen(false)
+              }
+              onSave={(expense) => {
+                  console.log("Nuevo gasto:", expense);
+
+                  setIsNewExpenseModalOpen(false);
+              }}
+            />
+          )}
+      </section>
     );
-}
+};
