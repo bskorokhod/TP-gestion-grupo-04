@@ -4,7 +4,7 @@ services:
     image: "${INGRESS_IMAGE:-}"
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
       frontend:
         condition: service_healthy
     ports:
