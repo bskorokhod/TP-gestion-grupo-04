@@ -40,7 +40,7 @@ class ExpenseRestController {
             @Valid @NonNull @RequestBody ExpenseDataDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return expenseService.createExpense(groupId, data, principal.username());
+        return expenseService.createExpense(groupId, data, principal.email());
     }
 
     @GetMapping(produces = "application/json")
@@ -50,7 +50,7 @@ class ExpenseRestController {
             @RequestParam(required = false) ExpenseStatus status,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        return expenseService.listExpenses(groupId, principal.username(), status);
+        return expenseService.listExpenses(groupId, principal.email(), status);
     }
 
     @GetMapping(value = "/{expenseId}", produces = "application/json")
@@ -62,7 +62,7 @@ class ExpenseRestController {
             @PathVariable Long expenseId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        return expenseService.getExpense(groupId, expenseId, principal.username());
+        return expenseService.getExpense(groupId, expenseId, principal.email());
     }
 
     @PutMapping(value = "/{expenseId}", produces = "application/json")
@@ -75,7 +75,7 @@ class ExpenseRestController {
             @Valid @NonNull @RequestBody ExpenseDataDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return expenseService.updateExpense(groupId, expenseId, data, principal.username());
+        return expenseService.updateExpense(groupId, expenseId, data, principal.email());
     }
 
     @PostMapping(value = "/{expenseId}/approve", produces = "application/json")
@@ -87,7 +87,7 @@ class ExpenseRestController {
             @PathVariable Long expenseId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        return expenseService.approveExpense(groupId, expenseId, principal.username());
+        return expenseService.approveExpense(groupId, expenseId, principal.email());
     }
 
     @PostMapping(value = "/{expenseId}/reject", produces = "application/json")
@@ -99,7 +99,7 @@ class ExpenseRestController {
             @PathVariable Long expenseId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        return expenseService.rejectExpense(groupId, expenseId, principal.username());
+        return expenseService.rejectExpense(groupId, expenseId, principal.email());
     }
 
     @PostMapping(value = "/{expenseId}/resubmit", produces = "application/json")
@@ -112,7 +112,7 @@ class ExpenseRestController {
             @Valid @RequestBody(required = false) ExpenseDataDTO changes,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return expenseService.resubmitExpense(groupId, expenseId, changes, principal.username());
+        return expenseService.resubmitExpense(groupId, expenseId, changes, principal.email());
     }
 
     @DeleteMapping("/{expenseId}")
@@ -125,6 +125,6 @@ class ExpenseRestController {
             @PathVariable Long expenseId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        expenseService.deleteExpense(groupId, expenseId, principal.username());
+        expenseService.deleteExpense(groupId, expenseId, principal.email());
     }
 }
