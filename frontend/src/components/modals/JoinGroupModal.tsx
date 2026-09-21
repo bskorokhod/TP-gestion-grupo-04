@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent } from "react";
 
 import TextField from "@/components/Forms/TextField.tsx";
 import { ModalShell } from "./ModalShell";
 import { JoinGroup, JoinGroupSchema } from "@/models/Group.ts";
+import { useFormToasts } from "@/hooks/useFormToasts";
 
 export interface JoinGroupModalProps {
     onClose?: () => void;
@@ -10,11 +11,10 @@ export interface JoinGroupModalProps {
 }
 
 export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
-    const [error, setError] = useState<string | null>(null);
+    const { showSchemaError } = useFormToasts();
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setError(null);
 
         const data = new FormData(event.currentTarget);
         const payload: JoinGroup = {
@@ -23,9 +23,8 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
         };
 
         const result = JoinGroupSchema.safeParse(payload);
-
         if (!result.success) {
-            setError(result.error.issues[0]?.message ?? "Datos inválidos");
+            showSchemaError(result.error.issues[0]?.message ?? "Revisá los datos");
             return;
         }
 
@@ -43,6 +42,7 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
             <p className="text-base text-modal-muted">
                 Ingresá el código que te compartió el administrador del grupo.
             </p>
+
             <TextField
                 id="group-code"
                 name="groupCode"
@@ -53,6 +53,7 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
                 autoComplete="off"
                 maxLength={12}
             />
+
             <TextField
                 id="nickname"
                 name="nickname"
@@ -62,11 +63,6 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
                 autoComplete="off"
                 maxLength={30}
             />
-            {error && (
-                <p role="alert" className="text-sm font-medium text-red-600">
-                    {error}
-                </p>
-            )}
         </ModalShell>
     );
 }

@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent } from "react";
 
 import TextField from "@/components/Forms/TextField.tsx";
 import { ModalShell } from "@/components/modals/ModalShell.tsx";
 import { GroupCreate, GroupCreateSchema } from "@/models/Group.ts";
+import { useFormToasts } from "@/hooks/useFormToasts";
 
 export interface CreateGroupModalProps {
     onClose: () => void;
@@ -10,11 +11,10 @@ export interface CreateGroupModalProps {
 }
 
 export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) => {
-    const [error, setError] = useState<string | null>(null);
+    const { showSchemaError } = useFormToasts();
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setError(null);
 
         const formData = new FormData(event.currentTarget);
         const rawName = formData.get("groupName")?.toString().trim() ?? "";
@@ -28,9 +28,8 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
         };
 
         const result = GroupCreateSchema.safeParse(payload);
-
         if (!result.success) {
-            setError(result.error.issues[0]?.message ?? "Datos inválidos");
+            showSchemaError(result.error.issues[0]?.message ?? "Revisá los datos");
             return;
         }
 
@@ -70,11 +69,6 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                 autoComplete="off"
                 maxLength={30}
             />
-            {error && (
-                <p role="alert" className="text-sm font-medium text-red-600">
-                    {error}
-                </p>
-            )}
         </ModalShell>
     );
 };

@@ -1,12 +1,23 @@
 import GroupAction from "@/components/GroupAction.tsx";
-import GroupCard, { type GroupCardIcon, type GroupCardProps } from "@/components/GroupCard.tsx";
+import GroupCard, {
+    type GroupCardIcon,
+    type GroupCardProps,
+} from "@/components/GroupCard.tsx";
 import { Link } from "wouter";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { useState } from "react";
 import { CreateGroupModal, JoinGroupModal } from "@/components/modals";
-import {useCreateGroup, useGetGroups, useGetMyJoinRequests, useJoinGroup, useMyPendingApprovals} from "@/services/GroupServices.ts";
-// import { groupExpensesPath } from "@/constants/routes.ts";
-import type {Group, GroupCreate, JoinGroup } from "@/models/Group.ts";
+import {
+    useCreateGroup,
+    useGetGroups,
+    useGetMyJoinRequests,
+    useJoinGroup,
+    useMyPendingApprovals,
+} from "@/services/GroupServices.ts";
+import type { Group, GroupCreate, JoinGroup } from "@/models/Group.ts";
+import { useFormToasts } from "@/hooks/useFormToasts";
+import type { BackendError } from "@/hooks/useToast";
+import {groupExpensesPath} from "@/constants/routes.ts";
 
 type ModalType = "crear" | "unirme" | null;
 
@@ -18,7 +29,8 @@ function iconForGroup(group: Group): GroupCardIcon {
 
 export const GroupSelectionScreen = () => {
     const [modalAbierto, setModalAbierto] = useState<ModalType>(null);
-    const [error, setError] = useState<string | null>(null);
+
+    const { showSuccessToast, showApiError } = useFormToasts();
 
     const createGroupMutation = useCreateGroup();
     const joinGroupMutation = useJoinGroup();
@@ -35,21 +47,27 @@ export const GroupSelectionScreen = () => {
 
     async function handleCreateGroup(data: GroupCreate) {
         try {
-            setError(null);
-            await createGroupMutation.mutateAsync(data);
+            const group = await createGroupMutation.mutateAsync(data);
+            showSuccessToast(
+                "Grupo creado",
+                `El grupo «${group.name}» se creó correctamente.`
+            );
             setModalAbierto(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "No se pudo crear el grupo");
+            showApiError(err as BackendError, "No pudimos crear el grupo");
         }
     }
 
     async function handleJoinGroup(data: JoinGroup) {
         try {
-            setError(null);
-            await joinGroupMutation.mutateAsync(data);
+            const request = await joinGroupMutation.mutateAsync(data);
+            showSuccessToast(
+                "Solicitud enviada",
+                `Tu solicitud para unirte a «${request.groupName}» está pendiente de aprobación.`
+            );
             setModalAbierto(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "No se pudo unir al grupo");
+            showApiError(err as BackendError, "No pudimos enviar la solicitud");
         }
     }
 
@@ -78,12 +96,6 @@ export const GroupSelectionScreen = () => {
                     </div>
                 </section>
 
-                {error && (
-                    <p role="alert" className="mt-4 text-sm font-medium text-red-600">
-                        {error}
-                    </p>
-                )}
-
                 <div className="mt-6 grid items-start gap-6 lg:grid-cols-3">
                     <section className="space-y-4 col-span-2" aria-label="Listado de grupos">
                         {groupsQuery.isLoading && (
@@ -91,7 +103,7 @@ export const GroupSelectionScreen = () => {
                         )}
 
                         {groupsQuery.isError && (
-                            <p role="alert" className="p-4 text-center text-sm font-medium text-red-600">
+                            <p className="p-4 text-center text-sm font-medium text-red-600">
                                 No pudimos cargar tus grupos. Probá de nuevo en un momento.
                             </p>
                         )}
@@ -113,12 +125,12 @@ export const GroupSelectionScreen = () => {
                                 name: group.name,
                                 members: group.memberCount,
                                 icon: iconForGroup(group),
-                                link: String(group.id),
+                                code: group.joinCode
                             };
                             return (
                                 <Link
                                     key={group.id}
-                                    href={`/grupos/${group.id}/gastos`}
+                                    href={groupExpensesPath(group.joinCode)}
                                     className="block"
                                 >
                                     <GroupCard {...cardProps} />

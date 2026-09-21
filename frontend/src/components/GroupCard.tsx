@@ -10,7 +10,7 @@ export interface GroupCardProps {
     name: string;
     members: number;
     icon: GroupCardIcon;
-    link: string;
+    code: string;
 }
 
 export default function GroupCard({name, members, icon}: GroupCardProps) {
