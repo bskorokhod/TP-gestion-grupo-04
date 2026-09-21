@@ -187,6 +187,61 @@ export function useMyPendingApprovals(): PendingApprovalsResult {
     return { isLoading, data };
 }
 
+export function useGetPendingMembers(groupId: number) {
+    const getAccessToken = useAccessTokenGetter();
+
+    return useQuery({
+        queryKey: ["groups", groupId, "members", "PENDING"],
+        enabled: Number.isFinite(groupId),
+        queryFn: async (): Promise<Member[]> => {
+            const data = await ApiService.authenticatedRequest(
+                getAccessToken,
+                `/groups/${groupId}/members?status=PENDING`,
+                { method: "GET" }
+            );
+            return MemberSchema.array().parse(data);
+        },
+    });
+}
+
+export function useApproveJoinRequest(groupId: number) {
+    const getAccessToken = useAccessTokenGetter();
+    const queryClient = useQueryClient();
+
+    return useMutation<Member, Error, number>({
+        mutationFn: async (memberId: number): Promise<Member> => {
+            const data = await ApiService.authenticatedRequest(
+                getAccessToken,
+                `/groups/${groupId}/members/${memberId}/approve`,
+                { method: "POST" }
+            );
+            return MemberSchema.parse(data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["groups", groupId, "members"] });
+        },
+    });
+}
+
+export function useRejectJoinRequest(groupId: number) {
+    const getAccessToken = useAccessTokenGetter();
+    const queryClient = useQueryClient();
+
+    return useMutation<Member, Error, number>({
+        mutationFn: async (memberId: number): Promise<Member> => {
+            const data = await ApiService.authenticatedRequest(
+                getAccessToken,
+                `/groups/${groupId}/members/${memberId}/reject`,
+                { method: "POST" }
+            );
+            return MemberSchema.parse(data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["groups", groupId, "members"] });
+        },
+    });
+}
+
 export function useCreateGroup() {
     const getAccessToken = useAccessTokenGetter();
     const queryClient = useQueryClient();
