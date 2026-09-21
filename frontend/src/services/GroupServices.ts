@@ -18,7 +18,20 @@ import {
     MemberSchema,
     MembershipStatus,
 } from "@/models/Group.ts";
+import { getApiErrorStatus } from "@/lib/api.ts";
 import { ApiService } from "@/services/ApiServices.ts";
+
+const MAX_RETRIES = 3;
+
+// Un 4xx (p. ej. 403/404 por no ser miembro) no se arregla reintentando: se falla de inmediato.
+function retryUnlessClientError(failureCount: number, error: unknown): boolean {
+    const status = getApiErrorStatus(error);
+    if (status !== null && status >= 400 && status < 500) {
+        return false;
+    }
+    return failureCount < MAX_RETRIES;
+}
+
 
 export function useGetGroups() {
     const getAccessToken = useAccessTokenGetter();
@@ -42,10 +55,30 @@ export function useGetGroup(groupId: number) {
     return useQuery({
         queryKey: ["groups", groupId],
         enabled: Number.isFinite(groupId),
+        retry: retryUnlessClientError,
         queryFn: async (): Promise<Group> => {
             const data = await ApiService.authenticatedRequest(
                 getAccessToken,
                 `/groups/${groupId}`,
+                { method: "GET" }
+            );
+            return GroupSchema.parse(data);
+        },
+    });
+}
+
+export function useGetGroupByCode(groupCode: string) {
+    const getAccessToken = useAccessTokenGetter();
+    const normalized = groupCode.trim().toUpperCase();
+
+    return useQuery({
+        queryKey: ["groups", "code", normalized],
+        enabled: JOIN_CODE_REGEX.test(normalized),
+        retry: retryUnlessClientError,
+        queryFn: async (): Promise<Group> => {
+            const data = await ApiService.authenticatedRequest(
+                getAccessToken,
+                `/groups/code/${encodeURIComponent(normalized)}`,
                 { method: "GET" }
             );
             return GroupSchema.parse(data);

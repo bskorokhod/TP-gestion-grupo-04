@@ -1,12 +1,31 @@
 import { z } from "zod";
 
+export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
+
+export type GroupRole = z.infer<typeof GroupRoleSchema>;
+
+export const MembershipStatusSchema = z.enum([
+    "REJECTED",
+    "PENDING",
+    "ACTIVE",
+    "DEACTIVATED",
+    "LEFT",
+    "REMOVED",
+]);
+
+export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
+
 export const GroupSchema = z.object({
     id: z.number(),
     name: z.string(),
     description: z.string(),
     createdAt: z.string(),
     memberCount: z.number(),
-    joinCode: z.string().nullable().optional(),
+    // Código del grupo (ABC-1234-XYZ): también es el identificador que va en la URL.
+    joinCode: z.string(),
+    // Rol y estado de la membresía de quien consulta en este grupo.
+    myRole: GroupRoleSchema,
+    myStatus: MembershipStatusSchema,
 });
 
 export type Group = z.infer<typeof GroupSchema>;
@@ -65,23 +84,6 @@ export const MemberColorSchema = z.enum([
     "PINK",
     "LIGHT_BLUE",
 ]);
-
-export type MemberColor = z.infer<typeof MemberColorSchema>;
-
-export const MembershipStatusSchema = z.enum([
-    "REJECTED",
-    "PENDING",
-    "ACTIVE",
-    "DEACTIVATED",
-    "LEFT",
-    "REMOVED",
-]);
-
-export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
-
-export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
-
-export type GroupRole = z.infer<typeof GroupRoleSchema>;
 
 export const JoinRequestSchema = z.object({
     memberId: z.number(),

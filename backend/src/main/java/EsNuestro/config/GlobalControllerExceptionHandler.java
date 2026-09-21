@@ -2,6 +2,7 @@ package EsNuestro.config;
 
 import EsNuestro.common.api.response.JsonResponse;
 import EsNuestro.common.api.response.JsonResponseDirector;
+import EsNuestro.common.exception.ItemNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -25,6 +26,12 @@ public class GlobalControllerExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
         JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse(ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler(ItemNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleItemNotFound(ItemNotFoundException ex) {
+        JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse(ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

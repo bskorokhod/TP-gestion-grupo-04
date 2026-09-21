@@ -1,20 +1,12 @@
 import GroupAction from "@/components/GroupAction.tsx";
-import GroupCard, {
-    type GroupCardIcon,
-    type GroupCardProps,
-} from "@/components/GroupCard.tsx";
+import GroupCard, { type GroupCardIcon, type GroupCardProps } from "@/components/GroupCard.tsx";
 import { Link } from "wouter";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { useState } from "react";
 import { CreateGroupModal, JoinGroupModal } from "@/components/modals";
-import {
-    useCreateGroup,
-    useGetGroups,
-    useGetMyJoinRequests,
-    useJoinGroup,
-    useMyPendingApprovals,
-} from "@/services/GroupServices.ts";
-import type { Group, GroupCreate, JoinGroup } from "@/models/Group.ts";
+import {useCreateGroup, useGetGroups, useGetMyJoinRequests, useJoinGroup, useMyPendingApprovals} from "@/services/GroupServices.ts";
+// import { groupExpensesPath } from "@/constants/routes.ts";
+import type {Group, GroupCreate, JoinGroup } from "@/models/Group.ts";
 
 type ModalType = "crear" | "unirme" | null;
 

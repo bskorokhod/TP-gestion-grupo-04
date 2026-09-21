@@ -4,6 +4,15 @@ export interface ApiError extends Error {
     statusText: string
 }
 
+/** Devuelve el status HTTP de un error lanzado por `fetchApi`, o null si no es un error HTTP. */
+export function getApiErrorStatus(error: unknown): number | null {
+    if (typeof error === "object" && error !== null && "status" in error) {
+        const status = (error as { status: unknown }).status;
+        return typeof status === "number" ? status : null;
+    }
+    return null;
+}
+
 export async function fetchApi(url: string, options: RequestInit = {}) {
     const response = await fetch(url, options);
 

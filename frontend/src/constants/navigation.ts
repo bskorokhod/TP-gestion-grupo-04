@@ -2,7 +2,6 @@ import {ReactNode} from "react";
 
 export interface GroupNavbarProps {
     children: ReactNode,
-    groupId?: string;
     groupName?: string;
 }
 

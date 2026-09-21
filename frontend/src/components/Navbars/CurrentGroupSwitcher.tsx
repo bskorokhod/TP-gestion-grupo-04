@@ -2,11 +2,12 @@ import {useEffect, useRef, useState} from "react";
 import {Link, useRoute} from "wouter";
 
 import {ChevronDownIcon} from "@/components/Icons.tsx";
+import {groupExpensesPath} from "@/constants/routes.ts";
 import {useGetGroups} from "@/services/GroupServices.ts";
 
-const GROUP_ROUTE_PATTERN = "/grupos/:id/*";
+const GROUP_ROUTE_PATTERN = "/grupos/:code/*";
 
-const groupHref = (groupId: number) => `/grupos/${groupId}/gastos`;
+const sameCode = (a: string, b: string) => a.toUpperCase() === b.toUpperCase();
 
 export function CurrentGroupSwitcher() {
     const [, routeParams] = useRoute(GROUP_ROUTE_PATTERN);
@@ -37,14 +38,14 @@ export function CurrentGroupSwitcher() {
         );
     }
 
-    const currentGroupId = routeParams.id;
-    const currentGroup = groups?.find((group) => String(group.id) === currentGroupId);
+    const currentGroupCode = routeParams.code;
+    const currentGroup = groups?.find((group) => sameCode(group.joinCode, currentGroupCode));
 
     if (!currentGroup) {
         return null;
     }
 
-    const otherGroups = groups?.filter((group) => String(group.id) !== currentGroupId) ?? [];
+    const otherGroups = groups?.filter((group) => !sameCode(group.joinCode, currentGroupCode)) ?? [];
 
     return (
         <div className="relative flex min-w-0 items-center pl-3" ref={menuRef}>
@@ -68,7 +69,7 @@ export function CurrentGroupSwitcher() {
                         otherGroups.map((group) => (
                             <Link
                                 key={group.id}
-                                href={groupHref(group.id)}
+                                href={groupExpensesPath(group.joinCode)}
                                 onClick={() => setIsMenuOpen(false)}
                                 className="block truncate px-4 py-2 text-sm text-ink transition-colors hover:bg-muted"
                             >
