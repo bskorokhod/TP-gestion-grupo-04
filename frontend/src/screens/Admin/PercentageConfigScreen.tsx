@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Legend, Pie, PieChart, ResponsiveContainer, Tooltip, Sector } from "recharts";
+import { Legend, Pie, PieChart, ResponsiveContainer, Tooltip, Sector, PieSectorShapeProps } from "recharts";
 
 import { PercentageCard } from "@/components/AdminCard";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
@@ -271,7 +271,7 @@ export const PercentageConfigScreen = () => {
                                                     innerRadius="30%"
                                                     outerRadius="80%"
                                                     paddingAngle={0}
-                                                    shape={(props: any) => (
+                                                    shape={(props: PieSectorShapeProps) => (
                                                         <Sector 
                                                             {...props} 
                                                             fill={CHART_COLORS[props.index % CHART_COLORS.length]} 
