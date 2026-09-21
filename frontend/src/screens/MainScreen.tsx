@@ -1,7 +1,7 @@
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout";
 import homeIllustration from "@/assets/home.svg";
 import Button from "@/components/Button.jsx";
-import {FeatureCard, SectionHeading, StatsBar, StepCard, TestimonialCard,} from "@/components/Cards.jsx";
+import {FeatureCard, SectionHeading, StatsBar, StepCard, TestimonialCard, type Stat} from "@/components/Cards.jsx";
 import {Link} from "wouter";
 
 const features = [
@@ -58,7 +58,7 @@ const testimonials = [
     },
 ];
 
-const stats = [
+const stats: Stat[] = [
     ["2.400+ grupos", "activos"],
     ["18.000+ reservas", "coordinadas"],
     ["$12M+ gastos", "gestionados"],

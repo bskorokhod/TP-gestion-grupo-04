@@ -1,6 +1,7 @@
 package EsNuestro.group;
 
 import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.expense.DebtRepository;
 import EsNuestro.group.dtos.GroupCreateDTO;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.group.dtos.GroupPreviewDTO;
@@ -26,24 +27,27 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-class GroupService {
+public class GroupService {
 
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final JoinCodeGenerator joinCodeGenerator;
+    private final DebtRepository debtRepository;
 
     @Autowired
     GroupService(
             GroupRepository groupRepository,
             GroupMemberRepository groupMemberRepository,
             UserRepository userRepository,
-            JoinCodeGenerator joinCodeGenerator
+            JoinCodeGenerator joinCodeGenerator,
+            DebtRepository debtRepository
     ) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.userRepository = userRepository;
         this.joinCodeGenerator = joinCodeGenerator;
+        this.debtRepository = debtRepository;
     }
 
     GroupDTO createGroup(GroupCreateDTO data, String founderUsername) {
@@ -127,6 +131,7 @@ class GroupService {
     }
 
     void leaveGroup(Long groupId, String username) throws ItemNotFoundException {
+        requireGroupForUpdate(groupId);
         GroupMember membership = requireActiveMember(groupId, username);
         if (membership.isFounder()) {
             throw new ResponseStatusException(
@@ -135,11 +140,12 @@ class GroupService {
             );
         }
 
-        // TODO: cuando existan deudas/gastos, bloquear acá si el miembro tiene deuda pendiente
+        requireNoUnsettledDebts(membership);
         membership.deactivateForLeaving();
     }
 
     void removeMember(Long groupId, Long memberId, String actingUsername) throws ItemNotFoundException {
+        requireGroupForUpdate(groupId);
         GroupMember acting = requireActiveMember(groupId, actingUsername);
         requireAtLeast(acting, GroupRole.ADMIN);
 
@@ -154,7 +160,7 @@ class GroupService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Member is not active");
         }
 
-        // TODO: cuando existan deudas/gastos, bloquear acá si el miembro tiene deuda pendiente.
+        requireNoUnsettledDebts(target);
         target.deactivateForRemoval();
     }
 
@@ -328,7 +334,7 @@ class GroupService {
                 .orElseThrow(() -> new ItemNotFoundException("group", groupId));
     }
 
-    private Group requireGroupForUpdate(Long groupId) throws ItemNotFoundException {
+    public Group requireGroupForUpdate(Long groupId) throws ItemNotFoundException {
         return groupRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new ItemNotFoundException("group", groupId));
     }
@@ -339,13 +345,13 @@ class GroupService {
                 .orElseThrow(() -> new ItemNotFoundException("group member", groupId));
     }
 
-    private GroupMember requireActiveMember(Long groupId, String username) throws ItemNotFoundException {
+    public GroupMember requireActiveMember(Long groupId, String username) throws ItemNotFoundException {
         GroupMember membership = requireMembership(groupId, username);
         requireStatus(membership, MembershipStatus.ACTIVE);
         return membership;
     }
 
-    private GroupMember requireViewer(Long groupId, String username) throws ItemNotFoundException {
+    public GroupMember requireViewer(Long groupId, String username) throws ItemNotFoundException {
         GroupMember membership = requireMembership(groupId, username);
         if (!membership.isViewer()) {
             throw new AccessDeniedException("You don't have access to this group");
@@ -371,9 +377,17 @@ class GroupService {
         }
     }
 
-    private void requireAtLeast(GroupMember member, GroupRole minRole) {
+    public void requireAtLeast(GroupMember member, GroupRole minRole) {
         if (!member.getRole().isAtLeast(minRole)) {
             throw new AccessDeniedException("You don't have permission to perform this action");
+        }
+    }
+
+    private void requireNoUnsettledDebts(GroupMember member) {
+        if (debtRepository.existsUnsettledByDebtorId(member.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The member has unsettled debts and cannot leave the group yet"
+            );
         }
     }
 }
