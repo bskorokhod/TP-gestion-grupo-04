@@ -1,4 +1,4 @@
-import {z} from "zod";
+import { z } from "zod";
 
 export const GroupSchema = z.object({
     id: z.number(),
@@ -6,7 +6,6 @@ export const GroupSchema = z.object({
     description: z.string(),
     createdAt: z.string(),
     memberCount: z.number(),
-    // Solo viene presente cuando el que pide el listado es fundador/admin del grupo.
     joinCode: z.string().nullable().optional(),
 });
 
@@ -67,6 +66,8 @@ export const MemberColorSchema = z.enum([
     "LIGHT_BLUE",
 ]);
 
+export type MemberColor = z.infer<typeof MemberColorSchema>;
+
 export const MembershipStatusSchema = z.enum([
     "REJECTED",
     "PENDING",
@@ -75,6 +76,12 @@ export const MembershipStatusSchema = z.enum([
     "LEFT",
     "REMOVED",
 ]);
+
+export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
+
+export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
+
+export type GroupRole = z.infer<typeof GroupRoleSchema>;
 
 export const JoinRequestSchema = z.object({
     memberId: z.number(),
@@ -87,3 +94,19 @@ export const JoinRequestSchema = z.object({
 });
 
 export type JoinRequest = z.infer<typeof JoinRequestSchema>;
+
+
+export const MemberSchema = z.object({
+    id: z.number(),
+    userId: z.number(),
+    username: z.string(),
+    nickname: z.string(),
+    color: MemberColorSchema,
+    role: GroupRoleSchema,
+    status: MembershipStatusSchema,
+    percentage: z.number().nullable(),
+    requestedAt: z.string().nullable(),
+    joinedAt: z.string().nullable(),
+});
+
+export type Member = z.infer<typeof MemberSchema>;

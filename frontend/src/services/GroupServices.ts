@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAccessTokenGetter } from "@/contexts/TokenContext.tsx";
 import {
@@ -13,9 +14,11 @@ import {
     JOIN_CODE_REGEX,
     JoinRequest,
     JoinRequestSchema,
+    Member,
+    MemberSchema,
+    MembershipStatus,
 } from "@/models/Group.ts";
 import { ApiService } from "@/services/ApiServices.ts";
-
 
 export function useGetGroups() {
     const getAccessToken = useAccessTokenGetter();
@@ -82,6 +85,73 @@ export function useGetMyJoinRequests() {
             return JoinRequestSchema.array().parse(data);
         },
     });
+}
+
+export function useGetGroupMembers(groupId: number, status?: MembershipStatus) {
+    const getAccessToken = useAccessTokenGetter();
+    const suffix = status ? `?status=${status}` : "";
+
+    return useQuery({
+        queryKey: ["groups", groupId, "members", status ?? "ALL"],
+        enabled: Number.isFinite(groupId),
+        queryFn: async (): Promise<Member[]> => {
+            const data = await ApiService.authenticatedRequest(
+                getAccessToken,
+                `/groups/${groupId}/members${suffix}`,
+                { method: "GET" }
+            );
+            return MemberSchema.array().parse(data);
+        },
+    });
+}
+
+export interface PendingApproval {
+    groupId: number;
+    groupName: string;
+    member: Member;
+}
+
+export interface PendingApprovalsResult {
+    isLoading: boolean;
+    data: PendingApproval[];
+}
+
+
+export function useMyPendingApprovals(): PendingApprovalsResult {
+    const getAccessToken = useAccessTokenGetter();
+    const groupsQuery = useGetGroups();
+
+    const adminGroups = useMemo(
+        () => (groupsQuery.data ?? []).filter((g) => g.joinCode != null),
+        [groupsQuery.data]
+    );
+
+    const pendingQueries = useQueries({
+        queries: adminGroups.map((group) => ({
+            queryKey: ["groups", group.id, "members", "PENDING"],
+            queryFn: async (): Promise<Member[]> => {
+                const data = await ApiService.authenticatedRequest(
+                    getAccessToken,
+                    `/groups/${group.id}/members?status=PENDING`,
+                    { method: "GET" }
+                );
+                return MemberSchema.array().parse(data);
+            },
+        })),
+    });
+
+    const isLoading =
+        groupsQuery.isLoading || pendingQueries.some((q) => q.isLoading);
+
+    const data: PendingApproval[] = adminGroups.flatMap((group, i) =>
+        (pendingQueries[i].data ?? []).map((member) => ({
+            groupId: group.id,
+            groupName: group.name,
+            member,
+        }))
+    );
+
+    return { isLoading, data };
 }
 
 export function useCreateGroup() {
