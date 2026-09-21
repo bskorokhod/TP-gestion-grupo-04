@@ -1,4 +1,4 @@
-package EsNuestro.group;
+package EsNuestro.member;
 
 public enum GroupRole {
     FOUNDER,

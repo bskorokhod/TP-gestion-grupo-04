@@ -1,4 +1,8 @@
-package EsNuestro.group;
+package EsNuestro.member.dtos;
+
+import EsNuestro.member.GroupMember;
+import EsNuestro.member.MemberColor;
+import EsNuestro.member.MembershipStatus;
 
 import java.time.Instant;
 
@@ -11,7 +15,7 @@ public record JoinRequestDTO(
         MembershipStatus status,
         Instant requestedAt
 ) {
-    static JoinRequestDTO from(GroupMember member) {
+    public static JoinRequestDTO from(GroupMember member) {
         return new JoinRequestDTO(
                 member.getId(),
                 member.getGroup().getId(),
