@@ -1,6 +1,5 @@
 package EsNuestro.config.security;
 
-import EsNuestro.user.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -8,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,12 +32,21 @@ public class JwtService {
 
     public String createToken(JwtUserDetails claims) {
         return Jwts.builder()
-                .subject(claims.username())
+                .subject(claims.email())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .claim("role", claims.role())
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
                 .compact();
+    }
+
+    public UsernamePasswordAuthenticationToken getAuthentication(String token) {
+        Optional<JwtUserDetails> maybeUser = extractVerifiedUserDetails(token);
+        if (maybeUser.isEmpty()) return null;
+
+        JwtUserDetails user = maybeUser.get();
+
+        return new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
     }
 
     Optional<JwtUserDetails> extractVerifiedUserDetails(String token) {
@@ -47,10 +56,11 @@ public class JwtService {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-            if (claims.getSubject() instanceof String subject
+            if (claims.containsKey("sub")
+                    && claims.containsKey("role")
                     && claims.get("role") instanceof String role
             ) {
-                return Optional.of(new JwtUserDetails(subject, UserRole.valueOf(role)));
+                return Optional.of(new JwtUserDetails(claims.getSubject(), role));
             }
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);

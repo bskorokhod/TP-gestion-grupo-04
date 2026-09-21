@@ -1,8 +1,16 @@
 package EsNuestro.config.security;
 
-import EsNuestro.user.UserRole;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-public record JwtUserDetails (
-        String username,
-        UserRole role
-) {}
+import java.util.Collection;
+import java.util.List;
+
+public record JwtUserDetails(
+        String email,
+        String role
+) {
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+    }
+}

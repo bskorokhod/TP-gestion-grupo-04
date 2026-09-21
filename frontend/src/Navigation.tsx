@@ -1,7 +1,7 @@
 import {Redirect, Route, Switch} from "wouter";
 
 import {MainScreen} from "@/screens/MainScreen";
-import {useToken} from "@/services/TokenContext";
+import {useToken} from "@/contexts/TokenContext.tsx";
 import {LoginScreen} from "@/screens/Auth/LoginScreen.tsx";
 import {SignupScreen} from "@/screens/Auth/SignupScreen.tsx";
 import {GroupSelectionScreen} from "@/screens/GroupSelectionScreen.tsx";

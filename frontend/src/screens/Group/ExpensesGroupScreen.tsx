@@ -61,7 +61,7 @@ export const ExpensesGroupScreen = () => {
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 <ProposalCard title="Poda de árboles" amount="Total: $18.000 - Individual: $6.000" description="Mantenimiento anual del jardín" assigned={["Rocio", "Yo"]} owner="Lucia" />
-                <ProposalCard title="Reparación de techo" amount="Total: $44.000 - Individual: $11.000" description="Filtración detectada en el dormitorio principal" assigned={["Rocio", "Pablo", "Lucia"]} owner="Yo" accepted />
+                <ProposalCard title="Reparación de techo" amount="Total: $44.000 - Individual: $11.000" description="Filtración detectada en el dormitorio principal" assigned={["Rocio", "Pablo", "Lucia"]} owner="Yo" />
               </div>
             </div>
           </div>

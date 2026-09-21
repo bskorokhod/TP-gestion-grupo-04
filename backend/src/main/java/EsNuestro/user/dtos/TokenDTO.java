@@ -1,4 +1,4 @@
-package EsNuestro.user;
+package EsNuestro.user.dtos;
 
 import jakarta.validation.constraints.NotNull;
 

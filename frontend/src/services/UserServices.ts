@@ -1,66 +1,59 @@
-import {useMutation} from "@tanstack/react-query";
+import { useAccessTokenGetter } from "@/contexts/TokenContext.tsx";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { User, UserSchema, UserProfile, UserProfileSchema, UserPhotoUpdate, UserPhotoUpdateSchema,} from "@/models/User";
+import { ApiService } from "@/services/ApiServices";
 
-import {BASE_API_URL} from "@/config/app-query-client";
-import {AuthResponseSchema, LoginRequest, SignupRequest} from "@/models/Login";
-import {useToken} from "@/services/TokenContext";
+export function useGetUsers() {
+    const getAccessToken = useAccessTokenGetter();
 
-export function useLogin() {
-    const [, setToken] = useToken();
-
-    return useMutation({
-        mutationFn: async (req: LoginRequest) => {
-            const tokens = await auth("POST", "/sessions", req);
-            setToken({state: "LOGGED_IN", tokens});
+    return useQuery({
+        queryKey: ["users"],
+        queryFn: async (): Promise<User[]> => {
+            const data = await ApiService.authenticatedRequest<{ results: unknown[] }>( getAccessToken, "/users", { method: "GET" });
+            return UserSchema.array().parse(data.results);
         },
     });
 }
 
-export function useRefresh() {
-    const [tokenState, setToken] = useToken();
+export function useGetUserProfile() {
+    const getAccessToken = useAccessTokenGetter();
 
-    return useMutation({
-        mutationFn: async () => {
-            if (tokenState.state !== "LOGGED_IN") {
-                return;
-            }
-
-            try {
-                const refreshToken = tokenState.tokens.refreshToken;
-                const tokenPromise = auth("PUT", "/sessions", {refreshToken});
-                setToken({state: "REFRESHING", tokenPromise});
-                setToken({state: "LOGGED_IN", tokens: await tokenPromise});
-            } catch (err) {
-                setToken({state: "LOGGED_OUT"});
-                throw err;
-            }
+    return useQuery({
+        queryKey: ["userProfile"],
+        queryFn: async (): Promise<UserProfile> => {
+            const data = await ApiService.authenticatedRequest<{ results: unknown }>(getAccessToken, "/users/profile", { method: "GET" });
+            return UserProfileSchema.parse(data.results);
         },
+        staleTime: Infinity,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 }
 
-export function useSignup() {
-    const [, setToken] = useToken();
+export function useUpdateRole() {
+    const getAccessToken = useAccessTokenGetter();
+    const qc = useQueryClient();
 
     return useMutation({
-        mutationFn: async (req: SignupRequest) => {
-            const tokens = await auth("POST", "/users", req);
-            setToken({state: "LOGGED_IN", tokens});
-        },
+        mutationFn: async (payload: { username: string }) =>
+            ApiService.authenticatedRequest<void>(getAccessToken, `/users/${payload.username}`, {
+                method: "PATCH",
+            }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
     });
 }
 
-async function auth(method: "PUT" | "POST", endpoint: string, data: object) {
-    const response = await fetch(BASE_API_URL + endpoint, {
-        method,
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-    });
 
-    if (response.ok) {
-        return AuthResponseSchema.parse(await response.json());
-    } else {
-        throw new Error(`Failed with status ${response.status}: ${await response.text()}`);
-    }
+export function useUpdatePhoto() {
+    const getAccessToken = useAccessTokenGetter();
+    const qc = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (payload: { newUrl: UserPhotoUpdate }) => {
+            const parsed = UserPhotoUpdateSchema.parse(payload.newUrl);
+            return ApiService.authenticatedRequest<void>(getAccessToken, "/users/profile", {method: "PATCH", body: JSON.stringify(parsed),});
+        },
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["userProfile"] }),
+    });
 }

@@ -1,21 +1,17 @@
 package EsNuestro.user;
 
+import EsNuestro.common.api.response.JsonResponse;
+import EsNuestro.common.api.response.JsonResponseDirector;
+import EsNuestro.user.dtos.RefreshDTO;
+import EsNuestro.user.dtos.UserLoginDTO;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/sessions")
@@ -31,25 +27,35 @@ class SessionRestController {
 
     @PostMapping(produces = "application/json")
     @Operation(summary = "Log in, creating a new session")
-    @ResponseStatus(HttpStatus.CREATED)
-    @ApiResponse(responseCode = "401", description = "Invalid username or password supplied", content = @Content)
-    public TokenDTO login(
+    public ResponseEntity<JsonResponse> login(
             @Valid @NonNull @RequestBody UserLoginDTO data
-    ) throws MethodArgumentNotValidException {
+    ) {
         return userService
                 .loginUser(data)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+                .map(token -> {
+                    JsonResponse response = JsonResponseDirector.createSuccessfulResponseWithToken("Session created successfully. User can log in", token.accessToken(), token.refreshToken());
+                    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+                })
+                .orElseGet(() -> {
+                    JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse("Invalid email or password supplied");
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+                });
     }
 
     @PutMapping(produces = "application/json")
     @Operation(summary = "Refresh a session")
-    @ResponseStatus(HttpStatus.OK)
-    @ApiResponse(responseCode = "401", description = "Invalid refresh token supplied", content = @Content)
-    public TokenDTO refresh(
+    public ResponseEntity<JsonResponse> refresh(
             @Valid @NonNull @RequestBody RefreshDTO data
-    ) throws MethodArgumentNotValidException {
+    ) {
         return userService
                 .refresh(data)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+                .map(token -> {
+                    JsonResponse response = JsonResponseDirector.createSuccessfulResponseWithToken("Session refreshed", token.accessToken(), token.refreshToken());
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse("Invalid refresh token supplied");
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+                });
     }
 }

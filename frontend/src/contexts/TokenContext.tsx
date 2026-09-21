@@ -1,8 +1,8 @@
-/* eslint-disable react-refresh/only-export-components */
+
 import React, {Dispatch, useCallback, useContext, useState} from "react";
 
-import {AuthResponse, AuthResponseSchema} from "@/models/Login";
-import {useRefresh} from "@/services/UserServices";
+import {AuthResponse, AuthResponseSchema} from "@/models/Login.ts";
+import {useRefresh} from "@/services/AuthServices.ts";
 
 const TOKEN_STORAGE_KEY = "tokens";
 

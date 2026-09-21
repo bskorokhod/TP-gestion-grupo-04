@@ -4,11 +4,78 @@ import SubmitButton from "@/components/Forms/SubmitButton.tsx";
 import loginIllustration from "@/assets/login.svg";
 import {Link} from "wouter";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
+import {useState} from "react";
+import {UserCreateSchema} from "@/models/User.ts";
+import {supabase, BUCKET_NAME} from "@/lib/supabase.ts";
+import {useSignup} from "@/services/AuthServices.ts";
+import {useFormToasts} from "@/hooks/useFormToasts.ts";
+import FileField from "@/components/Forms/FileField.tsx";
 
 export const SignupScreen = () => {
-    function handleSubmit(event: { preventDefault: () => void; }) {
-        event.preventDefault();
+    const [form, setForm] = useState({
+        password: "",
+        name: "",
+        surname: "",
+        email: ""
+    })
+
+    const { showSchemaError, showApiError, showSuccessToast } = useFormToasts();
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const signup = useSignup();
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+        setForm({ ...form, [e.target.name]: e.target.value })
+
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setPhotoFile(e.target.files[0])
+        }
     }
+
+    const uploadPhoto = async (file: File): Promise<string> => {
+        const fileName = `${Date.now()}_${file.name}`
+
+        const { error: uploadError } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(fileName, file)
+        if (uploadError) throw uploadError
+
+        const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName)
+        return data.publicUrl
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+
+        let photoUrl: string | undefined
+        if (photoFile) {
+            photoUrl = await uploadPhoto(photoFile)
+        }
+
+        const data = {
+            ...form,
+            photoUrl
+        }
+
+        const parsed = UserCreateSchema.safeParse(data);
+        if (!parsed.success) {
+            const msg = parsed.error.issues[0]?.message ?? "Datos invalidos";
+            showSchemaError(msg);
+            return;
+        }
+
+        signup.mutate(
+            parsed.data,
+            {
+                onSuccess: () => {
+                    showSuccessToast("Cuenta creada correctamente");
+                },
+                onError: (err) =>
+                    showApiError(err, "¡Hubo un problema!")
+            }
+        )
+    }
+
 
     return (
         <CommonLayout className="login-backdrop min-h-screen flex flex-col">
@@ -32,7 +99,8 @@ export const SignupScreen = () => {
                                 type="text"
                                 label="Email"
                                 autoComplete="Email"
-                                placeholder="Ingresá tu email" hint={undefined}/>
+                                placeholder="Ingresá tu email" hint={undefined}
+                                value={form.email} onChange={handleChange} />
 
                             <div className="grid grid-cols-2 gap-6">
                                 <TextField
@@ -42,7 +110,8 @@ export const SignupScreen = () => {
                                     label="Nombre(s)"
                                     autoComplete="name"
                                     placeholder="Ingresá tu nombre"
-                                    className="mt-10 sm:mt-5" hint={undefined}/>
+                                    className="mt-10 sm:mt-5" hint={undefined}
+                                    value={form.name} onChange={handleChange}/>
 
                                 <TextField
                                     id="surname"
@@ -51,7 +120,8 @@ export const SignupScreen = () => {
                                     label="Apellido(s)"
                                     autoComplete="name"
                                     placeholder="Ingresá tu apellido"
-                                    className="mt-10 sm:mt-5" hint={undefined}/>
+                                    className="mt-10 sm:mt-5" hint={undefined}
+                                    value={form.surname} onChange={handleChange}/>
                             </div>
 
                             <PasswordField
@@ -61,15 +131,14 @@ export const SignupScreen = () => {
                                 autoComplete="current-password"
                                 placeholder="Ingresá tu contraseña"
                                 className="mt-10 sm:mt-5"
+                                value={form.password} onChange={handleChange}
                             />
 
-                            <PasswordField
-                                id="repeat_password"
-                                name="repeat_password"
-                                label="Confirmar contraseña"
-                                autoComplete="repeat-current-password"
-                                placeholder="Ingresá tu contraseña"
+                            <FileField
+                                id="photoUrl"
+                                label="Foto de perfil (opcional)"
                                 className="mt-10 sm:mt-5"
+                                onChange={handlePhotoChange}
                             />
 
                             <SubmitButton className="mt-9">Registrate</SubmitButton>

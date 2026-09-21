@@ -55,8 +55,8 @@ class GroupService {
         return GroupDTO.from(group);
     }
 
-    List<GroupDTO> listMyGroups(String username) {
-        return groupMemberRepository.findByUser_UsernameAndStatus(username, MembershipStatus.ACTIVE).stream()
+    List<GroupDTO> listMyGroups(String email) {
+        return groupMemberRepository.findByUser_EmailAndStatus(email, MembershipStatus.ACTIVE).stream()
                 .map(GroupMember::getGroup)
                 .map(GroupDTO::from)
                 .toList();
@@ -82,7 +82,7 @@ class GroupService {
         User invitee = userRepository.findById(data.userId())
                 .orElseThrow(() -> new ItemNotFoundException("user", data.userId()));
 
-        if (groupMemberRepository.findByGroup_IdAndUser_Username(groupId, invitee.getUsername()).isPresent()) {
+        if (groupMemberRepository.findByGroup_IdAndUser_Email(groupId, invitee.getEmail()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User is already a member of this group");
         }
 
@@ -271,8 +271,8 @@ class GroupService {
         return groupMemberRepository.findByGroup_Id(groupId).stream().map(MemberDTO::from).toList();
     }
 
-    private User requireUser(String username) {
-        return userRepository.findByUsername(username)
+    private User requireUser(String email) {
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
     }
 
@@ -281,9 +281,9 @@ class GroupService {
                 .orElseThrow(() -> new ItemNotFoundException("group", groupId));
     }
 
-    private GroupMember requireMembership(Long groupId, String username) throws ItemNotFoundException {
+    private GroupMember requireMembership(Long groupId, String email) throws ItemNotFoundException {
         requireGroup(groupId);
-        return groupMemberRepository.findByGroup_IdAndUser_Username(groupId, username)
+        return groupMemberRepository.findByGroup_IdAndUser_Email(groupId, email)
                 .orElseThrow(() -> new ItemNotFoundException("group member", groupId));
     }
 

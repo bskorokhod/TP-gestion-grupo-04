@@ -44,13 +44,13 @@ class GroupRestController {
             @Valid @NonNull @RequestBody GroupCreateDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws MethodArgumentNotValidException {
-        return groupService.createGroup(data, principal.username());
+        return groupService.createGroup(data, principal.email());
     }
 
     @GetMapping(produces = "application/json")
     @Operation(summary = "List the groups the caller actively belongs to")
     List<GroupDTO> listMine(@AuthenticationPrincipal JwtUserDetails principal) {
-        return groupService.listMyGroups(principal.username());
+        return groupService.listMyGroups(principal.email());
     }
 
     @GetMapping(value = "/{groupId}", produces = "application/json")
@@ -60,7 +60,7 @@ class GroupRestController {
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        return groupService.getGroup(groupId, principal.username());
+        return groupService.getGroup(groupId, principal.email());
     }
 
     @GetMapping(value = "/{groupId}/members", produces = "application/json")
@@ -70,7 +70,7 @@ class GroupRestController {
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        return groupService.listMembers(groupId, principal.username());
+        return groupService.listMembers(groupId, principal.email());
     }
 
     @PostMapping(value = "/{groupId}/members", produces = "application/json")
@@ -84,7 +84,7 @@ class GroupRestController {
             @Valid @NonNull @RequestBody MemberInviteDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.inviteMember(groupId, data, principal.username());
+        return groupService.inviteMember(groupId, data, principal.email());
     }
 
     @PostMapping("/{groupId}/members/me/accept")
@@ -95,7 +95,7 @@ class GroupRestController {
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        groupService.acceptInvitation(groupId, principal.username());
+        groupService.acceptInvitation(groupId, principal.email());
     }
 
     @PostMapping("/{groupId}/members/me/reject")
@@ -106,7 +106,7 @@ class GroupRestController {
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        groupService.rejectInvitation(groupId, principal.username());
+        groupService.rejectInvitation(groupId, principal.email());
     }
 
     @DeleteMapping("/{groupId}/members/me")
@@ -117,7 +117,7 @@ class GroupRestController {
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        groupService.leaveGroup(groupId, principal.username());
+        groupService.leaveGroup(groupId, principal.email());
     }
 
     @PatchMapping(value = "/{groupId}/members/me/nickname", produces = "application/json")
@@ -128,7 +128,7 @@ class GroupRestController {
             @Valid @NonNull @RequestBody MemberNicknameUpdateDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.changeNickname(groupId, principal.username(), data.nickname());
+        return groupService.changeNickname(groupId, principal.email(), data.nickname());
     }
 
     @DeleteMapping("/{groupId}/members/{memberId}")
@@ -140,7 +140,7 @@ class GroupRestController {
             @PathVariable Long memberId,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        groupService.removeMember(groupId, memberId, principal.username());
+        groupService.removeMember(groupId, memberId, principal.email());
     }
 
     @PatchMapping(value = "/{groupId}/members/{memberId}/role", produces = "application/json")
@@ -152,7 +152,7 @@ class GroupRestController {
             @Valid @NonNull @RequestBody MemberRoleUpdateDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.changeRole(groupId, memberId, data.role(), principal.username());
+        return groupService.changeRole(groupId, memberId, data.role(), principal.email());
     }
 
     @PutMapping(value = "/{groupId}/members/percentages", produces = "application/json")
@@ -164,7 +164,7 @@ class GroupRestController {
             @Valid @NonNull @RequestBody PercentagesUpdateDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.updatePercentages(groupId, data, principal.username());
+        return groupService.updatePercentages(groupId, data, principal.email());
     }
 
     @DeleteMapping(value = "/{groupId}/members/percentages", produces = "application/json")
@@ -176,6 +176,6 @@ class GroupRestController {
             @Valid @NonNull @RequestBody FinalizeExitsDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.finalizeExits(groupId, data, principal.username());
+        return groupService.finalizeExits(groupId, data, principal.email());
     }
 }

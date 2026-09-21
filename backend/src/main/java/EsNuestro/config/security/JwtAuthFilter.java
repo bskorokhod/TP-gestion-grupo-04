@@ -4,10 +4,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -15,7 +15,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.util.List;
 
 @Component
 class JwtAuthFilter extends OncePerRequestFilter {
@@ -56,11 +55,8 @@ class JwtAuthFilter extends OncePerRequestFilter {
         String token = authHeader.substring(headerPrefix.length());
 
         jwtService.extractVerifiedUserDetails(token).ifPresent(userDetails -> {
-            var authToken = new UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    List.of(new SimpleGrantedAuthority(userDetails.role().toStringWithPrefix()))
-            );
+            UsernamePasswordAuthenticationToken authToken = jwtService.getAuthentication(token);
+            if (authToken == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
             authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authToken);
         });
