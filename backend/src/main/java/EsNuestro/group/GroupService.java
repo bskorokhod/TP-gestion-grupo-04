@@ -1,6 +1,16 @@
 package EsNuestro.group;
 
 import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.expense.DebtRepository;
+import EsNuestro.group.dtos.GroupCreateDTO;
+import EsNuestro.group.dtos.GroupDTO;
+import EsNuestro.group.dtos.GroupPreviewDTO;
+import EsNuestro.group.dtos.JoinGroupDTO;
+import EsNuestro.member.*;
+import EsNuestro.member.dtos.FinalizeExitsDTO;
+import EsNuestro.member.dtos.JoinRequestDTO;
+import EsNuestro.member.dtos.MemberDTO;
+import EsNuestro.member.dtos.PercentagesUpdateDTO;
 import EsNuestro.user.User;
 import EsNuestro.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,102 +21,117 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-
 
 @Service
 @Transactional
-class GroupService {
+public class GroupService {
 
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final JoinCodeGenerator joinCodeGenerator;
+    private final DebtRepository debtRepository;
 
     @Autowired
     GroupService(
             GroupRepository groupRepository,
             GroupMemberRepository groupMemberRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            JoinCodeGenerator joinCodeGenerator,
+            DebtRepository debtRepository
     ) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.userRepository = userRepository;
+        this.joinCodeGenerator = joinCodeGenerator;
+        this.debtRepository = debtRepository;
     }
 
     GroupDTO createGroup(GroupCreateDTO data, String founderUsername) {
         User founder = requireUser(founderUsername);
 
-        Group group = new Group(data.name(), data.description());
+        Group group = new Group(data.name(), data.description(), generateUniqueJoinCode());
         groupRepository.save(group);
 
         String nickname = (data.founderNickname() == null || data.founderNickname().isBlank())
                 ? founder.getUsername()
-                : data.founderNickname();
+                : data.founderNickname().strip();
 
-        GroupMember founderMembership = new GroupMember(
-                group, founder, nickname, GroupRole.FOUNDER, MembershipStatus.ACTIVE, BigDecimal.valueOf(100)
+        GroupMember founderMembership = GroupMember.founder(
+                group, founder, nickname, pickColor(group.getId(), nickname, null)
         );
         groupMemberRepository.save(founderMembership);
 
-        return GroupDTO.from(group);
+        return toGroupDTO(founderMembership);
     }
 
-    List<GroupDTO> listMyGroups(String email) {
-        return groupMemberRepository.findByUser_EmailAndStatus(email, MembershipStatus.ACTIVE).stream()
-                .map(GroupMember::getGroup)
-                .map(GroupDTO::from)
+    List<GroupDTO> listMyGroups(String username) {
+        return groupMemberRepository.findByUser_UsernameAndStatus(username, MembershipStatus.ACTIVE).stream()
+                .map(this::toGroupDTO)
                 .toList();
     }
 
     GroupDTO getGroup(Long groupId, String callerUsername) throws ItemNotFoundException {
-        requireViewer(groupId, callerUsername);
-        return GroupDTO.from(requireGroup(groupId));
+        return toGroupDTO(requireViewer(groupId, callerUsername));
     }
 
-    List<MemberDTO> listMembers(Long groupId, String callerUsername) throws ItemNotFoundException {
-        requireViewer(groupId, callerUsername);
+    GroupPreviewDTO previewGroup(String joinCode) throws ItemNotFoundException {
+        String normalizedCode = normalizeJoinCode(joinCode);
+        return groupRepository.findByJoinCode(normalizedCode)
+                .map(GroupPreviewDTO::from)
+                .orElseThrow(() -> new ItemNotFoundException("group", normalizedCode));
+    }
+
+    JoinRequestDTO requestToJoin(JoinGroupDTO data, String username) throws ItemNotFoundException {
+        User user = requireUser(username);
+        String normalizedCode = normalizeJoinCode(data.joinCode());
+        Group group = groupRepository.findWithLockByJoinCode(normalizedCode)
+                .orElseThrow(() -> new ItemNotFoundException("group", normalizedCode));
+
+        String nickname = data.nickname().strip();
+        GroupMember membership = groupMemberRepository.findByGroup_IdAndUser_Username(group.getId(), username)
+                .map(existing -> requestAgain(existing, nickname))
+                .orElseGet(() -> createJoinRequest(group, user, nickname));
+
+        return JoinRequestDTO.from(membership);
+    }
+
+    List<JoinRequestDTO> listMyJoinRequests(String username) {
+        return groupMemberRepository
+                .findByUser_UsernameAndStatusIn(username, EnumSet.of(MembershipStatus.PENDING, MembershipStatus.REJECTED))
+                .stream()
+                .map(JoinRequestDTO::from)
+                .toList();
+    }
+
+    List<MemberDTO> listMembers(Long groupId, String callerUsername, MembershipStatus status) throws ItemNotFoundException {
+        GroupMember caller = requireViewer(groupId, callerUsername);
+        boolean canSeeAll = caller.getRole().isAtLeast(GroupRole.ADMIN);
+
         return groupMemberRepository.findByGroup_Id(groupId).stream()
+                .filter(member -> status == null || member.getStatus() == status)
+                .filter(member -> canSeeAll || member.isViewer())
                 .map(MemberDTO::from)
                 .toList();
     }
 
-    MemberDTO inviteMember(Long groupId, MemberInviteDTO data, String inviterUsername) throws ItemNotFoundException {
-        Group group = requireGroup(groupId);
-        GroupMember inviter = requireActiveMember(groupId, inviterUsername);
-        requireAtLeast(inviter, GroupRole.ADMIN);
-
-        User invitee = userRepository.findById(data.userId())
-                .orElseThrow(() -> new ItemNotFoundException("user", data.userId()));
-
-        if (groupMemberRepository.findByGroup_IdAndUser_Email(groupId, invitee.getEmail()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "User is already a member of this group");
-        }
-
-        GroupMember membership = new GroupMember(
-                group, invitee, data.nickname(), GroupRole.MEMBER, MembershipStatus.INVITED, null
-        );
-
-        groupMemberRepository.save(membership);
-        return MemberDTO.from(membership);
+    MemberDTO approveJoinRequest(Long groupId, Long memberId, String actingUsername) throws ItemNotFoundException {
+        GroupMember target = requirePendingRequestManagedBy(groupId, memberId, actingUsername);
+        target.approve();
+        return MemberDTO.from(target);
     }
 
-    void acceptInvitation(Long groupId, String username) throws ItemNotFoundException {
-        GroupMember membership = requireMembership(groupId, username);
-        requireStatus(membership, MembershipStatus.INVITED);
-        membership.accept();
-    }
-
-    void rejectInvitation(Long groupId, String username) throws ItemNotFoundException {
-        GroupMember membership = requireMembership(groupId, username);
-        requireStatus(membership, MembershipStatus.INVITED);
-        membership.reject();
+    MemberDTO rejectJoinRequest(Long groupId, Long memberId, String actingUsername) throws ItemNotFoundException {
+        GroupMember target = requirePendingRequestManagedBy(groupId, memberId, actingUsername);
+        target.reject();
+        return MemberDTO.from(target);
     }
 
     void leaveGroup(Long groupId, String username) throws ItemNotFoundException {
+        requireGroupForUpdate(groupId);
         GroupMember membership = requireActiveMember(groupId, username);
         if (membership.isFounder()) {
             throw new ResponseStatusException(
@@ -115,11 +140,12 @@ class GroupService {
             );
         }
 
-        // TODO: cuando existan deudas/gastos, bloquear acá si el miembro tiene deuda pendiente
+        requireNoUnsettledDebts(membership);
         membership.deactivateForLeaving();
     }
 
     void removeMember(Long groupId, Long memberId, String actingUsername) throws ItemNotFoundException {
+        requireGroupForUpdate(groupId);
         GroupMember acting = requireActiveMember(groupId, actingUsername);
         requireAtLeast(acting, GroupRole.ADMIN);
 
@@ -134,7 +160,7 @@ class GroupService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Member is not active");
         }
 
-        // TODO: cuando existan deudas/gastos, bloquear acá si el miembro tiene deuda pendiente.
+        requireNoUnsettledDebts(target);
         target.deactivateForRemoval();
     }
 
@@ -159,120 +185,147 @@ class GroupService {
     }
 
     MemberDTO changeNickname(Long groupId, String username, String newNickname) throws ItemNotFoundException {
+        requireGroupForUpdate(groupId);
         GroupMember membership = requireActiveMember(groupId, username);
 
-        groupMemberRepository.findByGroup_IdAndNicknameIgnoreCase(groupId, newNickname)
-                .filter(existing -> !existing.getId().equals(membership.getId()))
-                .ifPresent(existing -> {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Nickname is already taken in this group");
-                });
-
-        membership.changeNickname(newNickname);
+        String nickname = newNickname.strip();
+        membership.changeIdentity(nickname, pickColor(groupId, nickname, membership));
         return MemberDTO.from(membership);
     }
 
     List<MemberDTO> updatePercentages(Long groupId, PercentagesUpdateDTO data, String actingUsername) throws ItemNotFoundException {
+        requireGroupForUpdate(groupId);
         GroupMember acting = requireActiveMember(groupId, actingUsername);
         requireAtLeast(acting, GroupRole.ADMIN);
 
-        List<GroupMember> groupMembers = groupMemberRepository.findByGroup_Id(groupId);
-        Map<Long, GroupMember> byId = groupMembers.stream()
-                .collect(Collectors.toMap(GroupMember::getId, m -> m));
+        List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
+        Map<Long, GroupMember> byId = indexById(members);
+        Map<Long, BigDecimal> changes = PercentageDistribution.toMap(data.percentages());
 
-        List<PercentageEntryDTO> entries = data.percentages();
-        Set<Long> providedIds = entries.stream().map(PercentageEntryDTO::memberId).collect(Collectors.toSet());
-        if (providedIds.size() != entries.size()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate member id in percentages payload");
-        }
+        requireChangesTargetActiveMembers(byId, changes);
+        PercentageDistribution.requireTotalOfOneHundred(
+                members.stream().filter(GroupMember::holdsOwnership).toList(), changes
+        );
 
-        BigDecimal sum = entries.stream()
-                .map(PercentageEntryDTO::percentage)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (sum.compareTo(BigDecimal.valueOf(100)) != 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Percentages must add up to exactly 100, got " + sum);
-        }
-
-        Set<Long> currentActiveIds = groupMembers.stream()
-                .filter(GroupMember::isActive)
-                .map(GroupMember::getId)
-                .collect(Collectors.toSet());
-        if (!providedIds.containsAll(currentActiveIds)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "All currently active members must be included");
-        }
-
-        for (PercentageEntryDTO entry : entries) {
-            GroupMember member = byId.get(entry.memberId());
-            if (member == null) {
-                throw new ItemNotFoundException("group member", entry.memberId());
-            }
-            if (member.getStatus() != MembershipStatus.ACTIVE && member.getStatus() != MembershipStatus.PENDING) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT, "Member " + entry.memberId() + " is not active or pending"
-                );
-            }
-            if (member.getStatus() == MembershipStatus.PENDING) {
-                member.activate(entry.percentage());
-            } else {
-                member.updatePercentage(entry.percentage());
-            }
-        }
-
-        return groupMemberRepository.findByGroup_Id(groupId).stream().map(MemberDTO::from).toList();
+        changes.forEach((memberId, percentage) -> byId.get(memberId).updatePercentage(percentage));
+        return members.stream().map(MemberDTO::from).toList();
     }
 
     List<MemberDTO> finalizeExits(Long groupId, FinalizeExitsDTO data, String actingUsername) throws ItemNotFoundException {
+        requireGroupForUpdate(groupId);
         GroupMember acting = requireActiveMember(groupId, actingUsername);
         requireAtLeast(acting, GroupRole.ADMIN);
 
-        List<GroupMember> groupMembers = groupMemberRepository.findByGroup_Id(groupId);
-        Map<Long, GroupMember> byId = groupMembers.stream()
-                .collect(Collectors.toMap(GroupMember::getId, m -> m));
+        List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
+        Map<Long, GroupMember> byId = indexById(members);
 
         List<GroupMember> toFinalize = new ArrayList<>();
-        for (Long memberId : data.memberIds()) {
+        for (Long memberId : new LinkedHashSet<>(data.memberIds())) {
             GroupMember member = byId.get(memberId);
-            if (member == null || !member.getGroup().getId().equals(groupId)) {
+            if (member == null) {
                 throw new ItemNotFoundException("group member", memberId);
             }
-            if (member.getStatus() != MembershipStatus.DEACTIVATED) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT, "Member " + memberId + " is not deactivated and cannot be finalized"
-                );
-            }
+            requireStatus(member, MembershipStatus.DEACTIVATED);
             toFinalize.add(member);
         }
 
-        List<PercentageEntryDTO> entries = data.percentages();
-        Set<Long> providedIds = entries.stream().map(PercentageEntryDTO::memberId).collect(Collectors.toSet());
-        if (providedIds.size() != entries.size()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate member id in percentages payload");
-        }
+        Map<Long, BigDecimal> changes = PercentageDistribution.toMap(data.percentages());
+        requireChangesTargetActiveMembers(byId, changes);
 
-        BigDecimal sum = entries.stream()
-                .map(PercentageEntryDTO::percentage)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (sum.compareTo(BigDecimal.valueOf(100)) != 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Percentages must add up to exactly 100, got " + sum);
-        }
+        Set<Long> finalizingIds = toFinalize.stream().map(GroupMember::getId).collect(Collectors.toSet());
+        List<GroupMember> remainingHolders = members.stream()
+                .filter(GroupMember::holdsOwnership)
+                .filter(member -> !finalizingIds.contains(member.getId()))
+                .toList();
+        PercentageDistribution.requireTotalOfOneHundred(remainingHolders, changes);
 
-        Set<Long> remainingActiveIds = groupMembers.stream()
-                .filter(GroupMember::isActive)
-                .map(GroupMember::getId)
-                .collect(Collectors.toSet());
-        if (!providedIds.equals(remainingActiveIds)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Percentages must cover exactly the members that remain active");
-        }
-
-        for (PercentageEntryDTO entry : entries) {
-            byId.get(entry.memberId()).updatePercentage(entry.percentage());
-        }
+        changes.forEach((memberId, percentage) -> byId.get(memberId).updatePercentage(percentage));
         toFinalize.forEach(GroupMember::finalizeExit);
 
-        return groupMemberRepository.findByGroup_Id(groupId).stream().map(MemberDTO::from).toList();
+        return members.stream().map(MemberDTO::from).toList();
     }
 
-    private User requireUser(String email) {
-        return userRepository.findByEmail(email)
+    private GroupMember createJoinRequest(Group group, User user, String nickname) {
+        GroupMember request = GroupMember.joinRequest(group, user, nickname, pickColor(group.getId(), nickname, null));
+        return groupMemberRepository.save(request);
+    }
+
+    private GroupMember requestAgain(GroupMember member, String nickname) {
+        requireCanRequestAgain(member);
+        member.requestAgain(nickname, pickColor(member.getGroup().getId(), nickname, member));
+        return member;
+    }
+
+    private void requireCanRequestAgain(GroupMember member) {
+        if (member.canRequestAgain()) {
+            return;
+        }
+        String reason = member.getStatus() == MembershipStatus.REMOVED
+                ? "You were removed from this group and cannot request to join again"
+                : "You already belong to this group or have a pending request";
+        throw new ResponseStatusException(HttpStatus.CONFLICT, reason);
+    }
+
+    private GroupMember requirePendingRequestManagedBy(Long groupId, Long memberId, String actingUsername) throws ItemNotFoundException {
+        GroupMember acting = requireActiveMember(groupId, actingUsername);
+        requireAtLeast(acting, GroupRole.ADMIN);
+
+        GroupMember target = requireMemberById(groupId, memberId);
+        requireStatus(target, MembershipStatus.PENDING);
+        return target;
+    }
+
+    private void requireChangesTargetActiveMembers(Map<Long, GroupMember> byId, Map<Long, BigDecimal> changes) throws ItemNotFoundException {
+        for (Long memberId : changes.keySet()) {
+            GroupMember member = byId.get(memberId);
+            if (member == null) {
+                throw new ItemNotFoundException("group member", memberId);
+            }
+            requireStatus(member, MembershipStatus.ACTIVE);
+        }
+    }
+
+    private MemberColor pickColor(Long groupId, String nickname, GroupMember current) {
+        Set<MemberColor> takenColors = groupMemberRepository
+                .findByGroup_IdAndNicknameIgnoreCaseAndStatusIn(groupId, nickname, MembershipStatus.IDENTITY_OCCUPYING)
+                .stream()
+                .filter(member -> current == null || !member.getId().equals(current.getId()))
+                .map(GroupMember::getColor)
+                .collect(Collectors.toSet());
+
+        if (current != null && !takenColors.contains(current.getColor())) {
+            return current.getColor();
+        }
+        return Arrays.stream(MemberColor.values())
+                .filter(color -> !takenColors.contains(color))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "Nickname is already used by too many members in this group"
+                ));
+    }
+
+    private String generateUniqueJoinCode() {
+        String code;
+        do {
+            code = joinCodeGenerator.generate();
+        } while (groupRepository.existsByJoinCode(code));
+        return code;
+    }
+
+    private String normalizeJoinCode(String joinCode) {
+        return joinCode.strip().toUpperCase(Locale.ROOT);
+    }
+
+    private GroupDTO toGroupDTO(GroupMember member) {
+        return GroupDTO.from(member.getGroup(), member.getRole().isAtLeast(GroupRole.ADMIN));
+    }
+
+    private Map<Long, GroupMember> indexById(List<GroupMember> members) {
+        return members.stream().collect(Collectors.toMap(GroupMember::getId, Function.identity()));
+    }
+
+    private User requireUser(String username) {
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
     }
 
@@ -281,23 +334,29 @@ class GroupService {
                 .orElseThrow(() -> new ItemNotFoundException("group", groupId));
     }
 
-    private GroupMember requireMembership(Long groupId, String email) throws ItemNotFoundException {
+    public Group requireGroupForUpdate(Long groupId) throws ItemNotFoundException {
+        return groupRepository.findWithLockById(groupId)
+                .orElseThrow(() -> new ItemNotFoundException("group", groupId));
+    }
+
+    private GroupMember requireMembership(Long groupId, String username) throws ItemNotFoundException {
         requireGroup(groupId);
-        return groupMemberRepository.findByGroup_IdAndUser_Email(groupId, email)
+        return groupMemberRepository.findByGroup_IdAndUser_Username(groupId, username)
                 .orElseThrow(() -> new ItemNotFoundException("group member", groupId));
     }
 
-    private GroupMember requireActiveMember(Long groupId, String username) throws ItemNotFoundException {
+    public GroupMember requireActiveMember(Long groupId, String username) throws ItemNotFoundException {
         GroupMember membership = requireMembership(groupId, username);
         requireStatus(membership, MembershipStatus.ACTIVE);
         return membership;
     }
 
-    private void requireViewer(Long groupId, String username) throws ItemNotFoundException {
+    public GroupMember requireViewer(Long groupId, String username) throws ItemNotFoundException {
         GroupMember membership = requireMembership(groupId, username);
         if (!membership.isViewer()) {
             throw new AccessDeniedException("You don't have access to this group");
         }
+        return membership;
     }
 
     private GroupMember requireMemberById(Long groupId, Long memberId) throws ItemNotFoundException {
@@ -318,9 +377,17 @@ class GroupService {
         }
     }
 
-    private void requireAtLeast(GroupMember member, GroupRole minRole) {
+    public void requireAtLeast(GroupMember member, GroupRole minRole) {
         if (!member.getRole().isAtLeast(minRole)) {
             throw new AccessDeniedException("You don't have permission to perform this action");
+        }
+    }
+
+    private void requireNoUnsettledDebts(GroupMember member) {
+        if (debtRepository.existsUnsettledByDebtorId(member.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The member has unsettled debts and cannot leave the group yet"
+            );
         }
     }
 }

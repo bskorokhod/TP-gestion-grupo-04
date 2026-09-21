@@ -1,12 +1,12 @@
 import GroupAction from "@/components/GroupAction.tsx";
-import GroupCard from "@/components/GroupCard.tsx";
+import GroupCard, { type GroupCardProps } from "@/components/GroupCard.tsx";
 import {Link} from "wouter";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {useState} from "react";
 import {createGroup, joinGroup} from "@/lib/api/groups.ts";
 import {CreateGroupModal, JoinGroupModal} from "@/components/modals";
 
-const groups = [
+const groups: GroupCardProps[] = [
     {
         name: "Casa Madryn",
         members: 5,

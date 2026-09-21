@@ -1,5 +1,6 @@
 package EsNuestro.group;
 
+import EsNuestro.member.GroupMember;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -34,13 +35,19 @@ public class Group {
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GroupMember> members = new ArrayList<>();
 
-    public Group(String name, String description) {
+    public static final String JOIN_CODE_REGEX = "(?i)[A-Z]{3}-[0-9]{4}-[A-Z]{3}";
+
+    @Column(nullable = false, updatable = false, unique = true, length = 12)
+    private String joinCode;
+
+    public Group(String name, String description, String joinCode) {
         this.name = name;
         this.description = description;
+        this.joinCode = joinCode;
         this.createdAt = Instant.now();
     }
 
-    void addMember(GroupMember member) {
+    public void addMember(GroupMember member) {
         members.add(member);
     }
 }
