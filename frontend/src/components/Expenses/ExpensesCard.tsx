@@ -1,53 +1,81 @@
 import type { ReactNode } from "react";
+
 import Button from "@/components/Button.tsx";
-import type { MembeColor } from "@/models/Group.ts";
+import { Avatar } from "@/components/ui/Avatar";
+import type { MemberColor } from "@/models/Group";
 
-const COLOR_CLASSES: Record<string, string> = {
-    RED:        "bg-custom-red/50",
-    BLUE:       "bg-custom-blue/50",
-    GREEN:      "bg-custom-green/50",
-    YELLOW:     "bg-custom-yellow/50",
-    ORANGE:     "bg-custom-orange/50",
-    PURPLE:     "bg-custom-purple/50",
-    PINK:       "bg-custom-pink/50",
-    LIGHT_BLUE: "bg-custom-light-blue/50",
-};
+// ─── Tipos de datos públicos ────────────────────────────────────────────────
 
-const FALLBACK_AVATAR_CLASS = "bg-group-muted/50";
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function colorToClass(color?: MembeColor | string): string {
-    if (!color) return FALLBACK_AVATAR_CLASS;
-    if (color.startsWith("bg-")) return color;
-    return COLOR_CLASSES[color] ?? FALLBACK_AVATAR_CLASS;
+export interface MemberInfo {
+    readonly nickname: string;
+    readonly color: MemberColor;
 }
 
-// --- AVATAR ---
-
-export interface AvatarProps {
-    color?: MembeColor;
-    name: string;
+export interface PersonRowProps {
+    readonly name: string;
+    readonly color?: MemberColor;
+    readonly amount?: string;
+    readonly status?: PaymentStatus;
+    readonly action?: "claim" | "none";
+    readonly onAction?: () => void;
 }
 
-export function Avatar({ color, name }: AvatarProps) {
-    return (
-        <span
-            className={`grid size-7 shrink-0 place-items-center rounded-full text-sm font-semibold text-brand-foreground ${colorToClass(color)}`}
-            aria-hidden
-        >
-      {name.at(0)?.toUpperCase() ?? "?"}
-    </span>
-    );
+export interface TransactionRowProps {
+    readonly name: string;
+    readonly amount: string;
+    readonly variant?: TransactionVariant;
+    readonly action?: "payable" | "readonly";
+    readonly onAction?: () => void;
 }
 
-// --- CARD BASE ---
+export interface PersonBalanceCardProps {
+    readonly name: string;
+    readonly color: MemberColor;
+    readonly balance: string;
+    readonly balanceStatus: BalanceStatus;
+    readonly items: TransactionRowProps[];
+}
+
+export interface DebtCardProps {
+    readonly title: string;
+    readonly amount: string;
+    readonly description: string;
+    readonly children: ReactNode;
+}
+
+export interface OwedCardProps {
+    readonly title: string;
+    readonly amount: string;
+    readonly description: string;
+    readonly assigned: MemberInfo[];
+    readonly owner: MemberInfo;
+    readonly tag?: string;
+    readonly action?: { readonly label: string; readonly onClick: () => void };
+}
+
+export interface AmountTitleProps {
+    readonly title: string;
+    readonly amount: string;
+    readonly tag?: string;
+}
+
+export interface PeopleMetaProps {
+    readonly assigned: MemberInfo[];
+    readonly owner: MemberInfo;
+}
+
+export interface EmptyStateProps {
+    readonly message: string;
+}
+
+// ─── Card base ──────────────────────────────────────────────────────────────
 
 export interface ExpenseCardProps {
-    children: ReactNode;
-    className?: string;
+    readonly children: ReactNode;
+    readonly className?: string;
 }
 
-export function ExpenseCard({ children, className = "" }: ExpenseCardProps) {
+export function ExpenseCard({ children, className = "" }: ExpenseCardProps): ReactNode {
     return (
         <article className={`rounded-xl border border-brand/50 bg-panel p-5 ${className}`}>
             {children}
@@ -55,46 +83,36 @@ export function ExpenseCard({ children, className = "" }: ExpenseCardProps) {
     );
 }
 
-export interface AmountTitleProps {
-    title: string;
-    amount: string;
-    tag?: string;
-}
-
-export function AmountTitle({ title, amount, tag }: AmountTitleProps) {
+export function AmountTitle({ title, amount, tag }: AmountTitleProps): ReactNode {
     return (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
             <h3>{title}</h3>
             <span className="text-brand">{amount}</span>
             {tag && (
-                <span className="rounded-full bg-group-paper px-3 py-1 text-sm text-brand">{tag}</span>
+                <span className="rounded-full bg-group-paper px-3 py-1 text-sm text-brand">
+                    {tag}
+                </span>
             )}
         </div>
     );
 }
 
-// --- META DE PERSONAS ---
+// ─── Meta de personas ───────────────────────────────────────────────────────
 
-export interface MemberInfo {
-    nickname: string;
-    color: MembeColor;
-}
-
-export interface PeopleMetaProps {
-    assigned: MemberInfo[];
-    owner: MemberInfo;
-}
-
-export function PeopleMeta({ assigned, owner }: PeopleMetaProps) {
+export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
     return (
         <div className="flex flex-wrap items-center gap-4 text-sm text-group-muted">
             <div className="flex items-center gap-1.5">
                 <span>Asignado a:</span>
                 <span className="flex -space-x-1">
-          {assigned.map((member) => (
-              <Avatar key={member.nickname} color={member.color} name={member.nickname} />
-          ))}
-        </span>
+                    {assigned.map((member) => (
+                        <Avatar
+                            key={member.nickname}
+                            color={member.color}
+                            name={member.nickname}
+                        />
+                    ))}
+                </span>
             </div>
             <div className="flex items-center gap-1.5">
                 <span>A cargo de:</span>
@@ -104,7 +122,7 @@ export function PeopleMeta({ assigned, owner }: PeopleMetaProps) {
     );
 }
 
-// --- PERSON ROW (deudores de un gasto que me deben) ---
+// ─── PersonRow ──────────────────────────────────────────────────────────────
 
 const PAYMENT_STATUS_CONFIG = {
     paid: { badgeClasses: "bg-group-green/70 text-brand-foreground", label: "Pagó" },
@@ -113,14 +131,7 @@ const PAYMENT_STATUS_CONFIG = {
     unpaid: { badgeClasses: "bg-field/70 text-group-muted", label: "No pagó" },
 } as const;
 
-export interface PersonRowProps {
-    name: string;
-    color?: MembeColor;
-    amount?: string;
-    status?: keyof typeof PAYMENT_STATUS_CONFIG;
-    action?: "claim" | "none";
-    onAction?: () => void;
-}
+export type PaymentStatus = keyof typeof PAYMENT_STATUS_CONFIG;
 
 export function PersonRow({
                               name,
@@ -129,7 +140,7 @@ export function PersonRow({
                               status = "unpaid",
                               action = "none",
                               onAction,
-                          }: PersonRowProps) {
+                          }: PersonRowProps): ReactNode {
     const config = PAYMENT_STATUS_CONFIG[status];
 
     return (
@@ -139,10 +150,12 @@ export function PersonRow({
                 <span className="truncate text-sm font-medium">{name}</span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-                {amount && <span className="text-sm font-semibold text-brand">{amount}</span>}
+                {amount && (
+                    <span className="text-sm font-semibold text-brand">{amount}</span>
+                )}
                 <span className={`rounded-full px-3 py-1 text-sm font-medium ${config.badgeClasses}`}>
-          {config.label}
-        </span>
+                    {config.label}
+                </span>
                 {action === "claim" && (
                     <Button variant="danger" className="hidden sm:block" onClick={onAction}>
                         Reclamar pago
@@ -153,20 +166,14 @@ export function PersonRow({
     );
 }
 
-// --- TRANSACTION ROW (items dentro de PersonBalanceCard) ---
+// ─── TransactionRow ─────────────────────────────────────────────────────────
 
 const TRANSACTION_VARIANTS = {
     debt: "text-group-danger",
     credit: "text-brand",
 } as const;
 
-export interface TransactionRowProps {
-    name: string;
-    amount: string;
-    variant?: keyof typeof TRANSACTION_VARIANTS;
-    action?: "payable" | "readonly";
-    onAction?: () => void;
-}
+export type TransactionVariant = keyof typeof TRANSACTION_VARIANTS;
 
 export function TransactionRow({
                                    name,
@@ -174,7 +181,7 @@ export function TransactionRow({
                                    variant = "credit",
                                    action = "readonly",
                                    onAction,
-                               }: TransactionRowProps) {
+                               }: TransactionRowProps): ReactNode {
     const amountColor = TRANSACTION_VARIANTS[variant];
 
     return (
@@ -194,7 +201,7 @@ export function TransactionRow({
     );
 }
 
-// --- PERSON BALANCE CARD ---
+// ─── PersonBalanceCard ──────────────────────────────────────────────────────
 
 const BALANCE_COLORS = {
     positive: "text-group-green",
@@ -202,13 +209,7 @@ const BALANCE_COLORS = {
     neutral: "text-group-muted",
 } as const;
 
-export interface PersonBalanceCardProps {
-    name: string;
-    color: MembeColor;
-    balance: string;
-    balanceStatus: keyof typeof BALANCE_COLORS;
-    items: TransactionRowProps[];
-}
+export type BalanceStatus = keyof typeof BALANCE_COLORS;
 
 export function PersonBalanceCard({
                                       name,
@@ -216,7 +217,7 @@ export function PersonBalanceCard({
                                       balance,
                                       balanceStatus,
                                       items,
-                                  }: PersonBalanceCardProps) {
+                                  }: PersonBalanceCardProps): ReactNode {
     const balanceColor = BALANCE_COLORS[balanceStatus];
 
     return (
@@ -240,7 +241,7 @@ export function PersonBalanceCard({
     );
 }
 
-// --- PROPOSAL CARD ---
+// ─── ProposalCard ───────────────────────────────────────────────────────────
 
 const PROPOSAL_VARIANTS = {
     accepted: {
@@ -256,12 +257,12 @@ const PROPOSAL_VARIANTS = {
 } as const;
 
 export interface ProposalCardProps {
-    title: string;
-    amount: string;
-    description: string;
-    assigned: MemberInfo[];
-    owner: MemberInfo;
-    status?: keyof typeof PROPOSAL_VARIANTS;
+    readonly title: string;
+    readonly amount: string;
+    readonly description: string;
+    readonly assigned: MemberInfo[];
+    readonly owner: MemberInfo;
+    readonly status?: keyof typeof PROPOSAL_VARIANTS;
 }
 
 export function ProposalCard({
@@ -271,7 +272,7 @@ export function ProposalCard({
                                  assigned,
                                  owner,
                                  status = "pending",
-                             }: ProposalCardProps) {
+                             }: ProposalCardProps): ReactNode {
     const config = PROPOSAL_VARIANTS[status];
 
     return (
@@ -294,16 +295,9 @@ export function ProposalCard({
     );
 }
 
-// --- DEBT CARD (gastos que me deben) ---
+// ─── DebtCard / OwedCard ────────────────────────────────────────────────────
 
-export interface DebtCardProps {
-    title: string;
-    amount: string;
-    description: string;
-    children: ReactNode;
-}
-
-export function DebtCard({ title, amount, description, children }: DebtCardProps) {
+export function DebtCard({ title, amount, description, children }: DebtCardProps): ReactNode {
     return (
         <ExpenseCard>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -315,18 +309,6 @@ export function DebtCard({ title, amount, description, children }: DebtCardProps
     );
 }
 
-// --- OWED CARD (gastos que debo) ---
-
-export interface OwedCardProps {
-    title: string;
-    amount: string;
-    description: string;
-    assigned: MemberInfo[];
-    owner: MemberInfo;
-    tag?: string;
-    action?: { label: string; onClick: () => void };
-}
-
 export function OwedCard({
                              title,
                              amount,
@@ -335,7 +317,7 @@ export function OwedCard({
                              owner,
                              tag,
                              action,
-                         }: OwedCardProps) {
+                         }: OwedCardProps): ReactNode {
     return (
         <ExpenseCard className="flex min-h-48 flex-col justify-between">
             <div className="space-y-2">
@@ -354,13 +336,9 @@ export function OwedCard({
     );
 }
 
-// --- EMPTY STATE ---
+// ─── EmptyState ─────────────────────────────────────────────────────────────
 
-export interface EmptyStateProps {
-    message: string;
-}
-
-export function EmptyState({ message }: EmptyStateProps) {
+export function EmptyState({ message }: EmptyStateProps): ReactNode {
     return (
         <div className="rounded-xl bg-panel px-6 py-8 text-center text-sm font-medium text-warm-muted">
             {message}

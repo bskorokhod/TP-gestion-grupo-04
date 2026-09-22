@@ -1,13 +1,29 @@
 import { z } from "zod";
+
 import { MemberColorSchema } from "./Group.ts";
 
-export const ExpenseStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+export const ExpenseStatusSchema = z.enum([
+  "PENDING_APPROVAL",
+  "APPROVED",
+  "REJECTED",
+]);
 export type ExpenseStatus = z.infer<typeof ExpenseStatusSchema>;
 
 export const SplitMethodSchema = z.enum(["EQUAL", "PROPORTIONAL", "CUSTOM"]);
 export type SplitMethod = z.infer<typeof SplitMethodSchema>;
 
 export const ReviewOutcomeSchema = z.enum(["APPROVED", "REJECTED"]);
+export type ReviewOutcome = z.infer<typeof ReviewOutcomeSchema>;
+
+export const DebtStatusSchema = z.enum(["ACTIVE", "SUSPENDED"]);
+export type DebtStatus = z.infer<typeof DebtStatusSchema>;
+
+export const BalanceItemTypeSchema = z.enum(["CREDIT", "DEBT"]);
+export type BalanceItemType = z.infer<typeof BalanceItemTypeSchema>;
+
+// ─── Member ─────────────────────────────────────────────────────────────────
 
 export const ExpenseMemberSchema = z.object({
   id: z.number(),
@@ -16,28 +32,33 @@ export const ExpenseMemberSchema = z.object({
 });
 export type ExpenseMember = z.infer<typeof ExpenseMemberSchema>;
 
+// ─── Details / Participants / Debts ─────────────────────────────────────────
+
 export const ExpenseParticipantSchema = z.object({
   member: ExpenseMemberSchema,
   customPercentage: z.number().nullable().optional(),
 });
+export type ExpenseParticipant = z.infer<typeof ExpenseParticipantSchema>;
 
 export const ExpenseDetailsSchema = z.object({
+  // `title` es nuevo: si el backend todavía no lo devuelve, queda undefined
+  // y los consumidores usan `description` como fallback.
   title: z.string(),
-  description: z.string().nullable().optional(),
+  description: z.string(),
   totalAmount: z.number(),
   splitMethod: SplitMethodSchema,
   creditor: ExpenseMemberSchema,
   receiptUrl: z.string().nullable().optional(),
   participants: z.array(ExpenseParticipantSchema),
 });
+export type ExpenseDetails = z.infer<typeof ExpenseDetailsSchema>;
 
 export const ResolutionSchema = z.object({
   resolvedBy: ExpenseMemberSchema,
   outcome: ReviewOutcomeSchema,
   resolvedAt: z.string(),
 });
-
-export const DebtStatusSchema = z.enum(["ACTIVE", "SUSPENDED"]);
+export type Resolution = z.infer<typeof ResolutionSchema>;
 
 export const DebtSchema = z.object({
   id: z.number(),
@@ -48,6 +69,8 @@ export const DebtSchema = z.object({
   status: DebtStatusSchema,
 });
 export type Debt = z.infer<typeof DebtSchema>;
+
+// ─── Expense ────────────────────────────────────────────────────────────────
 
 export const ExpenseSchema = z.object({
   id: z.number(),
@@ -62,19 +85,27 @@ export const ExpenseSchema = z.object({
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
+// ─── Payload de creación/edición ────────────────────────────────────────────
+
 export const ExpenseDataSchema = z.object({
-  title: z.string().min(1).max(150),
-  description: z.string().max(200).nullable().optional(),
+  title: z.string().trim().min(1).max(200),         // ← nuevo, obligatorio
+  description: z.string().trim().min(1).max(200),   // ← sigue obligatorio
   totalAmount: z.number().min(0.01),
   creditorId: z.number(),
   splitMethod: SplitMethodSchema,
-  participants: z.array(z.object({
-    memberId: z.number(),
-    percentage: z.number().min(0).max(100).nullable().optional()
-  })),
-  receiptUrl: z.string().max(2048)
+  participants: z
+      .array(
+          z.object({
+            memberId: z.number(),
+            percentage: z.number().min(0).max(100).nullable().optional(),
+          }),
+      )
+      .nonempty(),
+  receiptUrl: z.string().url().max(2048),
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;
+
+// ─── Derivados ──────────────────────────────────────────────────────────────
 
 export const GroupSummarySchema = z.object({
   me: ExpenseMemberSchema,
@@ -83,9 +114,6 @@ export const GroupSummarySchema = z.object({
   pendingExpenses: z.number(),
 });
 export type GroupSummary = z.infer<typeof GroupSummarySchema>;
-
-export const BalanceItemTypeSchema = z.enum(["CREDIT", "DEBT"]);
-export type BalanceItemType = z.infer<typeof BalanceItemTypeSchema>;
 
 export const BalanceItemSchema = z.object({
   expenseId: z.number(),

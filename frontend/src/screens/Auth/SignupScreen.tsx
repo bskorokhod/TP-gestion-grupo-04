@@ -6,7 +6,7 @@ import {Link} from "wouter";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {useState} from "react";
 import {UserCreateSchema} from "@/models/User.ts";
-import {supabase, BUCKET_NAME} from "@/lib/supabase.ts";
+import {supabase, AVATAR_BUCKET} from "@/lib/supabase.ts";
 import {useSignup} from "@/services/AuthServices.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import FileField from "@/components/Forms/FileField.tsx";
@@ -36,11 +36,11 @@ export const SignupScreen = () => {
         const fileName = `${Date.now()}_${file.name}`
 
         const { error: uploadError } = await supabase.storage
-            .from(BUCKET_NAME)
+            .from(AVATAR_BUCKET)
             .upload(fileName, file)
         if (uploadError) throw uploadError
 
-        const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName)
+        const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(fileName)
         return data.publicUrl
     }
 

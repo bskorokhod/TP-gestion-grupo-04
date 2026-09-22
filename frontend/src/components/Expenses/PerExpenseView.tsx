@@ -18,7 +18,7 @@ const currency = new Intl.NumberFormat("es-AR", {
 });
 
 interface PerExpenseViewProps {
-    groupId: number;
+    groupId?: number;
 }
 
 interface PayTarget {
@@ -27,16 +27,10 @@ interface PayTarget {
     amount: number;
 }
 
-interface PerExpenseViewProps {
-    groupId?: number;
-}
 export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
     const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
 
-export const PerExpenseView = ({groupId}: PerExpenseViewProps) => {
-    const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] =
-      useState(false);
     const { data: summary } = useGetGroupSummary(groupId);
     const { data: owedToMe = [], isLoading: isLoadingOwed } = useGetExpensesOwedToMe(groupId);
     const { data: iOwe = [], isLoading: isLoadingIOwe } = useGetExpensesIOwe(groupId);
@@ -51,19 +45,8 @@ export const PerExpenseView = ({groupId}: PerExpenseViewProps) => {
                     description="Estas son las deudas que otros tienen con vos. Revisá el estado del pago de cada uno y reclamá pagos cuando corresponda."
                     variant="othersDebt"
                     action="Agregar gasto"
-                    onAction={() => setIsNewExpenseModalOpen(true)}
+                    onAction={() => groupId && setIsNewExpenseModalOpen(true)}
                 />
-      <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
-          <div className="space-y-4">
-              <SectionBanner
-                title="Gastos que me deben"
-                description="Estas son las deudas que otros tienen con vos. Revisá el estado del pago de cada uno y reclamá pagos cuando corresponda."
-                variant="othersDebt"
-                action="Agregar gasto"
-                onAction={() =>
-                  groupId && setIsNewExpenseModalOpen(true)
-                }
-              />
 
                 {isLoadingOwed ? (
                     <EmptyState message="Cargando gastos…" />
@@ -106,27 +89,14 @@ export const PerExpenseView = ({groupId}: PerExpenseViewProps) => {
                 )}
             </div>
 
-          {isNewExpenseModalOpen && groupId && (
-            <NewExpenseModal
-              groupId={groupId}
-              onClose={() =>
-                setIsNewExpenseModalOpen(false)
-              }
-            />
-          )}
-    </section>
-    )
-            {isNewExpenseModalOpen && (
+            {isNewExpenseModalOpen && groupId != null && (
                 <NewExpenseModal
+                    groupId={groupId}
                     onClose={() => setIsNewExpenseModalOpen(false)}
-                    onSave={(expense) => {
-                        console.log("Nuevo gasto:", expense);
-                        setIsNewExpenseModalOpen(false);
-                    }}
                 />
             )}
 
-            {payTarget && (
+            {payTarget && groupId != null && (
                 <PayDebtModal
                     groupId={groupId}
                     expenseId={payTarget.expenseId}
@@ -149,16 +119,13 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
 
     return (
         <DebtCard
-            title={expense.details.description}
+            title={expense.details.title || ""}
             amount={`Total: ${total}`}
-            description={expense.details.description}
+            description={expense.details.description || "Sin descripción"}
         >
             {debtsToShow.map((debt) => {
                 const remaining = debt.amount - debt.paidAmount;
-                const status =
-                    debt.paidAmount > 0
-                        ? ("partial" as const)
-                        : ("pending" as const);
+                const status = debt.paidAmount > 0 ? ("partial" as const) : ("pending" as const);
 
                 return (
                     <PersonRow
@@ -196,9 +163,9 @@ function ExpenseAsOwedCard({
 
     return (
         <OwedCard
-            title={expense.details.description}
+            title={expense.details.title || ""}
             amount={`Total: ${currency.format(expense.details.totalAmount)} - Tu parte: ${currency.format(remaining)}`}
-            description={expense.details.description}
+            description={expense.details.description || "Sin descripción"}
             assigned={[{ nickname: myDebt.debtor.nickname, color: myDebt.debtor.color }]}
             owner={{
                 nickname: expense.details.creditor.nickname,

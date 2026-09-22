@@ -1,7 +1,13 @@
 import { useMemo } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+    useMutation,
+    useQueries,
+    useQuery,
+    useQueryClient,
+} from "@tanstack/react-query";
 
-import { useAccessTokenGetter } from "@/contexts/TokenContext.tsx";
+import { useApiClient } from "@/hooks/useApiClient";
+import { useToken } from "@/contexts/TokenContext.tsx";
 import {
     Group,
     GroupCreate,
@@ -19,68 +25,53 @@ import {
     MembershipStatus,
 } from "@/models/Group.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
-import { ApiService } from "@/services/ApiServices.ts";
+import { ApiService } from "@/services/ApiServices";
+import { TokenService } from "@/services/TokenService";
 
 const MAX_RETRIES = 3;
 
-// Un 4xx (p. ej. 403/404 por no ser miembro) no se arregla reintentando: se falla de inmediato.
+
 function retryUnlessClientError(failureCount: number, error: unknown): boolean {
     const status = getApiErrorStatus(error);
-    if (status !== null && status >= 400 && status < 500) {
-        return false;
-    }
+    if (status !== null && status >= 400 && status < 500) return false;
     return failureCount < MAX_RETRIES;
 }
 
 
 export function useGetGroups() {
-    const getAccessToken = useAccessTokenGetter();
-
+    const api = useApiClient();
     return useQuery({
-        queryKey: ["groups"],
+        queryKey: ["groups"] as const,
         queryFn: async (): Promise<Group[]> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                "/groups",
-                { method: "GET" }
-            );
+            const data = await api.get("/groups");
             return GroupSchema.array().parse(data);
         },
     });
 }
 
 export function useGetGroup(groupId: number) {
-    const getAccessToken = useAccessTokenGetter();
-
+    const api = useApiClient();
     return useQuery({
-        queryKey: ["groups", groupId],
-        enabled: Number.isFinite(groupId),
+        queryKey: ["groups", groupId] as const,
+        enabled: Number.isFinite(groupId) && groupId > 0,
         retry: retryUnlessClientError,
         queryFn: async (): Promise<Group> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                `/groups/${groupId}`,
-                { method: "GET" }
-            );
+            const data = await api.get(`/groups/${groupId}`);
             return GroupSchema.parse(data);
         },
     });
 }
 
 export function useGetGroupByCode(groupCode: string) {
-    const getAccessToken = useAccessTokenGetter();
+    const api = useApiClient();
     const normalized = groupCode.trim().toUpperCase();
 
     return useQuery({
-        queryKey: ["groups", "code", normalized],
+        queryKey: ["groups", "code", normalized] as const,
         enabled: JOIN_CODE_REGEX.test(normalized),
         retry: retryUnlessClientError,
         queryFn: async (): Promise<Group> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                `/groups/code/${encodeURIComponent(normalized)}`,
-                { method: "GET" }
-            );
+            const data = await api.get(`/groups/code/${encodeURIComponent(normalized)}`);
             return GroupSchema.parse(data);
         },
     });
@@ -91,83 +82,82 @@ export function usePreviewGroup(joinCode: string) {
     const enabled = JOIN_CODE_REGEX.test(normalized);
 
     return useQuery({
-        queryKey: ["group-preview", normalized],
+        queryKey: ["group-preview", normalized] as const,
         enabled,
         retry: false,
         staleTime: 30_000,
         queryFn: async (): Promise<GroupPreview> => {
-            const data = await ApiService.get(
-                `/groups/join/${encodeURIComponent(normalized)}`
-            );
+            // Endpoint público: no requiere token.
+            const data = await ApiService.get(`/groups/join/${encodeURIComponent(normalized)}`);
             return GroupPreviewSchema.parse(data);
         },
     });
 }
 
 export function useGetMyJoinRequests() {
-    const getAccessToken = useAccessTokenGetter();
-
+    const api = useApiClient();
     return useQuery({
-        queryKey: ["join-requests", "mine"],
+        queryKey: ["join-requests", "mine"] as const,
         queryFn: async (): Promise<JoinRequest[]> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                "/groups/join-requests/mine",
-                { method: "GET" }
-            );
+            const data = await api.get("/groups/join-requests/mine");
             return JoinRequestSchema.array().parse(data);
         },
     });
 }
 
-export function useGetGroupMembers(groupId: number, status?: MembershipStatus) {
-    const getAccessToken = useAccessTokenGetter();
+export function useGetGroupMembers(groupId: number | undefined, status?: MembershipStatus) {
+    const api = useApiClient();
     const suffix = status ? `?status=${status}` : "";
 
     return useQuery({
-        queryKey: ["groups", groupId, "members", status ?? "ALL"],
-        enabled: Number.isFinite(groupId),
+        queryKey: ["groups", groupId, "members", status ?? "ALL"] as const,
+        enabled: typeof groupId === "number" && Number.isFinite(groupId) && groupId > 0,
         queryFn: async (): Promise<Member[]> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                `/groups/${groupId}/members${suffix}`,
-                { method: "GET" }
-            );
+            if (typeof groupId !== "number") return [];
+            const data = await api.get(`/groups/${groupId}/members${suffix}`);
             return MemberSchema.array().parse(data);
         },
     });
 }
 
+export function useGetPendingMembers(groupId: number) {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["groups", groupId, "members", "PENDING"] as const,
+        enabled: Number.isFinite(groupId) && groupId > 0,
+        queryFn: async (): Promise<Member[]> => {
+            const data = await api.get(`/groups/${groupId}/members?status=PENDING`);
+            return MemberSchema.array().parse(data);
+        },
+    });
+}
+
+
 export interface PendingApproval {
-    groupId: number;
-    groupName: string;
-    member: Member;
+    readonly groupId: number;
+    readonly groupName: string;
+    readonly member: Member;
 }
 
 export interface PendingApprovalsResult {
-    isLoading: boolean;
-    data: PendingApproval[];
+    readonly isLoading: boolean;
+    readonly data: PendingApproval[];
 }
 
-
 export function useMyPendingApprovals(): PendingApprovalsResult {
-    const getAccessToken = useAccessTokenGetter();
+    const api = useApiClient();
     const groupsQuery = useGetGroups();
 
     const adminGroups = useMemo(
         () => (groupsQuery.data ?? []).filter((g) => g.joinCode != null),
-        [groupsQuery.data]
+        [groupsQuery.data],
     );
 
     const pendingQueries = useQueries({
         queries: adminGroups.map((group) => ({
-            queryKey: ["groups", group.id, "members", "PENDING"],
+            queryKey: ["groups", group.id, "members", "PENDING"] as const,
             queryFn: async (): Promise<Member[]> => {
-                const data = await ApiService.authenticatedRequest(
-                    getAccessToken,
-                    `/groups/${group.id}/members?status=PENDING`,
-                    { method: "GET" }
-                );
+                const data = await api.get(`/groups/${group.id}/members?status=PENDING`);
                 return MemberSchema.array().parse(data);
             },
         })),
@@ -176,115 +166,93 @@ export function useMyPendingApprovals(): PendingApprovalsResult {
     const isLoading =
         groupsQuery.isLoading || pendingQueries.some((q) => q.isLoading);
 
-    const data: PendingApproval[] = adminGroups.flatMap((group, i) =>
-        (pendingQueries[i].data ?? []).map((member) => ({
-            groupId: group.id,
-            groupName: group.name,
-            member,
-        }))
+    const data = useMemo<PendingApproval[]>(
+        () =>
+            adminGroups.flatMap((group, i) =>
+                (pendingQueries[i].data ?? []).map((member) => ({
+                    groupId: group.id,
+                    groupName: group.name,
+                    member,
+                })),
+            ),
+        [adminGroups, pendingQueries],
     );
 
     return { isLoading, data };
 }
 
-export function useGetPendingMembers(groupId: number) {
-    const getAccessToken = useAccessTokenGetter();
-
-    return useQuery({
-        queryKey: ["groups", groupId, "members", "PENDING"],
-        enabled: Number.isFinite(groupId),
-        queryFn: async (): Promise<Member[]> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                `/groups/${groupId}/members?status=PENDING`,
-                { method: "GET" }
-            );
-            return MemberSchema.array().parse(data);
-        },
-    });
-}
-
 export function useApproveJoinRequest(groupId: number) {
-    const getAccessToken = useAccessTokenGetter();
-    const queryClient = useQueryClient();
+    const api = useApiClient();
+    const qc = useQueryClient();
 
     return useMutation<Member, Error, number>({
-        mutationFn: async (memberId: number): Promise<Member> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                `/groups/${groupId}/members/${memberId}/approve`,
-                { method: "POST" }
-            );
+        mutationFn: async (memberId): Promise<Member> => {
+            const data = await api.post(`/groups/${groupId}/members/${memberId}/approve`);
             return MemberSchema.parse(data);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["groups", groupId, "members"] });
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups", groupId, "members"] });
         },
     });
 }
 
 export function useRejectJoinRequest(groupId: number) {
-    const getAccessToken = useAccessTokenGetter();
-    const queryClient = useQueryClient();
+    const api = useApiClient();
+    const qc = useQueryClient();
 
     return useMutation<Member, Error, number>({
-        mutationFn: async (memberId: number): Promise<Member> => {
-            const data = await ApiService.authenticatedRequest(
-                getAccessToken,
-                `/groups/${groupId}/members/${memberId}/reject`,
-                { method: "POST" }
-            );
+        mutationFn: async (memberId): Promise<Member> => {
+            const data = await api.post(`/groups/${groupId}/members/${memberId}/reject`);
             return MemberSchema.parse(data);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["groups", groupId, "members"] });
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups", groupId, "members"] });
         },
     });
 }
 
 export function useCreateGroup() {
-    const getAccessToken = useAccessTokenGetter();
-    const queryClient = useQueryClient();
+    const api = useApiClient();
+    const qc = useQueryClient();
 
     return useMutation<Group, Error, GroupCreate>({
-        mutationFn: async (payload: GroupCreate): Promise<Group> => {
+        mutationFn: async (payload): Promise<Group> => {
             const validated = GroupCreateSchema.parse(payload);
-            const response = await ApiService.authenticatedRequest(
-                getAccessToken,
-                "/groups",
-                {
-                    method: "POST",
-                    body: JSON.stringify(validated),
-                }
-            );
+            const response = await api.post("/groups", validated);
             return GroupSchema.parse(response);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["groups"] });
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups"] });
         },
     });
 }
 
 export function useJoinGroup() {
-    const getAccessToken = useAccessTokenGetter();
-    const queryClient = useQueryClient();
+    const api = useApiClient();
+    const qc = useQueryClient();
 
     return useMutation<JoinRequest, Error, JoinGroup>({
-        mutationFn: async (payload: JoinGroup): Promise<JoinRequest> => {
+        mutationFn: async (payload): Promise<JoinRequest> => {
             const validated = JoinGroupSchema.parse(payload);
-            const response = await ApiService.authenticatedRequest(
-                getAccessToken,
-                "/groups/join",
-                {
-                    method: "POST",
-                    body: JSON.stringify(validated),
-                }
-            );
+            const response = await api.post("/groups/join", validated);
             return JoinRequestSchema.parse(response);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["groups"] });
-            queryClient.invalidateQueries({ queryKey: ["join-requests", "mine"] });
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups"] });
+            void qc.invalidateQueries({ queryKey: ["join-requests", "mine"] });
         },
     });
+}
+
+
+export function useMyMember(groupId?: number): Member | undefined {
+    const [tokenState] = useToken();
+    const { data: members } = useGetGroupMembers(groupId, "ACTIVE");
+
+    if (tokenState.state !== "LOGGED_IN" || !members) return undefined;
+
+    const myUsername = TokenService.getUsernameFromToken(tokenState.tokens.accessToken);
+    if (!myUsername) return undefined;
+
+    return members.find((m) => m.username === myUsername);
 }

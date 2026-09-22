@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
 import {
     EmptyState,
     PersonBalanceCard,
+    type BalanceStatus,
     type PersonBalanceCardProps,
 } from "@/components/Expenses/ExpensesCard.tsx";
 import { NewExpenseModal } from "@/components/modals";
@@ -11,54 +12,32 @@ import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
 
 import { useGetBalancesByPerson } from "@/services/ExpenseServices.ts";
 import type { BalanceByPerson } from "@/models/Expense.ts";
-
-const currency = new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-});
-
-interface PerPersonViewProps {
-    groupId: number;
-}
+import { currency } from "@/lib/format";
 
 interface PayTarget {
-    expenseId: number;
-    debtId: number;
-    amount: number;
+    readonly expenseId: number;
+    readonly debtId: number;
+    readonly amount: number;
 }
 
-export const PerPersonView = ({ groupId }: PerPersonViewProps) => {
-    const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
+export interface PerPersonViewProps {
+    readonly groupId?: number;
+}
+
+export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => {
+    const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState<boolean>(false);
     const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
 
     const { data: balances = [], isLoading } = useGetBalancesByPerson(groupId);
-interface PerPersonViewProps {
-    groupId?: number;
-}
-
-export const PerPersonView = ({groupId}: PerPersonViewProps) => {
-    const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] =
-      useState(false);
 
     return (
-      <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
-          <SectionBanner
-            title="Gastos por persona"
-            description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
-            variant="allDebt"
-            action="Agregar gasto"
-            onAction={() =>
-              groupId && setIsNewExpenseModalOpen(true)
-            }
-          />
         <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
             <SectionBanner
                 title="Gastos por persona"
                 description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
                 variant="allDebt"
                 action="Agregar gasto"
-                onAction={() => setIsNewExpenseModalOpen(true)}
+                onAction={() => groupId != null && setIsNewExpenseModalOpen(true)}
             />
 
             {isLoading ? (
@@ -79,26 +58,14 @@ export const PerPersonView = ({groupId}: PerPersonViewProps) => {
                 </div>
             )}
 
-          {isNewExpenseModalOpen && groupId && (
-            <NewExpenseModal
-              groupId={groupId}
-              onClose={() =>
-                setIsNewExpenseModalOpen(false)
-              }
-            />
-          )}
-      </section>
-            {isNewExpenseModalOpen && (
+            {isNewExpenseModalOpen && groupId != null && (
                 <NewExpenseModal
+                    groupId={groupId}
                     onClose={() => setIsNewExpenseModalOpen(false)}
-                    onSave={(expense) => {
-                        console.log("Nuevo gasto:", expense);
-                        setIsNewExpenseModalOpen(false);
-                    }}
                 />
             )}
 
-            {payTarget && (
+            {payTarget && groupId != null && (
                 <PayDebtModal
                     groupId={groupId}
                     expenseId={payTarget.expenseId}
@@ -112,16 +79,15 @@ export const PerPersonView = ({groupId}: PerPersonViewProps) => {
     );
 };
 
-function BalanceCard({
-                         balance,
-                         onPay,
-                     }: {
-    balance: BalanceByPerson;
-    onPay: (expenseId: number, debtId: number, amount: number) => void;
-}) {
+interface BalanceCardProps {
+    readonly balance: BalanceByPerson;
+    readonly onPay: (expenseId: number, debtId: number, amount: number) => void;
+}
+
+function BalanceCard({ balance, onPay }: BalanceCardProps): ReactElement {
     const { member, netBalance, items } = balance;
 
-    const balanceStatus: PersonBalanceCardProps["balanceStatus"] =
+    const balanceStatus: BalanceStatus =
         netBalance > 0 ? "positive" : netBalance < 0 ? "negative" : "neutral";
 
     const balanceLabel =
