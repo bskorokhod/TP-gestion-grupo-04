@@ -83,6 +83,15 @@
 
     --shadow-soft: 0 6px 18px color-mix(in oklab, var(--foreground) 5%, transparent);
     --shadow-pill: 0 8px 24px color-mix(in oklab, var(--foreground) 8%, transparent);
+
+    --color-custom-red:        #E5484D;
+    --color-custom-blue:       #3E63DD;
+    --color-custom-green:      #30A46C;
+    --color-custom-yellow:     #F5D90A;
+    --color-custom-orange:     #F76B15;
+    --color-custom-purple:     #8E4EC6;
+    --color-custom-pink:       #D6409F;
+    --color-custom-light-blue: #00A2C7;
 }
 
 :root {

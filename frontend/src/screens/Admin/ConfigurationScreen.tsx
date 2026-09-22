@@ -8,25 +8,21 @@ import { GroupNavbar } from "@/components/GroupNavbar.tsx";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { cn } from "@/lib/cn.ts";
 import { can } from "@/lib/permissions.ts";
-import { MEMBERS } from "@/models/User";
 import type { Member } from "@/models/Group.ts";
 import {
     useApproveJoinRequest,
+    useGetGroupMembers,
     useGetPendingMembers,
     useRejectJoinRequest,
 } from "@/services/GroupServices.ts";
 import { toast } from "@/hooks/useToast.ts";
-
-export interface Page {
-    readonly id: string;
-    readonly label: string;
-}
 
 interface SettingItem {
     readonly icon: string;
     readonly title: string;
     readonly description: string;
     readonly target: string;
+    readonly disabled?: boolean;
 }
 
 const SETTINGS: ReadonlyArray<SettingItem> = [
@@ -36,6 +32,7 @@ const SETTINGS: ReadonlyArray<SettingItem> = [
         description:
             "Definí qué porcentaje del bien le corresponde a cada integrante del grupo y ajustá la distribución cuando cambie.",
         target: "porcentajes",
+        disabled: false,
     },
     {
         icon: "📅",
@@ -43,24 +40,55 @@ const SETTINGS: ReadonlyArray<SettingItem> = [
         description:
             "Establecé reglas de uso: máximo de días por persona, anticipación mínima y cómo se resuelven los conflictos de fechas.",
         target: "#",
+        disabled: true,
     },
 ];
 
-// Color de avatar según el enum MemberColor del backend.
-const MEMBER_COLOR_CLASS: Record<string, string> = {
-    RED: "bg-custom-red",
-    BLUE: "bg-custom-me",
-    GREEN: "bg-custom-green",
-    YELLOW: "bg-group-amber",
-    ORANGE: "bg-custom-orange",
-    PURPLE: "bg-custom-lilac",
-    PINK: "bg-custom-red",
-    LIGHT_BLUE: "bg-custom-me",
-};
+// ─── Sección: Miembros ───────────────────────────────────────────────────────
 
-function memberColorClass(color: string): string {
-    return MEMBER_COLOR_CLASS[color] ?? "bg-custom-lilac";
+interface MembersSectionProps {
+    readonly groupId: number;
 }
+
+function MembersSection({ groupId }: MembersSectionProps) {
+    const membersQuery = useGetGroupMembers(groupId, "ACTIVE");
+
+    if (membersQuery.isLoading) {
+        return (
+            <p role="status" className="text-base text-warm-muted py-4">
+                Cargando miembros...
+            </p>
+        );
+    }
+
+    if (membersQuery.isError) {
+        return (
+            <p role="alert" className="text-base font-medium text-group-danger py-4">
+                No se pudieron cargar los miembros del grupo.
+            </p>
+        );
+    }
+
+    const members = membersQuery.data ?? [];
+
+    if (members.length === 0) {
+        return (
+            <p className="text-base text-warm-muted py-4">
+                El grupo aún no tiene miembros activos.
+            </p>
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-3 gap-8 justify-between items-start self-stretch py-4">
+            {members.map((member) => (
+                <MemberInfoCard key={member.id} member={member} />
+            ))}
+        </div>
+    );
+}
+
+// ─── Sección: Solicitudes de ingreso ────────────────────────────────────────
 
 interface JoinRequestItemProps {
     readonly member: Member;
@@ -69,6 +97,17 @@ interface JoinRequestItemProps {
 }
 
 function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
+    const AVATAR_COLOR_CLASS: Record<string, string> = {
+        RED: "bg-custom-red",
+        BLUE: "bg-custom-me",
+        GREEN: "bg-custom-green",
+        YELLOW: "bg-group-amber",
+        ORANGE: "bg-custom-orange",
+        PURPLE: "bg-custom-lilac",
+        PINK: "bg-custom-red",
+        LIGHT_BLUE: "bg-custom-me",
+    };
+    const avatarClass = AVATAR_COLOR_CLASS[member.color] ?? "bg-custom-lilac";
     const initial = member.nickname.charAt(0).toUpperCase();
 
     return (
@@ -80,14 +119,13 @@ function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
                 "flex flex-row items-center gap-4 self-stretch rounded-2xl border px-6 py-4 text-left transition-colors",
                 selected
                     ? "border-brand bg-brand/8"
-                    : "border-field/50 bg-panel hover:border-brand/40"
+                    : "border-field/50 bg-panel hover:border-brand/40",
             )}
         >
-            {/* Checkbox visual */}
             <div
                 className={cn(
                     "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                    selected ? "border-brand bg-brand" : "border-field"
+                    selected ? "border-brand bg-brand" : "border-field",
                 )}
                 aria-hidden="true"
             >
@@ -104,23 +142,20 @@ function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
                 )}
             </div>
 
-            {/* Avatar */}
             <div
                 className={cn(
                     "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                    memberColorClass(member.color)
+                    avatarClass,
                 )}
             >
                 <span className="text-base font-semibold text-panel">{initial}</span>
             </div>
 
-            {/* Info */}
             <div className="flex min-w-0 flex-col">
                 <p className="text-base font-semibold text-ink">{member.nickname}</p>
                 <p className="text-sm text-warm-muted">@{member.username}</p>
             </div>
 
-            {/* Fecha de solicitud */}
             {member.requestedAt && (
                 <p className="ml-auto shrink-0 text-sm text-warm-muted">
                     {new Date(member.requestedAt).toLocaleDateString("es-AR", {
@@ -172,13 +207,10 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
         }
     }
 
-    // Procesa las mutaciones en secuencia. Al primer 409 (solicitud ya resuelta) aborta
-    // y notifica; el estado en el servidor ya cambió para las anteriores, así que
-    // refrescamos la query de todas formas.
     async function runSequential(
         ids: number[],
         mutate: (id: number) => Promise<unknown>,
-        errorPrefix: string
+        errorPrefix: string,
     ): Promise<boolean> {
         for (const id of ids) {
             try {
@@ -191,7 +223,6 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
                     title: `${errorPrefix}: operación abortada`,
                     description: message,
                 });
-                // Invalidar la query para reflejar el estado real (las anteriores sí se procesaron)
                 await pendingQuery.refetch();
                 return false;
             }
@@ -201,43 +232,37 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
 
     async function handleApprove() {
         if (!hasSelection || isBatchPending) return;
-
         setIsBatchPending(true);
         const ids = [...selectedIds];
-
         const allSucceeded = await runSequential(
             ids,
             (id) => approveMutation.mutateAsync(id),
-            "No se pudo aceptar la solicitud"
+            "No se pudo aceptar la solicitud",
         );
-
         setIsBatchPending(false);
         setSelectedIds(new Set());
-
         if (allSucceeded) {
-            // Navegar a porcentajes para redistribuir incluyendo a los nuevos miembros
             navigate(`${configBasePath}/porcentajes`);
         }
     }
 
     async function handleReject() {
         if (!hasSelection || isBatchPending) return;
-
         setIsBatchPending(true);
         const ids = [...selectedIds];
-
         const allSucceeded = await runSequential(
             ids,
             (id) => rejectMutation.mutateAsync(id),
-            "No se pudo rechazar la solicitud"
+            "No se pudo rechazar la solicitud",
         );
-
         setIsBatchPending(false);
         setSelectedIds(new Set());
-
         if (allSucceeded) {
             toast({
-                title: `${ids.length === 1 ? "Solicitud rechazada" : `${ids.length} solicitudes rechazadas`}`,
+                title:
+                    ids.length === 1
+                        ? "Solicitud rechazada"
+                        : `${ids.length} solicitudes rechazadas`,
                 description: "Las solicitudes seleccionadas fueron denegadas.",
             });
         }
@@ -267,11 +292,12 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
                 </p>
             ) : (
                 <>
-                    {/* Encabezado de lista con "seleccionar todos" */}
                     <div className="flex flex-row items-center justify-between self-stretch">
                         <p className="text-sm font-medium text-warm-muted">
                             {pendingMembers.length}{" "}
-                            {pendingMembers.length === 1 ? "solicitud pendiente" : "solicitudes pendientes"}
+                            {pendingMembers.length === 1
+                                ? "solicitud pendiente"
+                                : "solicitudes pendientes"}
                         </p>
                         <button
                             type="button"
@@ -285,7 +311,6 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
                         </button>
                     </div>
 
-                    {/* Lista de solicitudes */}
                     <div className="flex flex-col gap-3 self-stretch">
                         {pendingMembers.map((member) => (
                             <JoinRequestItem
@@ -297,12 +322,11 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
                         ))}
                     </div>
 
-                    {/* Acciones batch */}
                     <div className="flex flex-row gap-3 items-center self-stretch justify-end pt-1">
                         <p
                             className={cn(
                                 "text-sm text-warm-muted mr-auto transition-opacity",
-                                hasSelection ? "opacity-100" : "opacity-0 pointer-events-none"
+                                hasSelection ? "opacity-100" : "opacity-0 pointer-events-none",
                             )}
                         >
                             {selectedIds.size}{" "}
@@ -339,22 +363,39 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
     );
 }
 
+// ─── Screen principal ────────────────────────────────────────────────────────
+
+async function copyToClipboard(text: string): Promise<void> {
+    await navigator.clipboard.writeText(text);
+}
+
 export const ConfigurationScreen = () => {
     const [location] = useLocation();
     const group = useCurrentGroup();
+    const [copied, setCopied] = useState(false);
 
     const canReviewJoinRequests = can(group, "reviewJoinRequests");
     const canConfigure = can(group, "editPercentages");
 
-    // Base path de configuración sin trailing slash: /grupos/ABC-1234-XYZ/configuracion
     const configBasePath = location.replace(/\/$/, "");
+
+    async function handleCopyJoinCode() {
+        await copyToClipboard(group.joinCode);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
 
     return (
         <CommonLayout>
             <GroupNavbar>
                 {canReviewJoinRequests && (
-                    <Button size="xl2" variant="modalSecondary">
-                        Agregar miembro
+                    <Button
+                        size="xl2"
+                        variant="modalSecondary"
+                        onClick={handleCopyJoinCode}
+                        aria-label="Copiar código de invitación al portapapeles"
+                    >
+                        {copied ? "¡Código copiado!" : "🔗 Compartir código de unión"}
                     </Button>
                 )}
             </GroupNavbar>
@@ -364,11 +405,7 @@ export const ConfigurationScreen = () => {
                     Miembros y porcentajes de propiedad
                 </p>
 
-                <div className="grid grid-cols-3 gap-8 justify-between items-start self-stretch py-4">
-                    {MEMBERS.map((member) => (
-                        <MemberInfoCard key={member.id} member={member} />
-                    ))}
-                </div>
+                <MembersSection groupId={group.id} />
 
                 {canConfigure ? (
                     <>
@@ -377,33 +414,59 @@ export const ConfigurationScreen = () => {
                         </p>
 
                         <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
-                            {SETTINGS.map((setting) => (
-                                <Link
-                                    key={setting.title}
-                                    href={`${configBasePath}/porcentajes`}
-                                    className="flex flex-row justify-between items-center self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left"
-                                >
-                                    <div className="flex flex-row gap-5 items-center">
-                                        <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
-                                            <p className="text-lg font-semibold text-brand">
-                                                {setting.icon}
-                                            </p>
+                            {SETTINGS.map((setting) =>
+                                setting.disabled ? (
+                                    <div
+                                        key={setting.title}
+                                        aria-disabled="true"
+                                        className="flex flex-row justify-between items-center self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden opacity-40 cursor-not-allowed"
+                                    >
+                                        <div className="flex flex-row gap-5 items-center">
+                                            <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
+                                                <p className="text-lg font-semibold text-brand">
+                                                    {setting.icon}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col gap-1 items-start w-140">
+                                                <p className="text-lg font-semibold text-ink">
+                                                    {setting.title}
+                                                </p>
+                                                <p className="text-base font-normal text-warm-muted">
+                                                    {setting.description}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col gap-1 items-start w-140">
-                                            <p className="text-lg font-semibold text-ink">
-                                                {setting.title}
-                                            </p>
-                                            <p className="text-base font-normal text-warm-muted">
-                                                {setting.description}
-                                            </p>
-                                        </div>
+                                        <p className="text-base font-medium text-warm-muted">
+                                            Próximamente
+                                        </p>
                                     </div>
-                                    <p className="text-lg font-semibold text-brand">→</p>
-                                </Link>
-                            ))}
+                                ) : (
+                                    <Link
+                                        key={setting.title}
+                                        href={`${configBasePath}/porcentajes`}
+                                        className="flex flex-row justify-between items-center self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left"
+                                    >
+                                        <div className="flex flex-row gap-5 items-center">
+                                            <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
+                                                <p className="text-lg font-semibold text-brand">
+                                                    {setting.icon}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col gap-1 items-start w-140">
+                                                <p className="text-lg font-semibold text-ink">
+                                                    {setting.title}
+                                                </p>
+                                                <p className="text-base font-normal text-warm-muted">
+                                                    {setting.description}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p className="text-lg font-semibold text-brand">→</p>
+                                    </Link>
+                                ),
+                            )}
                         </div>
 
-                        {/* Sección de solicitudes de ingreso */}
                         <p className="text-3xl font-extrabold text-brand-hover mt-4">
                             Solicitudes de ingreso
                         </p>

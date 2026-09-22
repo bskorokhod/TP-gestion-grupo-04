@@ -111,6 +111,7 @@ export const MemberSchema = z.object({
     percentage: z.number().nullable(),
     requestedAt: z.string().nullable(),
     joinedAt: z.string().nullable(),
+    photoUrl: z.string().nullable().optional(),
 });
 
 export type Member = z.infer<typeof MemberSchema>;
