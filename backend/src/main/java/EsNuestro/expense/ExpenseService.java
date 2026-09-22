@@ -347,6 +347,11 @@ class ExpenseService {
             if (!seenMemberIds.add(entry.memberId())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate participant " + entry.memberId());
             }
+            if (entry.memberId().equals(creditor.getId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "The creditor is already implicitly part of the split and cannot be listed as a participant"
+                );
+            }
             if (!custom && entry.percentage() != null) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Percentages are only allowed when the split method is CUSTOM"
@@ -356,24 +361,27 @@ class ExpenseService {
             participants.add(new ExpenseParticipant(member, custom ? entry.percentage() : null));
         }
 
+        String title = data.title().strip();
+        String description = data.description() == null || data.description().isBlank()
+                ? null
+                : data.description().strip();
+
+        ExpenseDetails details = new ExpenseDetails(
+                title, description, total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
+        );
+
         // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.
         if (!participants.isEmpty()) {
             if (custom) {
                 ExpenseSplitCalculator.requireValidCustomPercentages(participants);
             }
             // Simulacro: falla ya (y no recién al aprobar) si el reparto es imposible, p. ej. proporcional
-            // entre participantes que tienen todos 0% de posesión. Se recalcula al aprobar.
-            ExpenseSplitCalculator.split(total, data.splitMethod(), participants);
+            // entre participantes (+ acreedor) que tienen todos 0% de posesión. Se recalcula al aprobar,
+            // sobre el mismo set (participantes + acreedor en EQUAL/PROPORTIONAL) que usa regenerateDebts().
+            ExpenseSplitCalculator.split(total, data.splitMethod(), details.splitParticipants());
         }
 
-        String title = data.title().strip();
-        String description = data.description() == null || data.description().isBlank()
-                ? null
-                : data.description().strip();
-
-        return new ExpenseDetails(
-                title, description, total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
-        );
+        return details;
     }
 
     private BigDecimal requireValidAmount(BigDecimal amount) {
