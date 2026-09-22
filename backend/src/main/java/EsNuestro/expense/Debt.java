@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Deuda de un miembro con el acreedor de un gasto. El acreedor no se guarda acá: es el del gasto

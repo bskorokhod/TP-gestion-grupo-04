@@ -1,5 +1,12 @@
 package EsNuestro.expense;
 
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
 /**
  * Pago parcial o total autodeclarado por el deudor sobre una {@link Debt}. Queda registrado con su
  * comprobante para que un admin o el acreedor puedan revisarlo y reclamarlo más adelante si

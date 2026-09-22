@@ -1,5 +1,9 @@
 package EsNuestro.expense.dtos;
 
+import jakarta.validation.constraints.*;
+
+import java.math.BigDecimal;
+
 /**
  * Pago autodeclarado por el deudor sobre una deuda puntual. {@code amount} puede ser parcial
  * (menor al saldo restante) o total.
