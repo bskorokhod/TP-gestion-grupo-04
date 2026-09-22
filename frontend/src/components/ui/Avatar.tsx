@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
 import { cn } from "@/lib/cn";
-import { memberColorSolidClass, memberInitial } from "@/lib/colors";
+import {memberColorClass, memberInitial} from "@/lib/colors";
 import type { MemberColor } from "@/models/Group";
 
 const SIZE_CLASSES = {
@@ -24,13 +24,7 @@ export interface AvatarProps {
  * Avatar unificado: foto si hay, inicial + color de miembro si no.
  * Reemplaza los avatares duplicados que había en ExpensesCard, AdminCard, PersonChip y MemberPicker.
  */
-export function Avatar({
-                           name,
-                           color,
-                           photoUrl,
-                           size = "sm",
-                           className,
-                       }: AvatarProps): ReactElement {
+export function Avatar({name, color, photoUrl, size = "sm", className,}: AvatarProps): ReactElement {
     const sizeClasses = SIZE_CLASSES[size];
 
     if (photoUrl) {
@@ -49,7 +43,7 @@ export function Avatar({
             className={cn(
                 "grid shrink-0 place-items-center rounded-full font-semibold text-brand-foreground",
                 sizeClasses,
-                memberColorSolidClass(color),
+                memberColorClass(color),
                 className,
             )}
         >

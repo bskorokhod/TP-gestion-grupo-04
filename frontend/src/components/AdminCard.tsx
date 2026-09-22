@@ -1,23 +1,12 @@
 import type { ChangeEvent } from "react";
 
-import type { Member } from "@/models/Group.ts";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLock, faLockOpen } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import type {Member, MemberColor} from "@/models/Group.ts";
 import { cn } from "@/lib/cn.ts";
-
-// Mapeo del enum MemberColor del backend a clases de Tailwind
-const AVATAR_COLOR_CLASS: Record<string, string> = {
-    RED: "bg-custom-red",
-    BLUE: "bg-custom-me",
-    GREEN: "bg-custom-green",
-    YELLOW: "bg-group-amber",
-    ORANGE: "bg-custom-orange",
-    PURPLE: "bg-custom-lilac",
-    PINK: "bg-custom-red",
-    LIGHT_BLUE: "bg-custom-me",
-};
-
-function avatarColorClass(color: string): string {
-    return AVATAR_COLOR_CLASS[color] ?? "bg-custom-lilac";
-}
+import { memberColorClass } from "@/lib/colors"
+import {Avatar} from "@/components/ui/Avatar.tsx";
 
 const ROLE_LABEL: Record<string, string> = {
     FOUNDER: "Fundador/a",
@@ -52,7 +41,7 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
                     <div
                         className={cn(
                             "flex flex-row justify-center items-center w-11 h-11 rounded-[31px] overflow-hidden shrink-0",
-                            avatarColorClass(member.color),
+                            memberColorClass(member.color),
                         )}
                     >
                         <p className="text-lg font-medium text-panel">{initial}</p>
@@ -95,6 +84,8 @@ export interface PercentageCardMember {
     readonly initial: string;
     readonly name: string;
     readonly fullName: string;
+    readonly color?: MemberColor;
+    readonly photoUrl?: string | null;
 }
 
 export interface PercentageCardProps {
@@ -107,9 +98,9 @@ export interface PercentageCardProps {
     readonly onToggleLock: (memberId: string) => void;
 }
 
-const LOCK_ICON: Record<LockState, string> = {
-    locked: "🔒",
-    unlocked: "🔓",
+const LOCK_ICON: Record<LockState, IconDefinition> = {
+    locked: faLock,
+    unlocked: faLockOpen,
 };
 
 const LOCK_LABEL: Record<LockState, string> = {
@@ -124,15 +115,7 @@ const INPUT_CLASSES: Record<LockState, string> = {
         "flex flex-row justify-center items-center w-[200px] h-[52px] bg-input-surface rounded-xl border border-brand px-3.5 overflow-hidden",
 };
 
-export function PercentageCard({
-    member,
-    percentage,
-    locked,
-    disabled = false,
-    errorMessage,
-    onPercentageChange,
-    onToggleLock,
-}: PercentageCardProps) {
+export function PercentageCard({member, percentage, locked, disabled = false, errorMessage, onPercentageChange, onToggleLock }: PercentageCardProps) {
     const lockState: LockState = locked ? "locked" : "unlocked";
     const hasError = Boolean(errorMessage);
     const isInputDisabled = locked || disabled;
@@ -154,16 +137,21 @@ export function PercentageCard({
         <div className="flex flex-col gap-2 items-start self-stretch">
             <div className="flex flex-row justify-between items-center self-stretch bg-background rounded-xl border border-field/50 py-6 px-7 overflow-hidden">
                 <div className="flex flex-row gap-2.5 items-center">
-                    <div className="flex flex-row justify-center items-center w-11 h-11 bg-custom-red rounded-[31px] overflow-hidden shrink-0">
-                        <p className="text-lg font-medium text-panel">{member.initial}</p>
-                    </div>
-                    <div className="flex flex-col items-start">
-                        <p className="text-[22px] font-semibold text-ink leading-6.5">
-                            {member.name}
-                        </p>
-                        <p className="text-base font-normal text-warm-muted whitespace-nowrap">
-                            {member.fullName}
-                        </p>
+                    <div className="flex flex-row gap-2.5 items-center">
+                        <Avatar
+                            size="lg"
+                            name={member.name}
+                            color={member.color}
+                            photoUrl={member.photoUrl}
+                        />
+                        <div className="flex flex-col items-start">
+                            <p className="text-[22px] font-semibold text-ink leading-6.5">
+                                {member.name}
+                            </p>
+                            <p className="text-base font-normal text-warm-muted whitespace-nowrap">
+                                {member.fullName}
+                            </p>
+                        </div>
                     </div>
                 </div>
                 <div className="flex flex-row gap-6 items-center">
@@ -190,7 +178,7 @@ export function PercentageCard({
                         aria-pressed={locked}
                         className="flex flex-row justify-center items-center w-8 h-8 text-xl disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {LOCK_ICON[lockState]}
+                        <FontAwesomeIcon icon={LOCK_ICON[lockState]} className="h-5 w-5 text-primary" />
                     </button>
                 </div>
             </div>

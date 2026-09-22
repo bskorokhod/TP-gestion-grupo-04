@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import Button from "@/components/Button.tsx";
 import { Avatar } from "@/components/ui/Avatar";
 import type { MemberColor } from "@/models/Group";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
 // ─── Tipos de datos públicos ────────────────────────────────────────────────
 
@@ -40,8 +42,11 @@ export interface DebtCardProps {
     readonly title: string;
     readonly amount: string;
     readonly description: string;
+    readonly assigned?: MemberInfo[];
+    readonly owner?: MemberInfo;
     readonly children: ReactNode;
 }
+
 
 export interface OwedCardProps {
     readonly title: string;
@@ -211,13 +216,7 @@ const BALANCE_COLORS = {
 
 export type BalanceStatus = keyof typeof BALANCE_COLORS;
 
-export function PersonBalanceCard({
-                                      name,
-                                      color,
-                                      balance,
-                                      balanceStatus,
-                                      items,
-                                  }: PersonBalanceCardProps): ReactNode {
+export function PersonBalanceCard({name, color, balance, balanceStatus, items, }: PersonBalanceCardProps): ReactNode {
     const balanceColor = BALANCE_COLORS[balanceStatus];
 
     return (
@@ -283,8 +282,9 @@ export function ProposalCard({
                 <PeopleMeta assigned={assigned} owner={owner} />
             </div>
             <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <button className="truncate text-left text-sm font-medium text-brand">
-                    Ver votos ({config.votesLabel} votaron)⌄
+                <button className="inline-flex items-center gap-1 truncate text-left text-sm font-medium text-brand">
+                    Ver votos ({config.votesLabel} votaron)
+                    <FontAwesomeIcon icon={faChevronDown} className="h-3 w-3" aria-hidden />
                 </button>
                 <div className="flex shrink-0 gap-2">
                     <Button variant={config.primaryBtn.variant}>{config.primaryBtn.label}</Button>
@@ -297,27 +297,26 @@ export function ProposalCard({
 
 // ─── DebtCard / OwedCard ────────────────────────────────────────────────────
 
-export function DebtCard({ title, amount, description, children }: DebtCardProps): ReactNode {
+export function DebtCard({title, amount, description, assigned, owner, children,}: DebtCardProps): ReactNode {
     return (
         <ExpenseCard>
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <AmountTitle title={title} amount={amount} />
             </div>
             <p className="mt-3 text-sm text-group-muted">{description}</p>
+
+            {assigned && owner && (
+                <div className="mt-3">
+                    <PeopleMeta assigned={assigned} owner={owner} />
+                </div>
+            )}
+
             <div className="mt-3 space-y-2">{children}</div>
         </ExpenseCard>
     );
 }
 
-export function OwedCard({
-                             title,
-                             amount,
-                             description,
-                             assigned,
-                             owner,
-                             tag,
-                             action,
-                         }: OwedCardProps): ReactNode {
+export function OwedCard({title, amount, description, assigned, owner, tag, action,}: OwedCardProps): ReactNode {
     return (
         <ExpenseCard className="flex min-h-48 flex-col justify-between">
             <div className="space-y-2">

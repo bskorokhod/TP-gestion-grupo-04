@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
-import { DebtCard, OwedCard, PersonRow, EmptyState } from "@/components/Expenses/ExpensesCard.tsx";
+import {DebtCard, OwedCard, PersonRow, EmptyState, MemberInfo} from "@/components/Expenses/ExpensesCard.tsx";
 import { NewExpenseModal } from "@/components/modals";
 import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
 import {
@@ -10,12 +10,7 @@ import {
     useGetGroupSummary,
 } from "@/services/ExpenseServices.ts";
 import type { Expense } from "@/models/Expense.ts";
-
-const currency = new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-});
+import {formatCurrency} from "@/lib/format.ts";
 
 interface PerExpenseViewProps {
     groupId?: number;
@@ -25,6 +20,13 @@ interface PayTarget {
     expenseId: number;
     debtId: number;
     amount: number;
+}
+
+function toMemberInfos(expense: Expense): MemberInfo[] {
+    return expense.details.participants.map((p) => ({
+        nickname: p.member.nickname,
+        color: p.member.color,
+    }));
 }
 
 export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
@@ -38,7 +40,7 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     const myMemberId = summary?.me.id;
 
     return (
-        <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
+        <section className=" space-y-8 px-5 py-8 sm:px-8 lg:px-30">
             <div className="space-y-4">
                 <SectionBanner
                     title="Gastos que me deben"
@@ -112,7 +114,7 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
 
 /** "Gastos que me deben": el caller es acreedor; mostramos cada deudor con su parte. */
 function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
-    const total = currency.format(expense.details.totalAmount);
+    const total = formatCurrency(expense.details.totalAmount);
     const debtsToShow = expense.debts.filter(
         (d) => d.status === "ACTIVE" && d.paidAmount < d.amount,
     );
@@ -122,6 +124,11 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
             title={expense.details.title || ""}
             amount={`Total: ${total}`}
             description={expense.details.description || "Sin descripción"}
+            assigned={toMemberInfos(expense)}
+            owner={{
+                nickname: expense.details.creditor.nickname,
+                color: expense.details.creditor.color,
+            }}
         >
             {debtsToShow.map((debt) => {
                 const remaining = debt.amount - debt.paidAmount;
@@ -134,7 +141,7 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
                         color={debt.debtor.color}
                         status={status}
                         action="claim"
-                        amount={currency.format(remaining)}
+                        amount={formatCurrency(remaining)}
                     />
                 );
             })}
@@ -164,9 +171,9 @@ function ExpenseAsOwedCard({
     return (
         <OwedCard
             title={expense.details.title || ""}
-            amount={`Total: ${currency.format(expense.details.totalAmount)} - Tu parte: ${currency.format(remaining)}`}
+            amount={`Total: ${formatCurrency(expense.details.totalAmount)} - Tu parte: ${formatCurrency(remaining)}`}
             description={expense.details.description || "Sin descripción"}
-            assigned={[{ nickname: myDebt.debtor.nickname, color: myDebt.debtor.color }]}
+            assigned={toMemberInfos(expense)}
             owner={{
                 nickname: expense.details.creditor.nickname,
                 color: expense.details.creditor.color,

@@ -2,30 +2,17 @@ import type { MemberColor } from "@/models/Group";
 
 /** Color suave (50% opacidad) — para fondos con texto oscuro encima. */
 const MEMBER_COLOR_SOFT: Readonly<Record<MemberColor, string>> = {
-    RED: "bg-custom-red/50",
-    BLUE: "bg-custom-blue/50",
-    GREEN: "bg-custom-green/50",
-    YELLOW: "bg-custom-yellow/50",
-    ORANGE: "bg-custom-orange/50",
-    PURPLE: "bg-custom-purple/50",
-    PINK: "bg-custom-pink/50",
-    LIGHT_BLUE: "bg-custom-light-blue/50",
-};
-
-/** Color pleno — para avatares, badges y elementos destacados. */
-const MEMBER_COLOR_SOLID: Readonly<Record<MemberColor, string>> = {
-    RED: "bg-custom-red",
-    BLUE: "bg-custom-blue",
-    GREEN: "bg-custom-green",
-    YELLOW: "bg-custom-yellow",
-    ORANGE: "bg-custom-orange",
-    PURPLE: "bg-custom-purple",
-    PINK: "bg-custom-pink",
-    LIGHT_BLUE: "bg-custom-light-blue",
+    RED: "bg-avatar-custom-red/50",
+    BLUE: "bg-avatar-custom-blue/50",
+    GREEN: "bg-avatar-custom-green/50",
+    YELLOW: "bg-avatar-custom-yellow/50",
+    ORANGE: "bg-avatar-custom-orange/50",
+    PURPLE: "bg-avatar-custom-purple/50",
+    PINK: "bg-avatar-custom-pink/50",
+    LIGHT_BLUE: "bg-avatar-custom-light-blue/50",
 };
 
 const FALLBACK_SOFT = "bg-group-muted/50";
-const FALLBACK_SOLID = "bg-group-muted";
 
 function resolveColorClass(
     color: MemberColor | string | undefined,
@@ -39,10 +26,6 @@ function resolveColorClass(
 
 export function memberColorClass(color?: MemberColor | string): string {
     return resolveColorClass(color, MEMBER_COLOR_SOFT, FALLBACK_SOFT);
-}
-
-export function memberColorSolidClass(color?: MemberColor | string): string {
-    return resolveColorClass(color, MEMBER_COLOR_SOLID, FALLBACK_SOLID);
 }
 
 export function memberInitial(nickname: string): string {

@@ -1,4 +1,6 @@
 import {cn} from "@/lib/cn.ts";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 export type ChipTone = "green" | "amber" | "primary";
 
@@ -15,12 +17,7 @@ interface PersonChipProps {
   onRemove?: () => void;
 }
 
-export function PersonChip({
-                             initials,
-                             name,
-                             tone = "primary",
-                             onRemove,
-                           }: PersonChipProps) {
+export function PersonChip({ initials, name, tone = "primary", onRemove }: PersonChipProps) {
   return (
     <span
       className={cn(
@@ -36,16 +33,16 @@ export function PersonChip({
                 {name}
             </span>
 
-      {onRemove ? (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Quitar a ${name}`}
-          className="shrink-0 text-xs opacity-70 transition-opacity hover:opacity-100"
-        >
-          ✕
-        </button>
-      ) : null}
+        {onRemove ? (
+            <button
+                type="button"
+                onClick={onRemove}
+                aria-label={`Quitar a ${name}`}
+                className="shrink-0 inline-flex items-center justify-center text-xs opacity-70 transition-opacity hover:opacity-100"
+            >
+                <FontAwesomeIcon icon={faXmark} className="h-3 w-3" aria-hidden />
+            </button>
+        ) : null}
         </span>
   );
 }
@@ -55,10 +52,7 @@ interface ChipButtonProps {
   onClick?: () => void;
 }
 
-export function ChipButton({
-                             label,
-                             onClick,
-                           }: ChipButtonProps) {
+export function ChipButton({ label, onClick }: ChipButtonProps) {
   return (
     <button
       type="button"

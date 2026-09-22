@@ -1,33 +1,29 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-
-import { MemberInfoCard } from "@/components/AdminCard";
+import {ReactNode, useState} from "react";
+import {Link, useLocation} from "wouter";
+import {MemberInfoCard} from "@/components/AdminCard";
 import Button from "@/components/Button.tsx";
-import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
-import { GroupNavbar } from "@/components/GroupNavbar.tsx";
-import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
-import { cn } from "@/lib/cn.ts";
-import { can } from "@/lib/permissions.ts";
-import type { Member } from "@/models/Group.ts";
-import {
-    useApproveJoinRequest,
-    useGetGroupMembers,
-    useGetPendingMembers,
-    useRejectJoinRequest,
-} from "@/services/GroupServices.ts";
-import { toast } from "@/hooks/useToast.ts";
+import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
+import {GroupNavbar} from "@/components/GroupNavbar.tsx";
+import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
+import {cn} from "@/lib/cn.ts";
+import {can} from "@/lib/permissions.ts";
+import type {Member} from "@/models/Group.ts";
+import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useRejectJoinRequest } from "@/services/GroupServices.ts";
+import {toast} from "@/hooks/useToast.ts";
+
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { faCalendarDays, faPercent, faLink, faArrowRight } from "@fortawesome/free-solid-svg-icons";
 
 interface SettingItem {
-    readonly icon: string;
+    readonly icon: ReactNode;
     readonly title: string;
     readonly description: string;
     readonly target: string;
     readonly disabled?: boolean;
 }
-
 const SETTINGS: ReadonlyArray<SettingItem> = [
     {
-        icon: "%",
+        icon: <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />,
         title: "Configurar porcentajes de propiedad",
         description:
             "Definí qué porcentaje del bien le corresponde a cada integrante del grupo y ajustá la distribución cuando cambie.",
@@ -35,7 +31,7 @@ const SETTINGS: ReadonlyArray<SettingItem> = [
         disabled: false,
     },
     {
-        icon: "📅",
+        icon: <FontAwesomeIcon icon={faCalendarDays} className="h-5 w-5" aria-hidden />,
         title: "Configurar reservas",
         description:
             "Establecé reglas de uso: máximo de días por persona, anticipación mínima y cómo se resuelven los conflictos de fechas.",
@@ -270,7 +266,7 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
 
     if (pendingQuery.isLoading) {
         return (
-            <p role="status" className="text-sm text-warm-muted">
+            <p role="status" className="text-sm text-warm-muted mb-8">
                 Cargando solicitudes pendientes...
             </p>
         );
@@ -278,7 +274,7 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
 
     if (pendingQuery.isError) {
         return (
-            <p role="alert" className="text-sm font-medium text-group-danger">
+            <p role="alert" className="text-sm font-medium text-group-danger mb-8">
                 No se pudieron cargar las solicitudes de ingreso.
             </p>
         );
@@ -287,7 +283,7 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
     return (
         <div className="flex flex-col gap-4 items-start self-stretch pt-2">
             {pendingMembers.length === 0 ? (
-                <p className="text-base text-warm-muted">
+                <p className="text-base text-warm-muted mb-8">
                     No hay solicitudes de ingreso pendientes.
                 </p>
             ) : (
@@ -390,12 +386,20 @@ export const ConfigurationScreen = () => {
             <GroupNavbar>
                 {canReviewJoinRequests && (
                     <Button
-                        size="xl2"
+                        size="lg"
                         variant="modalSecondary"
                         onClick={handleCopyJoinCode}
                         aria-label="Copiar código de invitación al portapapeles"
+                        className="inline-flex items-center gap-2"
                     >
-                        {copied ? "¡Código copiado!" : "🔗 Compartir código de unión"}
+                        {copied ? (
+                            "¡Código copiado!"
+                        ) : (
+                            <>
+                                <FontAwesomeIcon icon={faLink} className="h-4 w-4" aria-hidden />
+                                Compartir código de unión
+                            </>
+                        )}
                     </Button>
                 )}
             </GroupNavbar>
@@ -409,6 +413,15 @@ export const ConfigurationScreen = () => {
 
                 {canConfigure ? (
                     <>
+                        <p className="text-3xl font-extrabold text-brand-hover mt-4">
+                        Solicitudes de ingreso
+                        </p>
+
+                        <JoinRequestsSection
+                            groupId={group.id}
+                            configBasePath={configBasePath}
+                        />
+
                         <p className="text-3xl font-extrabold text-brand-hover">
                             Ajustes disponibles
                         </p>
@@ -461,20 +474,14 @@ export const ConfigurationScreen = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <p className="text-lg font-semibold text-brand">→</p>
+                                        <p className="text-lg font-semibold text-brand">
+                                            <FontAwesomeIcon icon={faArrowRight} aria-hidden />
+                                        </p>
                                     </Link>
                                 ),
                             )}
                         </div>
 
-                        <p className="text-3xl font-extrabold text-brand-hover mt-4">
-                            Solicitudes de ingreso
-                        </p>
-
-                        <JoinRequestsSection
-                            groupId={group.id}
-                            configBasePath={configBasePath}
-                        />
                     </>
                 ) : (
                     <p className="pt-2 text-base text-warm-muted">

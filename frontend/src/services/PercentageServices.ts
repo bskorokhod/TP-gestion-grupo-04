@@ -8,6 +8,7 @@ import {
     UpdateGroupPercentagesRequestSchema,
 } from "@/models/Percentage";
 import { useApiClient } from "@/hooks/useApiClient";
+import {MemberColorSchema} from "@/models/Group.ts";
 
 function percentagesQueryKey(groupId: string) {
     return ["groups", groupId, "percentages"] as const;
@@ -18,6 +19,8 @@ const ActiveMemberSchema = z.object({
     username: z.string(),
     nickname: z.string(),
     percentage: z.number().nullable(),
+    color: MemberColorSchema.optional(),
+    photoUrl: z.string().nullable().optional(),
 });
 type ActiveMember = z.infer<typeof ActiveMemberSchema>;
 
@@ -28,6 +31,8 @@ function toMemberPercentage(member: ActiveMember): MemberPercentage {
         initial,
         name: member.nickname,
         fullName: `@${member.username}`,
+        color: member.color,
+        photoUrl: member.photoUrl,
         percentage: member.percentage ?? 0,
         locked: false,
     };
