@@ -98,6 +98,7 @@ public class GroupMember {
 
     public void approve() {
         this.status = MembershipStatus.ACTIVE;
+        this.role = GroupRole.ADMIN;
         this.percentage = BigDecimal.ZERO;
         this.joinedAt = Instant.now();
     }

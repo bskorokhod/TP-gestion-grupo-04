@@ -8,6 +8,9 @@ import EsNuestro.group.GroupService;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
 import EsNuestro.member.GroupRole;
+import EsNuestro.expense.dtos.BalanceByPersonDTO;
+import EsNuestro.expense.dtos.GroupSummaryDTO;
+import EsNuestro.expense.dtos.ExpenseMemberDTO;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -164,15 +167,150 @@ class ExpenseService {
         expenseRepository.delete(expense);
     }
 
+    /** Resumen del caller en el grupo: cuánto debe, cuánto le deben y pendientes visibles. */
+    GroupSummaryDTO summary(Long groupId, String username) throws ItemNotFoundException {
+        GroupMember caller = groupService.requireViewer(groupId, username);
+        List<Expense> expenses = expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId);
+
+        BigDecimal owes = BigDecimal.ZERO;
+        BigDecimal owed = BigDecimal.ZERO;
+        long pending = 0;
+
+        for (Expense expense : expenses) {
+            if (!canView(expense, caller)) {
+                continue;
+            }
+            if (expense.getStatus() == ExpenseStatus.PENDING_APPROVAL) {
+                pending++;
+                continue;
+            }
+            if (expense.getStatus() != ExpenseStatus.APPROVED) {
+                continue;
+            }
+
+            for (Debt debt : expense.getDebts()) {
+                if (debt.getStatus() != DebtStatus.ACTIVE || !debt.isUnsettled()) {
+                    continue;
+                }
+                BigDecimal remaining = debt.getAmount().subtract(debt.getPaidAmount());
+                if (debt.getDebtor().getId().equals(caller.getId())) {
+                    owes = owes.add(remaining);
+                } else if (debt.getCreditor().getId().equals(caller.getId())) {
+                    owed = owed.add(remaining);
+                }
+            }
+        }
+
+        return new GroupSummaryDTO(ExpenseMemberDTO.from(caller), owes, owed, pending);
+    }
+
+    /** Gastos aprobados donde el caller es el acreedor y todavía tiene deudas sin saldar. */
+    List<ExpenseDTO> owedToMe(Long groupId, String username) throws ItemNotFoundException {
+        GroupMember caller = groupService.requireViewer(groupId, username);
+        return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
+                .filter(expense -> expense.getStatus() == ExpenseStatus.APPROVED)
+                .filter(expense -> expense.getDetails().getCreditor().getId().equals(caller.getId()))
+                .filter(expense -> expense.getDebts().stream().anyMatch(Debt::isUnsettled))
+                .map(ExpenseDTO::from)
+                .toList();
+    }
+
+    /** Gastos aprobados donde el caller tiene deudas sin saldar. */
+    List<ExpenseDTO> iOwe(Long groupId, String username) throws ItemNotFoundException {
+        GroupMember caller = groupService.requireViewer(groupId, username);
+        return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
+                .filter(expense -> expense.getStatus() == ExpenseStatus.APPROVED)
+                .filter(expense -> expense.getDebts().stream()
+                        .anyMatch(debt -> debt.getDebtor().getId().equals(caller.getId()) && debt.isUnsettled()))
+                .map(ExpenseDTO::from)
+                .toList();
+    }
+
+    /**
+     * Balance del caller con cada miembro activo del grupo (todos, incluidos los que están en cero)
+     * más el detalle de las deudas que lo componen.
+     */
+    List<BalanceByPersonDTO> byPerson(Long groupId, String username) throws ItemNotFoundException {
+        GroupMember caller = groupService.requireViewer(groupId, username);
+        Long callerId = caller.getId();
+
+        Map<Long, PersonAccumulator> accumulators = new LinkedHashMap<>();
+        groupMemberRepository.findByGroup_Id(groupId).stream()
+                .filter(GroupMember::isActive)
+                .filter(member -> !member.getId().equals(callerId))
+                .forEach(member -> accumulators.put(member.getId(), new PersonAccumulator(member)));
+
+        for (Expense expense : expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId)) {
+            if (expense.getStatus() != ExpenseStatus.APPROVED) {
+                continue;
+            }
+            for (Debt debt : expense.getDebts()) {
+                if (debt.getStatus() != DebtStatus.ACTIVE || !debt.isUnsettled()) {
+                    continue;
+                }
+                BigDecimal remaining = debt.getAmount().subtract(debt.getPaidAmount());
+                Long debtorId = debt.getDebtor().getId();
+                Long creditorId = debt.getCreditor().getId();
+
+                if (debtorId.equals(callerId)) {
+                    PersonAccumulator acc = accumulators.get(creditorId);
+                    if (acc != null) {
+                        acc.addItem(expense, debt, remaining, BalanceByPersonDTO.Type.DEBT).subtract(remaining);
+                    }
+                } else if (creditorId.equals(callerId)) {
+                    PersonAccumulator acc = accumulators.get(debtorId);
+                    if (acc != null) {
+                        acc.addItem(expense, debt, remaining, BalanceByPersonDTO.Type.CREDIT).add(remaining);
+                    }
+                }
+            }
+        }
+
+        return accumulators.values().stream().map(PersonAccumulator::toDTO).toList();
+    }
+
+    /** Acumulador mutable para armar el balance por persona; se materializa como DTO al final. */
+    private static final class PersonAccumulator {
+        private final GroupMember member;
+        private BigDecimal netBalance = BigDecimal.ZERO;
+        private final List<BalanceByPersonDTO.Item> items = new ArrayList<>();
+
+        PersonAccumulator(GroupMember member) {
+            this.member = member;
+        }
+
+        PersonAccumulator add(BigDecimal amount) {
+            this.netBalance = this.netBalance.add(amount);
+            return this;
+        }
+
+        PersonAccumulator subtract(BigDecimal amount) {
+            this.netBalance = this.netBalance.subtract(amount);
+            return this;
+        }
+
+        PersonAccumulator addItem(Expense expense, Debt debt, BigDecimal amount, BalanceByPersonDTO.Type type) {
+            this.items.add(new BalanceByPersonDTO.Item(
+                    expense.getId(),
+                    debt.getId(),
+                    expense.getDetails().getDescription(),
+                    amount,
+                    type
+            ));
+            return this;
+        }
+
+        BalanceByPersonDTO toDTO() {
+            return new BalanceByPersonDTO(ExpenseMemberDTO.from(member), netBalance, List.copyOf(items));
+        }
+    }
+
     private ExpenseDetails buildDetails(Long groupId, ExpenseDataDTO data) throws ItemNotFoundException {
         if (data.receiptUrl() == null || data.receiptUrl().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A receipt is required to register an expense");
         }
-        if (data.description() == null || data.description().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The expense needs a description");
-        }
-        if (data.participants() == null || data.participants().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one participant is required");
+        if (data.title() == null || data.title().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The expense needs a title");
         }
         BigDecimal total = requireValidAmount(data.totalAmount());
 
@@ -196,15 +334,23 @@ class ExpenseService {
             participants.add(new ExpenseParticipant(member, custom ? entry.percentage() : null));
         }
 
-        if (custom) {
-            ExpenseSplitCalculator.requireValidCustomPercentages(participants);
+        // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.
+        if (!participants.isEmpty()) {
+            if (custom) {
+                ExpenseSplitCalculator.requireValidCustomPercentages(participants);
+            }
+            // Simulacro: falla ya (y no recién al aprobar) si el reparto es imposible, p. ej. proporcional
+            // entre participantes que tienen todos 0% de posesión. Se recalcula al aprobar.
+            ExpenseSplitCalculator.split(total, data.splitMethod(), participants);
         }
-        // Simulacro: falla ya (y no recién al aprobar) si el reparto es imposible, p. ej. proporcional
-        // entre participantes que tienen todos 0% de posesión. Se recalcula al aprobar.
-        ExpenseSplitCalculator.split(total, data.splitMethod(), participants);
+
+        String title = data.title().strip();
+        String description = data.description() == null || data.description().isBlank()
+                ? null
+                : data.description().strip();
 
         return new ExpenseDetails(
-                data.description().strip(), total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
+                title, description, total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
         );
     }
 

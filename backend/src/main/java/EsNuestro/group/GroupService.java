@@ -78,6 +78,22 @@ public class GroupService {
         return toGroupDTO(requireViewer(groupId, callerEmail));
     }
 
+    /**
+     * Resuelve un grupo por su código (el que aparece en las URLs). Un código inexistente y un grupo del
+     * que el caller no es miembro devuelven la misma respuesta (404), para no revelar qué códigos existen.
+     */
+    GroupDTO getGroupByCode(String joinCode, String callerEmail) throws ItemNotFoundException {
+        String normalizedCode = normalizeJoinCode(joinCode);
+        Group group = groupRepository.findByJoinCode(normalizedCode)
+                .orElseThrow(() -> new ItemNotFoundException("group", normalizedCode));
+        GroupMember membership = groupMemberRepository.findByGroup_IdAndUser_Email(group.getId(), callerEmail)
+                .orElseThrow(() -> new ItemNotFoundException("group", normalizedCode));
+        if (!membership.isViewer()) {
+            throw new AccessDeniedException("You don't have access to this group");
+        }
+        return toGroupDTO(membership);
+    }
+
     GroupPreviewDTO previewGroup(String joinCode) throws ItemNotFoundException {
         String normalizedCode = normalizeJoinCode(joinCode);
         return groupRepository.findByJoinCode(normalizedCode)
@@ -317,7 +333,7 @@ public class GroupService {
     }
 
     private GroupDTO toGroupDTO(GroupMember member) {
-        return GroupDTO.from(member.getGroup(), member.getRole().isAtLeast(GroupRole.ADMIN));
+        return GroupDTO.from(member.getGroup(), member);
     }
 
     private Map<Long, GroupMember> indexById(List<GroupMember> members) {
@@ -329,20 +345,18 @@ public class GroupService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
     }
 
-    private Group requireGroup(Long groupId) throws ItemNotFoundException {
-        return groupRepository.findById(groupId)
-                .orElseThrow(() -> new ItemNotFoundException("group", groupId));
-    }
-
     public Group requireGroupForUpdate(Long groupId) throws ItemNotFoundException {
         return groupRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new ItemNotFoundException("group", groupId));
     }
 
+    /**
+     * Un grupo inexistente y un grupo del que el caller no es miembro producen exactamente la misma
+     * respuesta (404 "group"), para no revelar a quien no pertenece qué grupos existen.
+     */
     private GroupMember requireMembership(Long groupId, String email) throws ItemNotFoundException {
-        requireGroup(groupId);
         return groupMemberRepository.findByGroup_IdAndUser_Email(groupId, email)
-                .orElseThrow(() -> new ItemNotFoundException("group member", groupId));
+                .orElseThrow(() -> new ItemNotFoundException("group", groupId));
     }
 
     public GroupMember requireActiveMember(Long groupId, String email) throws ItemNotFoundException {

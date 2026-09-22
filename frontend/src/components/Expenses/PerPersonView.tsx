@@ -1,39 +1,35 @@
+import { useState, type ReactElement } from "react";
+
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
-import { PersonBalanceCard } from "@/components/Expenses/ExpensesCard.tsx";
-import type { PersonBalanceCardProps } from "@/components/Expenses/ExpensesCard.tsx";
+import {
+    EmptyState,
+    PersonBalanceCard,
+    type BalanceStatus,
+    type PersonBalanceCardProps,
+} from "@/components/Expenses/ExpensesCard.tsx";
+import { NewExpenseModal } from "@/components/modals";
+import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
 
+import { useGetBalancesByPerson } from "@/services/ExpenseServices.ts";
+import type { BalanceByPerson } from "@/models/Expense.ts";
+import { currency } from "@/lib/format";
 
-const people: PersonBalanceCardProps[] = [
-    {
-        name: "Rocio",
-        balance: "Te debe $5.000",
-        balanceStatus: "positive",
-        items: [{ name: "Fumigación", amount: "$5.000", variant: "credit", action: "readonly" }]
-    },
-    {
-        name: "Lucia",
-        balance: "Te debe $15.000",
-        balanceStatus: "positive",
-        items: [{ name: "Compra de heladera", amount: "$15.000", variant: "credit", action: "readonly" }]
-    },
-    {
-        name: "Pablo",
-        balance: "Le debés $2.000",
-        balanceStatus: "negative",
-        items: [
-            { name: "Fumigación", amount: "$5.000", variant: "credit", action: "readonly" },
-            { name: "Arreglo de reja", amount: "$7.000", variant: "debt", action: "payable" }
-        ]
-    },
-    {
-        name: "Diego",
-        balance: "Sin deudas pendientes",
-        balanceStatus: "neutral",
-        items: []
-    }
-];
+interface PayTarget {
+    readonly expenseId: number;
+    readonly debtId: number;
+    readonly amount: number;
+}
 
-export const PerPersonView = () => {
+export interface PerPersonViewProps {
+    readonly groupId?: number;
+}
+
+export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => {
+    const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState<boolean>(false);
+    const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
+
+    const { data: balances = [], isLoading } = useGetBalancesByPerson(groupId);
+
     return (
         <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
             <SectionBanner
@@ -41,13 +37,84 @@ export const PerPersonView = () => {
                 description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
                 variant="allDebt"
                 action="Agregar gasto"
+                onAction={() => groupId != null && setIsNewExpenseModalOpen(true)}
             />
 
-            <div className="grid gap-4 lg:grid-cols-2 items-start">
-                {people.map((person) => (
-                    <PersonBalanceCard key={person.name} {...person} />
-            ))}
-        </div>
+            {isLoading ? (
+                <EmptyState message="Cargando balances…" />
+            ) : balances.length === 0 ? (
+                <EmptyState message="Todavía no hay deudas entre los miembros del grupo." />
+            ) : (
+                <div className="grid items-start gap-4 lg:grid-cols-2">
+                    {balances.map((balance) => (
+                        <BalanceCard
+                            key={balance.member.id}
+                            balance={balance}
+                            onPay={(expenseId, debtId, amount) =>
+                                setPayTarget({ expenseId, debtId, amount })
+                            }
+                        />
+                    ))}
+                </div>
+            )}
+
+            {isNewExpenseModalOpen && groupId != null && (
+                <NewExpenseModal
+                    groupId={groupId}
+                    onClose={() => setIsNewExpenseModalOpen(false)}
+                />
+            )}
+
+            {payTarget && groupId != null && (
+                <PayDebtModal
+                    groupId={groupId}
+                    expenseId={payTarget.expenseId}
+                    debtId={payTarget.debtId}
+                    debtAmount={payTarget.amount}
+                    onClose={() => setPayTarget(null)}
+                    onPaid={() => setPayTarget(null)}
+                />
+            )}
         </section>
+    );
+};
+
+interface BalanceCardProps {
+    readonly balance: BalanceByPerson;
+    readonly onPay: (expenseId: number, debtId: number, amount: number) => void;
+}
+
+function BalanceCard({ balance, onPay }: BalanceCardProps): ReactElement {
+    const { member, netBalance, items } = balance;
+
+    const balanceStatus: BalanceStatus =
+        netBalance > 0 ? "positive" : netBalance < 0 ? "negative" : "neutral";
+
+    const balanceLabel =
+        netBalance > 0
+            ? `Te debe ${currency.format(netBalance)}`
+            : netBalance < 0
+                ? `Le debés ${currency.format(Math.abs(netBalance))}`
+                : "Sin deudas pendientes";
+
+    const itemsForCard: PersonBalanceCardProps["items"] = items.map((item) => ({
+        name: item.description,
+        amount: currency.format(item.amount),
+        variant: item.type === "CREDIT" ? "credit" : "debt",
+        action: item.type === "CREDIT" ? "readonly" : "payable",
+        onAction:
+            item.type === "DEBT"
+                ? () => onPay(item.expenseId, item.debtId, item.amount)
+                : undefined,
+    }));
+
+    return (
+        <PersonBalanceCard
+            name={member.nickname}
+            color={member.color}
+            balance={balanceLabel}
+            balanceStatus={balanceStatus}
+            items={itemsForCard}
+        />
     );
 }

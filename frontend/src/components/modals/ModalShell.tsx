@@ -50,8 +50,7 @@ export function ModalShell({
             <form
                 onSubmit={onSubmit}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-120 overflow-hidden rounded-3xl border border-modal-border bg-modal-surface p-6 shadow-2xl sm:p-8"
-            >
+                className="max-h-screen w-full max-w-120 overflow-y-auto rounded-3xl border border-modal-border bg-modal-surface p-6 shadow-2xl sm:p-8"            >
                 <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                     <h2 id="modal-title" className="min-w-0 truncate text-xl font-black text-modal-ink">
                         {title}

@@ -1,9 +1,14 @@
 import { Link, useLocation } from "wouter";
 import {GROUP_PAGES, GroupNavbarProps, PAGES_NAVBAR_DATA, Routes} from "@/constants/navigation.ts"
+import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 
 
-export function GroupNavbar({children, groupId = "123-ABC-123", groupName = "Casa Madryn"}: GroupNavbarProps) {
+export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarProps) {
     const [location] = useLocation();
+    // Las pantallas de grupo viven bajo GroupGuard: el grupo (y su código de URL) sale del contexto.
+    const group = useCurrentGroup();
+    // Un `groupName` explícito (incluso "") tiene prioridad; "" hace que se muestre el título de la página.
+    const groupName = groupNameProp ?? group.name;
 
     console.log(location.split("/").at(-1));
 
@@ -17,7 +22,7 @@ export function GroupNavbar({children, groupId = "123-ABC-123", groupName = "Cas
                 aria-label="Secciones"
             >
                 {GROUP_PAGES.map((page) => {
-                    const href = `/grupos/${groupId}${page.pathSuffix}`;
+                    const href = `/grupos/${group.joinCode}${page.pathSuffix}`;
                     const isActive = pageText.activeTabKey == page.key;
 
                     return (

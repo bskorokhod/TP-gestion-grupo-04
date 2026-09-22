@@ -59,6 +59,17 @@ class GroupRestController {
         return groupService.getGroup(groupId, principal.email());
     }
 
+    @GetMapping(value = "/code/{joinCode}", produces = "application/json")
+    @Operation(summary = "Obtener un grupo por su código; solo para miembros que pueden verlo")
+    @ApiResponse(responseCode = "403", description = "Tuvo relación con el grupo pero ya no puede verlo", content = @Content)
+    @ApiResponse(responseCode = "404", description = "No existe un grupo con ese código o el caller no es miembro", content = @Content)
+    GroupDTO getByCode(
+            @PathVariable String joinCode,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return groupService.getGroupByCode(joinCode, principal.email());
+    }
+
     @GetMapping(value = "/join/{joinCode}", produces = "application/json")
     @Operation(summary = "Obtener el nombre de un grupo a partir de su código de unión")
     @ApiResponse(responseCode = "404", description = "No existe un grupo con ese código", content = @Content)

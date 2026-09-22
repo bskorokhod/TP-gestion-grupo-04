@@ -18,7 +18,8 @@ public record MemberDTO(
         MembershipStatus status,
         BigDecimal percentage,
         Instant requestedAt,
-        Instant joinedAt
+        Instant joinedAt,
+        String photoUrl
 ) {
     public static MemberDTO from(GroupMember member) {
         return new MemberDTO(
@@ -31,7 +32,8 @@ public record MemberDTO(
                 member.getStatus(),
                 member.getPercentage(),
                 member.getRequestedAt(),
-                member.getJoinedAt()
+                member.getJoinedAt(),
+                member.getUser().getPhotoUrl()
         );
     }
 }

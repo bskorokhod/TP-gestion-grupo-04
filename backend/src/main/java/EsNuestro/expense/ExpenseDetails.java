@@ -24,7 +24,10 @@ public class ExpenseDetails {
     @GeneratedValue
     private Long id;
 
-    @Column(nullable = false, length = 200)
+    @Column(nullable = false, length = 150)
+    private String title;
+
+    @Column(length = 200)
     private String description;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -43,14 +46,16 @@ public class ExpenseDetails {
     @Column(nullable = false, length = 2048)
     private String receiptUrl;
 
+    /** Miembros entre los que se reparte el gasto; puede no haber ninguno (lo cubre el acreedor). */
     @ElementCollection
     @CollectionTable(name = "expense_participants", joinColumns = @JoinColumn(name = "details_id"))
     private List<ExpenseParticipant> participants = new ArrayList<>();
 
     public ExpenseDetails(
-            String description, BigDecimal totalAmount, SplitMethod splitMethod,
+            String title, String description, BigDecimal totalAmount, SplitMethod splitMethod,
             GroupMember creditor, String receiptUrl, List<ExpenseParticipant> participants
     ) {
+        this.title = title;
         this.description = description;
         this.totalAmount = totalAmount;
         this.splitMethod = splitMethod;

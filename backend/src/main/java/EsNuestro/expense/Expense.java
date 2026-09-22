@@ -150,6 +150,10 @@ public class Expense {
 
     private void regenerateDebts() {
         debts.clear();
+        if (details.getParticipants().isEmpty()) {
+            // Nadie más participa: el acreedor cubre el gasto entero y no se generan deudas.
+            return;
+        }
         Long creditorId = details.getCreditor().getId();
         Map<Long, GroupMember> participantsById = details.getParticipants().stream()
                 .map(ExpenseParticipant::getMember)

@@ -1,27 +1,32 @@
-import { useAccessTokenGetter } from "@/contexts/TokenContext.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { User, UserSchema, UserProfile, UserProfileSchema, UserPhotoUpdate, UserPhotoUpdateSchema,} from "@/models/User";
-import { ApiService } from "@/services/ApiServices";
+
+import {
+    User,
+    UserSchema,
+    UserProfile,
+    UserProfileSchema,
+    UserPhotoUpdate,
+    UserPhotoUpdateSchema,
+} from "@/models/User";
+import { useApiClient } from "@/hooks/useApiClient";
 
 export function useGetUsers() {
-    const getAccessToken = useAccessTokenGetter();
-
+    const api = useApiClient();
     return useQuery({
-        queryKey: ["users"],
+        queryKey: ["users"] as const,
         queryFn: async (): Promise<User[]> => {
-            const data = await ApiService.authenticatedRequest<{ results: unknown[] }>( getAccessToken, "/users", { method: "GET" });
+            const data = await api.get<{ results: unknown[] }>("/users");
             return UserSchema.array().parse(data.results);
         },
     });
 }
 
 export function useGetUserProfile() {
-    const getAccessToken = useAccessTokenGetter();
-
+    const api = useApiClient();
     return useQuery({
-        queryKey: ["userProfile"],
+        queryKey: ["userProfile"] as const,
         queryFn: async (): Promise<UserProfile> => {
-            const data = await ApiService.authenticatedRequest<{ results: unknown }>(getAccessToken, "/users/profile", { method: "GET" });
+            const data = await api.get<{ results: unknown }>("/users/profile");
             return UserProfileSchema.parse(data.results);
         },
         staleTime: Infinity,
@@ -32,28 +37,29 @@ export function useGetUserProfile() {
 }
 
 export function useUpdateRole() {
-    const getAccessToken = useAccessTokenGetter();
+    const api = useApiClient();
     const qc = useQueryClient();
 
-    return useMutation({
-        mutationFn: async (payload: { username: string }) =>
-            ApiService.authenticatedRequest<void>(getAccessToken, `/users/${payload.username}`, {
-                method: "PATCH",
-            }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    return useMutation<void, Error, { username: string }>({
+        mutationFn: async ({ username }): Promise<void> =>
+            api.patch<void>(`/users/${username}`),
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["users"] });
+        },
     });
 }
 
-
 export function useUpdatePhoto() {
-    const getAccessToken = useAccessTokenGetter();
+    const api = useApiClient();
     const qc = useQueryClient();
 
-    return useMutation({
-        mutationFn: async (payload: { newUrl: UserPhotoUpdate }) => {
-            const parsed = UserPhotoUpdateSchema.parse(payload.newUrl);
-            return ApiService.authenticatedRequest<void>(getAccessToken, "/users/profile", {method: "PATCH", body: JSON.stringify(parsed),});
+    return useMutation<void, Error, { newUrl: UserPhotoUpdate }>({
+        mutationFn: async ({ newUrl }): Promise<void> => {
+            const parsed = UserPhotoUpdateSchema.parse(newUrl);
+            return api.patch<void>("/users/profile", parsed);
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["userProfile"] }),
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["userProfile"] });
+        },
     });
 }

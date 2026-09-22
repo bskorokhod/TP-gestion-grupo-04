@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Legend, Pie, PieChart, ResponsiveContainer, Tooltip, Sector } from "recharts";
-import { useParams } from "wouter";
+import { Legend, Pie, PieChart, ResponsiveContainer, Tooltip, Sector, PieSectorShapeProps } from "recharts";
 
 import { PercentageCard } from "@/components/AdminCard";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
+import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { cn } from "@/lib/cn.ts";
 import { autoBalancePercentages, canLockMemberPercentage, getPercentageDifference } from "@/lib/percentages";
 import type { MemberPercentage } from "@/models/Percentage";
@@ -42,7 +42,8 @@ function getMemberErrorMessage(member: MemberPercentage, lockErrors: LockErrors)
 }
 
 export const PercentageConfigScreen = () => {
-    const { id: groupId } = useParams<{ id: string }>();
+    // La URL usa el código del grupo; la API de porcentajes usa el id numérico.
+    const groupId = String(useCurrentGroup().id);
 
     const percentagesQuery = useGroupPercentages(groupId);
     const updateMutation = useUpdateGroupPercentages(groupId);
@@ -174,7 +175,7 @@ export const PercentageConfigScreen = () => {
 
     return (
         <CommonLayout className="flex flex-col min-h-screen">
-            <GroupNavbar children={undefined} groupId={groupId} groupName="" />
+            <GroupNavbar children={undefined} groupName="" />
 
             <div className="flex flex-row flex-1 items-stretch gap-10 bg-background pt-12 px-30 pb-16 overflow-hidden">
                 {percentagesQuery.isLoading && (
@@ -270,7 +271,7 @@ export const PercentageConfigScreen = () => {
                                                     innerRadius="30%"
                                                     outerRadius="80%"
                                                     paddingAngle={0}
-                                                    shape={(props: any) => (
+                                                    shape={(props: PieSectorShapeProps) => (
                                                         <Sector 
                                                             {...props} 
                                                             fill={CHART_COLORS[props.index % CHART_COLORS.length]} 

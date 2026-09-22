@@ -66,12 +66,9 @@ const stats: Stat[] = [
 ];
 
 export const MainScreen = () => {
-    // @ts-ignore
-    // @ts-ignore
-    // @ts-ignore
     return (
-        <CommonLayout className="min-h-screen overflow-hidden bg-background text-foreground">
-            <section className="h-[calc(100vh-60px)] login-backdrop">
+        <CommonLayout className="min-h-screen overflow-hidden text-foreground login-backdrop">
+            <section className="h-[calc(100vh-60px)] ">
                 <div className="h-full mx-auto px-6 py-16 md:px-12 pb-0 flex flex-row">
                     <div className="space-y-6 h-full content-center ps-16 basis-1/2">
                         <span className="inline-flex rounded-full bg-card/80 px-4 py-2 text-xs font-medium text-primary">
@@ -102,7 +99,7 @@ export const MainScreen = () => {
                     </div>
                 </div>
             </section>
-            {/*@ts-ignore*/}
+
             <StatsBar stats={stats}/>
 
             <section className="px-6 pb-20 pt-8">

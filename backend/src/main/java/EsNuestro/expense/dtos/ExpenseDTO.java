@@ -23,6 +23,7 @@ public record ExpenseDTO(
 ) {
 
     public record Details(
+            String title,
             String description,
             BigDecimal totalAmount,
             SplitMethod splitMethod,
@@ -35,6 +36,7 @@ public record ExpenseDTO(
                 return null;
             }
             return new Details(
+                    details.getTitle(),
                     details.getDescription(),
                     details.getTotalAmount(),
                     details.getSplitMethod(),

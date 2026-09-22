@@ -2,7 +2,7 @@ import { BASE_API_URL } from "@/config/app-query-client";
 import { fetchApi } from "@/lib/api";
 
 export class ApiService {
-    private static jsonHeaders = {
+    private static readonly jsonHeaders: Readonly<Record<string, string>> = {
         Accept: "application/json",
         "Content-Type": "application/json",
     };
@@ -15,7 +15,7 @@ export class ApiService {
 
     static async request<T = unknown>(
         endpoint: string,
-        options: RequestInit = {}
+        options: RequestInit = {},
     ): Promise<T> {
         const url = `${BASE_API_URL}${endpoint}`;
         return fetchApi(url, {
@@ -30,7 +30,7 @@ export class ApiService {
     static async authenticatedRequest<T = unknown>(
         getAccessToken: () => Promise<string>,
         endpoint: string,
-        options: RequestInit = {}
+        options: RequestInit = {},
     ): Promise<T> {
         const tryRequest = async (): Promise<T> => {
             const token = await getAccessToken();
@@ -43,22 +43,24 @@ export class ApiService {
             });
         };
 
-        const result = await tryRequest().catch(async (error: unknown) => {
-            const hasStatus = (err: unknown): err is { status: number } =>
-                typeof err === 'object' && err !== null && 'status' in err;
+        try {
+            return await tryRequest();
+        } catch (error: unknown) {
+            const status: number | null =
+                typeof error === "object" && error !== null && "status" in error
+                    ? typeof (error as { status: unknown }).status === "number"
+                        ? ((error as { status: number }).status)
+                        : null
+                    : null;
 
-            const status = hasStatus(error) ? error.status : null;
             const isAuthError = status === 401 || status === 403;
 
             if (isAuthError && this.refreshHandler) {
                 await this.refreshHandler();
-                return await tryRequest();
+                return tryRequest();
             }
-
-            return Promise.reject(error);
-        });
-
-        return result;
+            throw error;
+        }
     }
 
     static get<T = unknown>(endpoint: string): Promise<T> {
@@ -68,21 +70,21 @@ export class ApiService {
     static post<T = unknown>(endpoint: string, data?: unknown): Promise<T> {
         return this.request<T>(endpoint, {
             method: "POST",
-            body: data ? JSON.stringify(data) : undefined,
+            body: data === undefined ? undefined : JSON.stringify(data),
         });
     }
 
     static put<T = unknown>(endpoint: string, data?: unknown): Promise<T> {
         return this.request<T>(endpoint, {
             method: "PUT",
-            body: data ? JSON.stringify(data) : undefined,
+            body: data === undefined ? undefined : JSON.stringify(data),
         });
     }
 
     static patch<T = unknown>(endpoint: string, data?: unknown): Promise<T> {
         return this.request<T>(endpoint, {
             method: "PATCH",
-            body: data ? JSON.stringify(data) : undefined,
+            body: data === undefined ? undefined : JSON.stringify(data),
         });
     }
 
