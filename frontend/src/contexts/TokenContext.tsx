@@ -1,8 +1,9 @@
 
 import React, {Dispatch, useCallback, useContext, useState} from "react";
 
-import {AuthResponse, AuthResponseSchema} from "@/models/Login.ts";
+import {AuthResponse} from "@/models/User.ts";
 import {useRefresh} from "@/services/AuthServices.ts";
+import {TokenService} from "@/services/TokenService.ts";
 
 const TOKEN_STORAGE_KEY = "tokens";
 
@@ -79,14 +80,14 @@ export function useHandleResponse() {
 }
 
 const getInitialTokenState = (): TokenContextData => {
-    const storedData = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (storedData) {
-        try {
-            const tokens = AuthResponseSchema.parse(JSON.parse(storedData));
-            return {state: "LOGGED_IN", tokens};
-        } catch (err) {
-            console.error(err);
-        }
+    // No alcanza con que el valor guardado tenga la forma correcta: hay que confirmar que el
+    // access token siga siendo válido (no expirado) antes de asumir una sesión activa. Si falta,
+    // está corrupto o expiró, se limpia la persistencia y se arranca estrictamente deslogueado
+    // (evita el "falso login" con una cuenta inválida/inexistente, p. ej. tras resetear el backend).
+    const tokens = TokenService.getStoredTokens(TOKEN_STORAGE_KEY);
+    if (tokens && TokenService.isTokenValid(tokens.accessToken)) {
+        return {state: "LOGGED_IN", tokens};
     }
+    TokenService.clearStoredTokens(TOKEN_STORAGE_KEY);
     return {state: "LOGGED_OUT"};
 };
