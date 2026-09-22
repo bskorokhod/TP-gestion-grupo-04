@@ -1,54 +1,20 @@
-import React from "react";
-import { Link } from "wouter";
+import type {ReactNode} from "react";
 
-import { ErrorBoundary } from "@/components/ErrorBoundary/ErrorBoundary";
-import { useToken } from "@/services/TokenContext";
+import {ErrorBoundary} from "@/components/ErrorBoundary/ErrorBoundary";
+import Navbar from "@/components/Navbar.tsx";
+import Footer from "@/components/Footer.tsx";
 
-export const CommonLayout = ({ children }: React.PropsWithChildren) => {
-  const [tokenState] = useToken();
+export interface CommonLayoutProps {
+    children: ReactNode;
+    className?: string;
+}
 
-  return (
-    <div>
-      <ul>{tokenState.state === "LOGGED_OUT" ? <LoggedOutLinks /> : <LoggedInLinks />}</ul>
-      <div>
-        <ErrorBoundary>{children}</ErrorBoundary>
-      </div>
-    </div>
-  );
-};
-
-const LoggedOutLinks = () => {
-  return (
-    <>
-      <li>
-        <Link href="/login">Log in</Link>
-      </li>
-      <li>
-        <Link href="/signup">Sign Up</Link>
-      </li>
-    </>
-  );
-};
-
-const LoggedInLinks = () => {
-  const [, setTokenState] = useToken();
-
-  const logOut = () => {
-    setTokenState({ state: "LOGGED_OUT" });
-  };
-
-  return (
-    <>
-      <li>
-        <Link href="/under-construction">Main Page</Link>
-      </li>
-      <li>Products</li>
-      <li>
-        <Link href="/brands">Brands</Link>
-      </li>
-      <li>
-        <button onClick={logOut}>Log out</button>
-      </li>
-    </>
-  );
+export const CommonLayout = ({children, className}: CommonLayoutProps) => {
+    return (
+        <main className={className}>
+            <Navbar/>
+            <ErrorBoundary>{children}</ErrorBoundary>
+            <Footer/>
+        </main>
+    );
 };

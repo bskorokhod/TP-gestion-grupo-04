@@ -1,66 +1,65 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { BASE_API_URL } from "@/config/app-query-client";
-import { AuthResponseSchema, LoginRequest, SignupRequest } from "@/models/Login";
-import { useToken } from "@/services/TokenContext";
+import {
+    User,
+    UserSchema,
+    UserProfile,
+    UserProfileSchema,
+    UserPhotoUpdate,
+    UserPhotoUpdateSchema,
+} from "@/models/User";
+import { useApiClient } from "@/hooks/useApiClient";
 
-export function useLogin() {
-  const [, setToken] = useToken();
-
-  return useMutation({
-    mutationFn: async (req: LoginRequest) => {
-      const tokens = await auth("POST", "/sessions", req);
-      setToken({ state: "LOGGED_IN", tokens });
-    },
-  });
+export function useGetUsers() {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["users"] as const,
+        queryFn: async (): Promise<User[]> => {
+            const data = await api.get<{ results: unknown[] }>("/users");
+            return UserSchema.array().parse(data.results);
+        },
+    });
 }
 
-export function useRefresh() {
-  const [tokenState, setToken] = useToken();
-
-  return useMutation({
-    mutationFn: async () => {
-      if (tokenState.state !== "LOGGED_IN") {
-        return;
-      }
-
-      try {
-        const refreshToken = tokenState.tokens.refreshToken;
-        const tokenPromise = auth("PUT", "/sessions", { refreshToken });
-        setToken({ state: "REFRESHING", tokenPromise });
-        setToken({ state: "LOGGED_IN", tokens: await tokenPromise });
-      } catch (err) {
-        setToken({ state: "LOGGED_OUT" });
-        throw err;
-      }
-    },
-  });
+export function useGetUserProfile() {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["userProfile"] as const,
+        queryFn: async (): Promise<UserProfile> => {
+            const data = await api.get<{ results: unknown }>("/users/profile");
+            return UserProfileSchema.parse(data.results);
+        },
+        staleTime: Infinity,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+    });
 }
 
-export function useSignup() {
-  const [, setToken] = useToken();
+export function useUpdateRole() {
+    const api = useApiClient();
+    const qc = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (req: SignupRequest) => {
-      const tokens = await auth("POST", "/users", req);
-      setToken({ state: "LOGGED_IN", tokens });
-    },
-  });
+    return useMutation<void, Error, { username: string }>({
+        mutationFn: async ({ username }): Promise<void> =>
+            api.patch<void>(`/users/${username}`),
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["users"] });
+        },
+    });
 }
 
-async function auth(method: "PUT" | "POST", endpoint: string, data: object) {
-  const response = await fetch(BASE_API_URL + endpoint, {
-    method,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
+export function useUpdatePhoto() {
+    const api = useApiClient();
+    const qc = useQueryClient();
 
-  if (response.ok) {
-    return AuthResponseSchema.parse(await response.json());
-  } else {
-    throw new Error(`Failed with status ${response.status}: ${await response.text()}`);
-  }
+    return useMutation<void, Error, { newUrl: UserPhotoUpdate }>({
+        mutationFn: async ({ newUrl }): Promise<void> => {
+            const parsed = UserPhotoUpdateSchema.parse(newUrl);
+            return api.patch<void>("/users/profile", parsed);
+        },
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["userProfile"] });
+        },
+    });
 }

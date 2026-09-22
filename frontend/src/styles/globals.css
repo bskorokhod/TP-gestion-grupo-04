@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+    --font-poppins: "Poppins", sans-serif;
+    --font-display: "Poppins", sans-serif;
+    --font-sans: "Poppins", sans-serif;
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --radius-2xl: calc(var(--radius) + 8px);
+    --radius-3xl: calc(var(--radius) + 12px);
+    --radius-4xl: calc(var(--radius) + 16px);
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-panel: var(--panel);
+    --color-header: var(--header);
+    --color-header-line: var(--header-line);
+    --color-ink: var(--ink);
+    --color-warm-muted: var(--warm-muted);
+    --color-placeholder: var(--placeholder);
+    --color-brand: var(--brand);
+    --color-brand-hover: var(--brand-hover);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-field: var(--field);
+    --color-input-surface: var(--input-surface);
+    --color-group-paper: var(--group-paper);
+    --color-group-heading: var(--group-heading);
+    --color-group-muted: var(--group-muted);
+
+    --color-group-green: var(--group-green);
+    --color-group-amber: var(--group-amber);
+    --color-group-amber-soft: var(--group-amber-soft);
+
+    --color-group-danger: var(--group-danger);
+    --color-group-danger-soft: var(--group-danger-soft);
+    --color-group-credit: var(--group-credit);
+    --color-group-credit-soft: var(--group-credit-soft);
+    --color-group-request: var(--group-request);
+    --shadow-panel: var(--shadow-panel);
+    --shadow-group: var(--shadow-group);
+    --color-modal-surface: var(--modal-surface);
+    --color-modal-ink: var(--modal-ink);
+    --color-modal-border: var(--modal-border);
+    --color-modal-primary: var(--modal-primary);
+    --color-modal-primary-foreground: var(--modal-primary-foreground);
+    --color-modal-soft: var(--modal-soft);
+    --color-modal-field: var(--modal-field);
+    --color-modal-muted: var(--modal-muted);
+    --color-modal-amount: var(--modal-amount);
+
+    --color-custom-lilac: var(--custom-lilac);
+    --color-custom-red: var(--custom-red);
+    --color-custom-orange: var(--custom-orange);
+    --color-custom-green: var(--custom-green);
+    --color-custom-me: var(--custom-me);
+
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-section: var(--section);
+    --color-ink-soft: var(--ink-soft);
+    --color-olive: var(--olive);
+    --color-amber: var(--group-amber);
+    --color-amber-soft: var(--group-amber-soft);
+    --color-footer: var(--footer);
+
+    --shadow-soft: 0 6px 18px color-mix(in oklab, var(--foreground) 5%, transparent);
+    --shadow-pill: 0 8px 24px color-mix(in oklab, var(--foreground) 8%, transparent);
+
+
+    --color-custom-red:        #E5484D;
+    --color-custom-blue:       #3E63DD;
+    --color-custom-green:      #30A46C;
+    --color-custom-yellow:     #F5D90A;
+    --color-custom-orange:     #F76B15;
+    --color-custom-purple:     #8E4EC6;
+    --color-custom-pink:       #D6409F;
+    --color-custom-light-blue: #00A2C7;
+
+}
+
+:root {
+    --radius: 0.5rem;
+
+    --background: oklch(0.955 0.018 90);
+    --foreground: oklch(0.24 0.013 70);
+    --panel: oklch(0.994 0.004 85);
+    --header: oklch(0.97 0.006 170 / 0.62);
+    --header-line: oklch(1 0 0 / 0.8);
+    --ink: oklch(0.245 0.014 70);
+    --warm-muted: oklch(0.57 0.018 70);
+    --placeholder: oklch(0.69 0.01 75);
+    --brand: oklch(0.47 0.06 187);
+    --brand-hover: oklch(0.4 0.06 187);
+    --brand-foreground: oklch(0.99 0.004 90);
+    --field: oklch(0.9 0.04 80);
+    --input-surface: oklch(0.982 0.008 80);
+    --group-paper: oklch(0.97 0.009 85);
+    --group-heading: oklch(0.27 0.015 70);
+    --group-muted: oklch(0.58 0.018 75);
+    --group-green: oklch(59.2% 0.065 157.9 / 0.9);
+
+    /*--group-lilac-soft: oklch(0.84 0.025 295);*/
+    /*--group-lilac-faint: oklch(0.91 0.018 295);*/
+    /*--group-green-soft: oklch(0.76 0.08 120);*/
+
+    --group-amber: oklch(62.2% 0.13 67.2);
+    --group-amber-soft: oklch(72.2% 0.105 74.2);
+
+    --custom-lilac: oklch(71.8% 0.04 298.9/ 0.5);
+    --custom-red: oklch(51.8% 0.156 29.2 / 0.5);
+    --custom-orange: oklch(67.8% 0.123 62.2 / 0.5);
+    --custom-green: oklch(59.9% 0.137 126.3 / 0.5);
+    --custom-me: oklch(49.4% 0.05 188.4 / 0.5);
+
+    --group-danger: oklch(0.511 0.158 24.706 / 0.9);
+    --group-danger-soft: oklch(0.91 0.035 29);
+    --group-credit: oklch(0.43 0.1 120);
+    --group-credit-soft: oklch(0.91 0.045 120);
+    --group-request: oklch(0.43 0.06 295);
+    --shadow-panel: 0 18px 36px oklch(0.33 0.025 70 / 0.08);
+    --shadow-group: 0 6px 20px oklch(0.33 0.025 70 / 0.06);
+    --modal-surface: oklch(1 0 0);
+    --modal-ink: oklch(0.28723 0.01214 78.101);
+    --modal-border: oklch(0.78619 0.06382 74.619);
+    --modal-primary: oklch(0.49409 0.05025 188.409);
+    --modal-primary-foreground: oklch(0.9703 0.00697 88.642);
+    --modal-soft: oklch(0.94647 0.01398 88.685);
+    --modal-field: oklch(0.9703 0.00697 88.642);
+    --modal-muted: oklch(0.61179 0.02357 85.96);
+    --modal-amount: oklch(0.4583 0.10145 125.523);
+
+
+    --card: var(--panel);
+    --card-foreground: var(--ink);
+    --primary: var(--brand);
+    --primary-foreground: var(--brand-foreground);
+    --secondary: var(--group-paper);
+    --secondary-foreground: var(--group-heading);
+    --muted: var(--input-surface);
+    --muted-foreground: var(--warm-muted);
+    --accent: var(--field);
+    --accent-foreground: var(--group-heading);
+    --destructive: var(--group-danger);
+    --destructive-foreground: var(--brand-foreground);
+    --border: oklch(0.9 0.04 80 / 35%);
+    --input: var(--field);
+    --ring: var(--brand);
+    --section: var(--group-paper);
+    --ink-soft: var(--warm-muted);
+    --olive: var(--group-green);
+    --footer: oklch(0.27 0.032 187);
+
+    --user-lilac: var(--custom-lilac);
+    --user-red: var(--custom-red);
+    --user-orange: var(--custom-orange);
+    --user-green: var(--custom-green);
+    --user-me: var(--custom-me);
+}
+
+@layer base {
+    * {
+        box-sizing: border-box;
+        font-family: var(--font-poppins), serif;
+        border-color: var(--color-border);
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-poppins), serif;
+    }
+
+    button,
+    input {
+        font: inherit;
+    }
+}
+
+@utility login-backdrop {
+    background-color: var(--background);
+    background-image: var(--login-background-image, radial-gradient(circle at 92% 80%, oklch(0.79 0.13 129 / 0.72) 0, transparent 39%), radial-gradient(circle at 76% 0%, oklch(0.69 0.06 181 / 0.68) 0, transparent 47%), radial-gradient(circle at 5% 68%, oklch(0.84 0.08 75 / 0.67) 0, transparent 45%), linear-gradient(110deg, oklch(0.96 0.025 80), oklch(0.9 0.025 145)));
+    background-position: center;
+    background-size: cover;
+}
+
+@media (max-width: 639px) {
+    #login-form {
+        scroll-margin-top: 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    * {
+        transition-duration: 0.01ms !important;
+    }
+}

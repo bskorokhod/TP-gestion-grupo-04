@@ -15,8 +15,9 @@ import java.util.HashSet;
 
 import static EsNuestro.config.security.SecurityConfig.PUBLIC_ENDPOINTS;
 
+
 @OpenAPIDefinition(
-        info = @Info(title = "Simple Product App Backend")
+        info = @Info(title = "Buffet App Backend")
 )
 @SecurityScheme(
         name = OpenApiConfiguration.BEARER_AUTH_SCHEME_KEY,
@@ -24,9 +25,9 @@ import static EsNuestro.config.security.SecurityConfig.PUBLIC_ENDPOINTS;
         scheme = "bearer",
         bearerFormat = "JWT"
 )
+
 @Component
 public class OpenApiConfiguration {
-
     public static final String BEARER_AUTH_SCHEME_KEY = "Bearer Authentication";
 
     @Bean
@@ -35,8 +36,8 @@ public class OpenApiConfiguration {
             var tags = new HashSet<String>();
 
             // Iterate over what spring calls controllers (OpenAPI paths) and paths (OpenAPI operations)
-            for (var entry: openApi.getPaths().entrySet()) {
-                for (var operation: entry.getValue().readOperations()) {
+            for (var entry : openApi.getPaths().entrySet()) {
+                for (var operation : entry.getValue().readOperations()) {
                     tags.addAll(operation.getTags());
                     if (Arrays.asList(PUBLIC_ENDPOINTS).contains(entry.getKey())) {
                         operation.getResponses().remove("403");

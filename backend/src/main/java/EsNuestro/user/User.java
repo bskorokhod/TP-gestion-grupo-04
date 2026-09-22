@@ -2,13 +2,9 @@ package EsNuestro.user;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,28 +20,72 @@ public class User implements UserDetails, UserCredentials {
     @GeneratedValue
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    @Getter
-    private String username;
-
     @Column(nullable = false)
-    @Getter
     private String password;
 
     @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    @Getter
-    private UserRole role;
+    private String role;
 
-    public User(String username, String password, UserRole role) {
-        this.username = username;
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
+    private String surname;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column
+    private String photoUrl;
+
+    @Column
+    private String cvu;
+
+    public User(String password, String role, String name, String surname, String email, String photoUrl, String cvu) {
         this.password = password;
+        this.role = role;
+        this.name = name;
+        this.surname = surname;
+        this.email = email;
+        this.photoUrl = photoUrl;
+        this.cvu = cvu;
+    }
+
+    // El identificador del usuario es el email: se lo exponemos como "username"
+    // unicamente porque asi lo exige la interfaz UserDetails de Spring Security.
+    @Override
+    public String getUsername() {
+        return this.email;
+    }
+
+    public Long getId() {return this.id;}
+
+    public String getName() {
+        return name;
+    }
+
+    public String getSurname() {
+        return surname;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+    public String getCvu() {return cvu;}
+
+    public void setRole(String role) {
         this.role = role;
     }
 
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
+    }
+
+    // NO BORRAR
+    // Parecen innecesarios, pero lo son para que implementen la interfaz de UserDetails y UserCredentials
     @Override
-    public String username() {
-        return this.username;
+    public String email() {
+        return this.email;
     }
 
     @Override
@@ -53,8 +93,25 @@ public class User implements UserDetails, UserCredentials {
         return this.password;
     }
 
+    public String getEmail() {
+        return this.email;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
     @Override
-    public @NonNull Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.toStringWithPrefix()));
+    public String getPassword() {
+        return this.password;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
     }
 }

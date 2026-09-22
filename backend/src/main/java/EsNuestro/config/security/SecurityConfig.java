@@ -1,10 +1,8 @@
 package EsNuestro.config.security;
 
-import EsNuestro.user.UserRole;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,7 +21,9 @@ import java.util.List;
 @EnableWebSecurity(debug = false)
 public class SecurityConfig {
 
-    public static final String[] PUBLIC_ENDPOINTS = {"/users", "/sessions"};
+    public static final String USER_ROLE = "USER";
+
+    public static final String[] PUBLIC_ENDPOINTS = {"/sessions"};
 
     private final JwtAuthFilter authFilter;
 
@@ -47,11 +47,8 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**").permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        .requestMatchers(HttpMethod.POST, "/brands").hasRole(UserRole.ADMIN.toString())
-                        .requestMatchers(HttpMethod.POST, "/products").hasRole(UserRole.ADMIN.toString())
-                        .requestMatchers(HttpMethod.DELETE, "/products").hasRole(UserRole.ADMIN.toString())
-                        .requestMatchers("/brands/**").authenticated()
-                        .requestMatchers("/products/**").authenticated()
+                        .requestMatchers("/users/**").permitAll()
+                        .requestMatchers("/groups", "/groups/**").authenticated()
                         .anyRequest().denyAll())
                 .sessionManagement(sessionManager -> sessionManager
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
