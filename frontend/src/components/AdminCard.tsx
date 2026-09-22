@@ -1,48 +1,88 @@
-import type {ChangeEvent} from "react";
+import type { ChangeEvent } from "react";
 
-import type {Member} from "@/models/User";
-import {cn} from "@/lib/cn.ts";
+import type { Member } from "@/models/Group.ts";
+import { cn } from "@/lib/cn.ts";
+
+// Mapeo del enum MemberColor del backend a clases de Tailwind
+const AVATAR_COLOR_CLASS: Record<string, string> = {
+    RED: "bg-custom-red",
+    BLUE: "bg-custom-me",
+    GREEN: "bg-custom-green",
+    YELLOW: "bg-group-amber",
+    ORANGE: "bg-custom-orange",
+    PURPLE: "bg-custom-lilac",
+    PINK: "bg-custom-red",
+    LIGHT_BLUE: "bg-custom-me",
+};
+
+function avatarColorClass(color: string): string {
+    return AVATAR_COLOR_CLASS[color] ?? "bg-custom-lilac";
+}
+
+const ROLE_LABEL: Record<string, string> = {
+    FOUNDER: "Fundador/a",
+    ADMIN: "Administrador/a",
+    MEMBER: "Miembro",
+};
+
+function roleLabel(role: string): string {
+    return ROLE_LABEL[role] ?? role;
+}
 
 export interface MemberInfoCardProps {
     readonly member: Member;
 }
 
-interface InfoField {
-    readonly label: string;
-    readonly value: string;
-}
-
-export function MemberInfoCard ({ member }: MemberInfoCardProps){
-    const fields: ReadonlyArray<InfoField> = [
-        { label: "Correo:", value: member.email },
-        { label: "Alias/CVU:", value: member.alias },
-    ];
+export function MemberInfoCard({ member }: MemberInfoCardProps) {
+    const initial = member.nickname.charAt(0).toUpperCase();
+    const percentage = member.percentage !== null ? member.percentage : 0;
+    const hasPhoto = Boolean(member.photoUrl);
 
     return (
         <div className="flex flex-col gap-3 items-start flex-1 bg-panel rounded-2xl border border-field/50 py-6 px-7 overflow-hidden">
             <div className="flex flex-row justify-between items-center self-stretch">
                 <div className="flex flex-row gap-2.5 items-center">
-                    <div className="flex flex-row justify-center items-center w-11 h-11 bg-custom-red rounded-[31px] overflow-hidden shrink-0">
-                        <p className="text-lg font-medium text-panel">{member.initial}</p>
+                    {hasPhoto ? (
+                        <img
+                            src={member.photoUrl!}
+                            alt={member.nickname}
+                            className="w-11 h-11 rounded-[31px] object-cover shrink-0"
+                        />
+                    ) : (
+                    <div
+                        className={cn(
+                            "flex flex-row justify-center items-center w-11 h-11 rounded-[31px] overflow-hidden shrink-0",
+                            avatarColorClass(member.color),
+                        )}
+                    >
+                        <p className="text-lg font-medium text-panel">{initial}</p>
                     </div>
+                    )}
                     <div className="flex flex-col items-start">
                         <p className="text-xl font-semibold text-ink leading-6.5">
-                            {member.name}
+                            {member.nickname}
                         </p>
                         <p className="text-base font-normal text-warm-muted whitespace-nowrap">
-                            {member.fullName}
+                            @{member.username}
                         </p>
                     </div>
                 </div>
-                <p className="text-2xl font-semibold text-olive">
-                    {member.percentage}%
-                </p>
+                <p className="text-2xl font-semibold text-olive">{percentage}%</p>
             </div>
-            {fields.map((field) => (
-                <p key={field.label} className="text-base text-ink self-stretch">
-                    <span className="font-semibold">{field.label}</span> {field.value}
+
+            <p className="text-base text-ink self-stretch">
+                <span className="font-semibold">Rol:</span> {roleLabel(member.role)}
+            </p>
+            {member.joinedAt && (
+                <p className="text-base text-ink self-stretch">
+                    <span className="font-semibold">Miembro desde:</span>{" "}
+                    {new Date(member.joinedAt).toLocaleDateString("es-AR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                    })}
                 </p>
-            ))}
+            )}
         </div>
     );
 }
@@ -84,7 +124,7 @@ const INPUT_CLASSES: Record<LockState, string> = {
         "flex flex-row justify-center items-center w-[200px] h-[52px] bg-input-surface rounded-xl border border-brand px-3.5 overflow-hidden",
 };
 
-export function PercentageCard ({
+export function PercentageCard({
     member,
     percentage,
     locked,
@@ -92,7 +132,7 @@ export function PercentageCard ({
     errorMessage,
     onPercentageChange,
     onToggleLock,
-}: PercentageCardProps){
+}: PercentageCardProps) {
     const lockState: LockState = locked ? "locked" : "unlocked";
     const hasError = Boolean(errorMessage);
     const isInputDisabled = locked || disabled;
