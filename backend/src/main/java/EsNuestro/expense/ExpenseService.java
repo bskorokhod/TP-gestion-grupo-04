@@ -4,6 +4,8 @@ import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.expense.dtos.ExpenseDTO;
 import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.expense.dtos.ExpenseParticipantDTO;
+import EsNuestro.expense.dtos.DebtDTO;
+import EsNuestro.expense.dtos.PaymentDataDTO;
 import EsNuestro.group.GroupService;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
@@ -153,6 +155,26 @@ class ExpenseService {
             expense.approve(acting);
         }
         return ExpenseDTO.from(expense);
+    }
+
+    /**
+     * Autodeclara el pago (total o parcial) de una deuda propia. Queda asentado tal cual lo reporta
+     * el deudor; la revisión por parte del acreedor o un admin es un módulo futuro, todavía no existe.
+     */
+    DebtDTO payDebt(Long groupId, Long expenseId, Long debtId, PaymentDataDTO data, String username) throws ItemNotFoundException {
+        groupService.requireGroupForUpdate(groupId);
+        GroupMember caller = groupService.requireActiveMember(groupId, username);
+        Expense expense = requireExpenseForUpdate(groupId, expenseId);
+        Debt debt = requireDebtInExpense(expense, debtId);
+
+        requireDebtor(debt, caller);
+        requireApproved(expense);
+        requireDebtActive(debt);
+        BigDecimal amount = requireValidPaymentAmount(debt, data.amount());
+        String receiptUrl = requireReceiptUrl(data.receiptUrl());
+
+        debt.registerPayment(amount, receiptUrl);
+        return DebtDTO.from(debt);
     }
 
     /** Solo el creador o un admin, y solo si ninguna deuda tiene pagos. Elimina también sus deudas. */
@@ -406,6 +428,53 @@ class ExpenseService {
                     HttpStatus.CONFLICT, "A rejected expense must be resubmitted instead of edited"
             );
         }
+    }
+
+    private Debt requireDebtInExpense(Expense expense, Long debtId) throws ItemNotFoundException {
+        return expense.getDebts().stream()
+                .filter(debt -> debt.getId().equals(debtId))
+                .findFirst()
+                .orElseThrow(() -> new ItemNotFoundException("debt", debtId));
+    }
+
+    private void requireDebtor(Debt debt, GroupMember caller) {
+        if (!debt.getDebtor().getId().equals(caller.getId())) {
+            throw new AccessDeniedException("Only the debtor can declare their own debt as paid");
+        }
+    }
+
+    private void requireApproved(Expense expense) {
+        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The expense is not approved, it is " + expense.getStatus()
+            );
+        }
+    }
+
+    private void requireDebtActive(Debt debt) {
+        if (debt.getStatus() != DebtStatus.ACTIVE) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The debt is suspended and cannot receive payments right now"
+            );
+        }
+    }
+
+    private BigDecimal requireValidPaymentAmount(Debt debt, BigDecimal amount) {
+        BigDecimal normalized = requireValidAmount(amount);
+        BigDecimal remaining = debt.getAmount().subtract(debt.getPaidAmount());
+        if (normalized.compareTo(remaining) > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The payment amount exceeds the remaining debt of " + remaining
+            );
+        }
+        return normalized;
+    }
+
+    private String requireReceiptUrl(String receiptUrl) {
+        if (receiptUrl == null || receiptUrl.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A receipt is required to declare a payment");
+        }
+        return receiptUrl.strip();
     }
 
     private void requireNoPayments(Expense expense) {

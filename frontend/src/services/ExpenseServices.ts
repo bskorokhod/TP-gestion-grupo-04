@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   BalanceByPerson,
+  Debt,
+  DebtSchema,
   Expense,
   ExpenseData,
   ExpenseMember,
@@ -232,7 +234,7 @@ export function useGetBalancesByPerson(groupId?: number): DerivedBalancesResult 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mock de pago
+// Pago de deudas
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface MarkDebtAsPaidInput {
@@ -245,27 +247,28 @@ export interface MarkDebtAsPaidInput {
 
 export interface MarkDebtAsPaidResult {
   readonly receiptUrl: string;
+  readonly debt: Debt;
 }
 
 export function useMarkDebtAsPaid() {
+  const api = useApiClient();
+  const qc = useQueryClient();
   const { showSuccessToast, showErrorToast } = useFormToasts();
 
   return useMutation<MarkDebtAsPaidResult, Error, MarkDebtAsPaidInput>({
     mutationFn: async ({ groupId, expenseId, debtId, amount, receipt }) => {
       const receiptUrl = await uploadDebtReceipt(receipt, groupId);
 
-      // TODO: cuando el backend exponga POST /groups/:gid/expenses/:eid/debts/:did/payments
-      //       reemplazar este console.log por la llamada real.
-      console.log("[MOCK] Payment payload", {
-        groupId,
-        expenseId,
-        debtId,
-        amount,
-        receiptUrl,
-      });
-      return { receiptUrl };
+      const response = await api.post(
+        `/groups/${groupId}/expenses/${expenseId}/debts/${debtId}/payments`,
+        { amount, receiptUrl },
+      );
+      const debt = DebtSchema.parse(response);
+
+      return { receiptUrl, debt };
     },
-    onSuccess: (): void => {
+    onSuccess: (_, { groupId }): void => {
+      void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
       showSuccessToast("Pago registrado", "El comprobante se subió correctamente.");
     },
     onError: (error): void => {
