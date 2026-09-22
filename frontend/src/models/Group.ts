@@ -85,6 +85,8 @@ export const MemberColorSchema = z.enum([
     "LIGHT_BLUE",
 ]);
 
+export type MembeColor = z.infer<typeof MemberColorSchema>
+
 export const JoinRequestSchema = z.object({
     memberId: z.number(),
     groupId: z.number(),

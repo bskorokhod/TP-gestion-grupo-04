@@ -4,6 +4,8 @@ import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.config.security.JwtUserDetails;
 import EsNuestro.expense.dtos.ExpenseDTO;
 import EsNuestro.expense.dtos.ExpenseDataDTO;
+import EsNuestro.expense.dtos.BalanceByPersonDTO;
+import EsNuestro.expense.dtos.GroupSummaryDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -51,6 +53,42 @@ class ExpenseRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
         return expenseService.listExpenses(groupId, principal.email(), status);
+    }
+
+    @GetMapping(value = "/summary", produces = "application/json")
+    @Operation(summary = "Resumen del caller en el grupo: cuánto debe, cuánto le deben y pendientes visibles")
+    GroupSummaryDTO summary(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.summary(groupId, principal.email());
+    }
+
+    @GetMapping(value = "/owed-to-me", produces = "application/json")
+    @Operation(summary = "Gastos aprobados donde el caller es acreedor y todavía hay deudas sin saldar")
+    List<ExpenseDTO> owedToMe(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.owedToMe(groupId, principal.email());
+    }
+
+    @GetMapping(value = "/i-owe", produces = "application/json")
+    @Operation(summary = "Gastos aprobados donde el caller tiene deudas sin saldar")
+    List<ExpenseDTO> iOwe(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.iOwe(groupId, principal.email());
+    }
+
+    @GetMapping(value = "/by-person", produces = "application/json")
+    @Operation(summary = "Balance neto del caller con cada miembro activo y detalle de deudas")
+    List<BalanceByPersonDTO> byPerson(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.byPerson(groupId, principal.email());
     }
 
     @GetMapping(value = "/{expenseId}", produces = "application/json")

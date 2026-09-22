@@ -36,7 +36,7 @@ export const ResolutionSchema = z.object({
   resolvedAt: z.string(),
 });
 
-export const DebtStatusSchema = z.enum(["PENDING", "PARTIAL", "PAID"]);
+export const DebtStatusSchema = z.enum(["ACTIVE", "SUSPENDED"]);
 
 export const DebtSchema = z.object({
   id: z.number(),
@@ -73,3 +73,30 @@ export const ExpenseDataSchema = z.object({
   receiptUrl: z.string().max(2048)
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;
+
+export const GroupSummarySchema = z.object({
+  me: ExpenseMemberSchema,
+  owes: z.number(),
+  owed: z.number(),
+  pendingExpenses: z.number(),
+});
+export type GroupSummary = z.infer<typeof GroupSummarySchema>;
+
+export const BalanceItemTypeSchema = z.enum(["CREDIT", "DEBT"]);
+export type BalanceItemType = z.infer<typeof BalanceItemTypeSchema>;
+
+export const BalanceItemSchema = z.object({
+  expenseId: z.number(),
+  debtId: z.number(),
+  description: z.string(),
+  amount: z.number(),
+  type: BalanceItemTypeSchema,
+});
+export type BalanceItem = z.infer<typeof BalanceItemSchema>;
+
+export const BalanceByPersonSchema = z.object({
+  member: ExpenseMemberSchema,
+  netBalance: z.number(),
+  items: z.array(BalanceItemSchema),
+});
+export type BalanceByPerson = z.infer<typeof BalanceByPersonSchema>;
