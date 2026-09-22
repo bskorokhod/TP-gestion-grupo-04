@@ -8,8 +8,11 @@ import {
 } from "@/components/Expenses/ExpensesCard.tsx";
 import {NewExpenseModal} from "@/components/modals";
 
+interface PerExpenseViewProps {
+    groupId?: number;
+}
 
-export const PerExpenseView = () => {
+export const PerExpenseView = ({groupId}: PerExpenseViewProps) => {
     const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] =
       useState(false);
 
@@ -22,7 +25,7 @@ export const PerExpenseView = () => {
                 variant="othersDebt"
                 action="Agregar gasto"
                 onAction={() =>
-                  setIsNewExpenseModalOpen(true)
+                  groupId && setIsNewExpenseModalOpen(true)
                 }
               />
 
@@ -48,16 +51,12 @@ export const PerExpenseView = () => {
             </div>
         </div>
 
-          {isNewExpenseModalOpen && (
+          {isNewExpenseModalOpen && groupId && (
             <NewExpenseModal
+              groupId={groupId}
               onClose={() =>
                 setIsNewExpenseModalOpen(false)
               }
-              onSave={(expense) => {
-                  console.log("Nuevo gasto:", expense);
-
-                  setIsNewExpenseModalOpen(false);
-              }}
             />
           )}
     </section>

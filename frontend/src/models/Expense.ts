@@ -22,7 +22,8 @@ export const ExpenseParticipantSchema = z.object({
 });
 
 export const ExpenseDetailsSchema = z.object({
-  description: z.string(),
+  title: z.string(),
+  description: z.string().nullable().optional(),
   totalAmount: z.number(),
   splitMethod: SplitMethodSchema,
   creditor: ExpenseMemberSchema,
@@ -62,14 +63,15 @@ export const ExpenseSchema = z.object({
 export type Expense = z.infer<typeof ExpenseSchema>;
 
 export const ExpenseDataSchema = z.object({
-  description: z.string().max(200),
+  title: z.string().min(1).max(150),
+  description: z.string().max(200).nullable().optional(),
   totalAmount: z.number().min(0.01),
   creditorId: z.number(),
   splitMethod: SplitMethodSchema,
   participants: z.array(z.object({
     memberId: z.number(),
     percentage: z.number().min(0).max(100).nullable().optional()
-  })).nonempty(),
+  })),
   receiptUrl: z.string().max(2048)
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;

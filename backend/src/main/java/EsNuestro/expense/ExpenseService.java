@@ -168,11 +168,8 @@ class ExpenseService {
         if (data.receiptUrl() == null || data.receiptUrl().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A receipt is required to register an expense");
         }
-        if (data.description() == null || data.description().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The expense needs a description");
-        }
-        if (data.participants() == null || data.participants().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one participant is required");
+        if (data.title() == null || data.title().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The expense needs a title");
         }
         BigDecimal total = requireValidAmount(data.totalAmount());
 
@@ -196,15 +193,23 @@ class ExpenseService {
             participants.add(new ExpenseParticipant(member, custom ? entry.percentage() : null));
         }
 
-        if (custom) {
-            ExpenseSplitCalculator.requireValidCustomPercentages(participants);
+        // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.
+        if (!participants.isEmpty()) {
+            if (custom) {
+                ExpenseSplitCalculator.requireValidCustomPercentages(participants);
+            }
+            // Simulacro: falla ya (y no recién al aprobar) si el reparto es imposible, p. ej. proporcional
+            // entre participantes que tienen todos 0% de posesión. Se recalcula al aprobar.
+            ExpenseSplitCalculator.split(total, data.splitMethod(), participants);
         }
-        // Simulacro: falla ya (y no recién al aprobar) si el reparto es imposible, p. ej. proporcional
-        // entre participantes que tienen todos 0% de posesión. Se recalcula al aprobar.
-        ExpenseSplitCalculator.split(total, data.splitMethod(), participants);
+
+        String title = data.title().strip();
+        String description = data.description() == null || data.description().isBlank()
+                ? null
+                : data.description().strip();
 
         return new ExpenseDetails(
-                data.description().strip(), total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
+                title, description, total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
         );
     }
 

@@ -1,25 +1,20 @@
 import {cn} from "@/lib/cn.ts";
+import type {SplitMethod} from "@/models/Expense.ts";
 
-export type SplitMethod =
-  | "proportional"
-  | "equal"
-  | "manual";
+export type {SplitMethod};
 
+// CUSTOM ("Manualmente") queda oculto hasta que exista una UI para cargar los porcentajes.
 const options: ReadonlyArray<{
   value: SplitMethod;
   label: string;
 }> = [
   {
-    value: "proportional",
+    value: "PROPORTIONAL",
     label: "Proporcional",
   },
   {
-    value: "equal",
+    value: "EQUAL",
     label: "Equitativo",
-  },
-  {
-    value: "manual",
-    label: "Manualmente",
   },
 ];
 

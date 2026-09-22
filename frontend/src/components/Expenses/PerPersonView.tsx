@@ -40,7 +40,11 @@ const people: PersonBalanceCardProps[] = [
     }
 ];
 
-export const PerPersonView = () => {
+interface PerPersonViewProps {
+    groupId?: number;
+}
+
+export const PerPersonView = ({groupId}: PerPersonViewProps) => {
     const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] =
       useState(false);
 
@@ -52,7 +56,7 @@ export const PerPersonView = () => {
             variant="allDebt"
             action="Agregar gasto"
             onAction={() =>
-              setIsNewExpenseModalOpen(true)
+              groupId && setIsNewExpenseModalOpen(true)
             }
           />
 
@@ -65,16 +69,12 @@ export const PerPersonView = () => {
               ))}
           </div>
 
-          {isNewExpenseModalOpen && (
+          {isNewExpenseModalOpen && groupId && (
             <NewExpenseModal
+              groupId={groupId}
               onClose={() =>
                 setIsNewExpenseModalOpen(false)
               }
-              onSave={(expense) => {
-                  console.log("Nuevo gasto:", expense);
-
-                  setIsNewExpenseModalOpen(false);
-              }}
             />
           )}
       </section>

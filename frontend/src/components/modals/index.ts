@@ -7,6 +7,5 @@ export { JoinGroupModal } from "./JoinGroupModal";
 export type { JoinGroupModalProps } from "./JoinGroupModal";
 export {NewExpenseModal} from "./NewExpenseModal/NewExpenseModal";
 export type {
-  NewExpense,
   NewExpenseModalProps,
 } from "./NewExpenseModal/NewExpenseModal";

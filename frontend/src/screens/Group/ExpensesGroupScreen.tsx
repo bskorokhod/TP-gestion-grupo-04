@@ -60,7 +60,7 @@ export const ExpensesGroupScreen = () => {
         </button>
       </div>
 
-      {personView ? <PerPersonView/> : <PerExpenseView/>}
+      {personView ? <PerPersonView groupId={group?.id}/> : <PerExpenseView groupId={group?.id}/>}
 
       {/*<section aria-label="Gastos propuestos">*/}
       {/*  <div className="bg-amber-soft h-16">*/}
