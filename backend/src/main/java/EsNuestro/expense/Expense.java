@@ -155,11 +155,12 @@ public class Expense {
             return;
         }
         Long creditorId = details.getCreditor().getId();
-        Map<Long, GroupMember> participantsById = details.getParticipants().stream()
+        List<ExpenseParticipant> splitParticipants = details.splitParticipants();
+        Map<Long, GroupMember> participantsById = splitParticipants.stream()
                 .map(ExpenseParticipant::getMember)
-                .collect(Collectors.toMap(GroupMember::getId, Function.identity()));
+                .collect(Collectors.toMap(GroupMember::getId, Function.identity(), (first, second) -> first));
 
-        ExpenseSplitCalculator.split(details.getTotalAmount(), details.getSplitMethod(), details.getParticipants())
+        ExpenseSplitCalculator.split(details.getTotalAmount(), details.getSplitMethod(), splitParticipants)
                 .forEach((memberId, share) -> {
                     boolean owesNothing = memberId.equals(creditorId) || share.signum() == 0;
                     if (!owesNothing) {
