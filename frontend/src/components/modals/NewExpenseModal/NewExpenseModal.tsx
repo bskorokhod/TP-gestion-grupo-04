@@ -4,37 +4,24 @@ import { ModalShell } from "@/components/modals/ModalShell";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
-import type { Member, MemberColor } from "@/models/Group.ts";
+import type { Member } from "@/models/Group.ts";
 import { useGetGroupMembers } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 
 import { Field } from "./Field";
 import { FileDropzone } from "./FileDropzone";
 import { MemberPicker } from "./MemberPicker";
-import { ChipButton, PersonChip, type ChipTone } from "./PersonChip";
+import { ChipButton, PersonChip } from "./PersonChip";
 import { SplitMethodSelector, type SplitMethod } from "./SplitMethodSelector";
 import { TextArea, TextInput } from "./TextInput";
 
-const COLOR_TO_TONE: Readonly<Record<MemberColor, ChipTone>> = {
-  GREEN: "green",
-  LIGHT_BLUE: "green",
-  YELLOW: "amber",
-  ORANGE: "amber",
-  RED: "primary",
-  BLUE: "primary",
-  PURPLE: "primary",
-  PINK: "primary",
-};
 
 export interface NewExpenseModalProps {
   readonly groupId: number;
   readonly onClose?: () => void;
 }
 
-export function NewExpenseModal({
-                                  groupId,
-                                  onClose,
-                                }: NewExpenseModalProps): ReactElement {
+export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): ReactElement {
   const { data: members = [] } = useGetGroupMembers(groupId, "ACTIVE");
   const createExpense = useCreateExpense(groupId);
   const { showSchemaError, showApiError, showSuccessToast } = useFormToasts();
@@ -146,121 +133,128 @@ export function NewExpenseModal({
             event.preventDefault();
             void handleSubmit();
           }}
+          modalClassName="max-w-4xl"
       >
-        <Field label="Título del gasto" htmlFor="expense-title">
-          <TextInput
-              id="expense-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Ej. Reparación de techo"
-          />
-        </Field>
-
-        <Field
-            label="Motivo del gasto"
-            htmlFor="expense-reason"
-            hint="Opcional"
-        >
-          <TextArea
-              id="expense-reason"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Ej. Filtración detectada en el dormitorio principal"
-          />
-        </Field>
-
-        <Field label="Monto del gasto" htmlFor="expense-amount">
-          <TextInput
-              id="expense-amount"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              inputMode="decimal"
-              placeholder="$ 0"
-          />
-        </Field>
-
-        <Field
-            label="Ticket o factura"
-            hint="Arrastrá el archivo o elegilo desde tu dispositivo"
-        >
-          <FileDropzone file={file} onFileChange={setFile} />
-        </Field>
-
-        <Field
-            label="Definir reparto"
-            hint="Cómo se divide el gasto entre las personas asignadas"
-        >
-          <SplitMethodSelector value={splitMethod} onChange={setSplitMethod} />
-        </Field>
-
-        <Field
-            label="Personas a quienes se les asigna"
-            hint="Agregá al menos una persona; el responsable no puede figurar acá"
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {participants.map((member) => (
-                  <PersonChip
-                      key={member.id}
-                      initials={member.nickname.slice(0, 2).toUpperCase()}
-                      name={member.nickname}
-                      tone={COLOR_TO_TONE[member.color]}
-                      onRemove={() => removeParticipant(member.id)}
-                  />
-              ))}
-
-              <ChipButton
-                  label="+ Agregar persona"
-                  onClick={() => setIsParticipantPickerOpen((open) => !open)}
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+          <div className="flex flex-col gap-5">
+            <Field label="Título del gasto" htmlFor="expense-title">
+              <TextInput
+                  id="expense-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Ej. Reparación de techo"
               />
+            </Field>
 
-              {assignableMembers.length > 0 ? (
-                  <ChipButton label="Agregar todos" onClick={addAllMembers} />
-              ) : null}
-            </div>
-
-            {isParticipantPickerOpen ? (
-                <MemberPicker
-                    members={pickableParticipants}
-                    onSelect={addParticipant}
-                    onClose={() => setIsParticipantPickerOpen(false)}
-                    emptyLabel="No quedan miembros activos por agregar"
-                />
-            ) : null}
-          </div>
-        </Field>
-
-        <Field
-            label="Persona a cargo del gasto"
-            hint="A quién se le debe la plata — obligatorio, solo una persona"
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {responsible ? (
-                  <PersonChip
-                      initials={responsible.nickname.slice(0, 2).toUpperCase()}
-                      name={responsible.nickname}
-                      tone={COLOR_TO_TONE[responsible.color]}
-                      onRemove={() => setResponsibleId(null)}
-                  />
-              ) : null}
-
-              <ChipButton
-                  label={responsible ? "Cambiar persona" : "Elegir persona"}
-                  onClick={() => setIsResponsiblePickerOpen((open) => !open)}
+            <Field
+                label="Motivo del gasto"
+                htmlFor="expense-reason"
+                hint="Opcional"
+            >
+              <TextArea
+                  id="expense-reason"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Ej. Filtración detectada en el dormitorio principal"
               />
-            </div>
+            </Field>
 
-            {isResponsiblePickerOpen ? (
-                <MemberPicker
-                    members={members.filter((member) => member.id !== responsibleId)}
-                    onSelect={selectResponsible}
-                    onClose={() => setIsResponsiblePickerOpen(false)}
-                    emptyLabel="No hay miembros activos en el grupo"
-                />
-            ) : null}
+            <Field label="Monto del gasto" htmlFor="expense-amount">
+              <TextInput
+                  id="expense-amount"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  inputMode="decimal"
+                  placeholder="$ 0"
+              />
+            </Field>
+
+            <Field
+                label="Ticket o factura"
+                hint="Arrastrá el archivo o elegilo desde tu dispositivo"
+            >
+              <FileDropzone file={file} onFileChange={setFile} />
+            </Field>
           </div>
-        </Field>
+
+          <div className="flex flex-col gap-5">
+            <Field
+                label="Definir reparto"
+                hint="Cómo se divide el gasto entre las personas asignadas"
+            >
+              <SplitMethodSelector value={splitMethod} onChange={setSplitMethod} />
+            </Field>
+
+            <Field
+                label="Personas a quienes se les asigna"
+                hint="Agregá al menos una persona; el responsable no puede figurar acá"
+            >
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {participants.map((member) => (
+                      <PersonChip
+                          key={member.id}
+                          name={member.nickname}
+                          color={member.color}
+                          photoUrl={member.photoUrl}
+                          onRemove={() => removeParticipant(member.id)}
+                      />
+                  ))}
+
+                  <ChipButton
+                      label="+ Agregar persona"
+                      onClick={() => setIsParticipantPickerOpen((open) => !open)}
+                  />
+
+                  {assignableMembers.length > 0 ? (
+                      <ChipButton label="Agregar todos" onClick={addAllMembers} />
+                  ) : null}
+                </div>
+
+                {isParticipantPickerOpen ? (
+                    <MemberPicker
+                        members={pickableParticipants}
+                        onSelect={addParticipant}
+                        onClose={() => setIsParticipantPickerOpen(false)}
+                        emptyLabel="No quedan miembros activos por agregar"
+                    />
+                ) : null}
+              </div>
+            </Field>
+
+            <Field
+                label="Persona a cargo del gasto"
+                hint="A quién se le debe la plata — obligatorio, solo una persona"
+            >
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {responsible ? (
+                      <PersonChip
+                          name={responsible.nickname}
+                          color={responsible.color}
+                          photoUrl={responsible.photoUrl}
+                          onRemove={() => setResponsibleId(null)}
+                      />
+                  ) : null}
+
+                  <ChipButton
+                      label={responsible ? "Cambiar persona" : "Elegir persona"}
+                      onClick={() => setIsResponsiblePickerOpen((open) => !open)}
+                  />
+                </div>
+
+                {isResponsiblePickerOpen ? (
+                    <MemberPicker
+                        members={members.filter((member) => member.id !== responsibleId)}
+                        onSelect={selectResponsible}
+                        onClose={() => setIsResponsiblePickerOpen(false)}
+                        emptyLabel="No hay miembros activos en el grupo"
+                    />
+                ) : null}
+              </div>
+            </Field>
+          </div>
+        </div>
       </ModalShell>
   );
 }

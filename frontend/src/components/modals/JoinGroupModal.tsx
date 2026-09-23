@@ -38,6 +38,7 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
             submitClassName="sm:px-12"
             onClose={onClose}
             onSubmit={handleSubmit}
+            modalClassName="max-w-lg"
         >
             <p className="text-base text-modal-muted">
                 Ingresá el código que te compartió el administrador del grupo.

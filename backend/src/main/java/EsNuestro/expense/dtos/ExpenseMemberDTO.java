@@ -6,9 +6,10 @@ import EsNuestro.member.MemberColor;
 public record ExpenseMemberDTO(
         Long id,
         String nickname,
-        MemberColor color
+        MemberColor color,
+        String photoUrl
 ) {
     public static ExpenseMemberDTO from(GroupMember member) {
-        return new ExpenseMemberDTO(member.getId(), member.getNickname(), member.getColor());
+        return new ExpenseMemberDTO(member.getId(), member.getNickname(), member.getColor(), member.getUser().getPhotoUrl());
     }
 }

@@ -1,4 +1,8 @@
 import { Link, useLocation } from "wouter";
+
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+
 import {GROUP_PAGES, GroupNavbarProps, PAGES_NAVBAR_DATA, Routes} from "@/constants/navigation.ts"
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 
@@ -46,7 +50,10 @@ export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarPro
                 <div className="mx-auto grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_auto]">
                     <div className="min-w-0">
                         {pageText.goBackBtn?
-                            <p onClick={handleGoBack} className="cursor-pointer text-sm font-medium hover:underline focus:outline-none pb-4">← Volver</p>
+                            <p onClick={handleGoBack} className="flex items-center gap-1.5 cursor-pointer text-sm font-medium hover:underline focus:outline-none pb-4">
+                                <FontAwesomeIcon icon={faArrowLeft} className="h-3.5 w-3.5" />
+                                Volver
+                            </p>
                             :
                             <p className="text-base text-brand-foreground/70 pb-1"> Bienvenid@ otra vez </p>
                         }
