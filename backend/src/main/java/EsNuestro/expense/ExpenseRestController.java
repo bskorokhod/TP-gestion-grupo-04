@@ -6,6 +6,8 @@ import EsNuestro.expense.dtos.ExpenseDTO;
 import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
+import EsNuestro.expense.dtos.DebtDTO;
+import EsNuestro.expense.dtos.PaymentDataDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -164,5 +166,21 @@ class ExpenseRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
         expenseService.deleteExpense(groupId, expenseId, principal.email());
+    }
+
+    @PostMapping(value = "/{expenseId}/debts/{debtId}/payments", produces = "application/json")
+    @Operation(summary = "Autodeclarar el pago (total o parcial) de una deuda propia; queda sujeto a revisión posterior por el acreedor o un admin")
+    @ResponseStatus(HttpStatus.CREATED)
+    @ApiResponse(responseCode = "403", description = "Solo el deudor puede declarar el pago de su propia deuda", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Grupo, gasto o deuda no encontrados", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado, la deuda está suspendida, o el monto supera el saldo pendiente", content = @Content)
+    DebtDTO payDebt(
+            @PathVariable Long groupId,
+            @PathVariable Long expenseId,
+            @PathVariable Long debtId,
+            @Valid @NonNull @RequestBody PaymentDataDTO data,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.payDebt(groupId, expenseId, debtId, data, principal.email());
     }
 }

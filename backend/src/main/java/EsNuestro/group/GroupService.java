@@ -57,7 +57,7 @@ public class GroupService {
         groupRepository.save(group);
 
         String nickname = (data.founderNickname() == null || data.founderNickname().isBlank())
-                ? founder.getEmail()
+                ? resolveDefaultNickname(founder)
                 : data.founderNickname().strip();
 
         GroupMember founderMembership = GroupMember.founder(
@@ -395,6 +395,15 @@ public class GroupService {
         if (!member.getRole().isAtLeast(minRole)) {
             throw new AccessDeniedException("You don't have permission to perform this action");
         }
+    }
+
+    /**
+     * Apodo por defecto cuando el usuario no elige uno: «Nombre Apellido» si cabe en 20
+     * caracteres, solo «Nombre» en caso contrario.
+     */
+    private String resolveDefaultNickname(User user) {
+        String fullName = user.getName() + " " + user.getSurname();
+        return fullName.length() <= 20 ? fullName : user.getName();
     }
 
     private void requireNoUnsettledDebts(GroupMember member) {

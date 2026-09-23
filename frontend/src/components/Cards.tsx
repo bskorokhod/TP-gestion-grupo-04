@@ -1,5 +1,8 @@
 import type {ReactNode} from "react";
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faStar } from "@fortawesome/free-solid-svg-icons";
+
 export interface SectionHeadingProps {
     title: string;
     copy: string;
@@ -14,7 +17,7 @@ export function SectionHeading({title, copy}: SectionHeadingProps) {
     );
 }
 
-export type Stat = [value: string, label: string];
+export type Stat = [value: ReactNode, label: string];
 
 export interface StatsBarProps {
     stats: Stat[];
@@ -22,10 +25,10 @@ export interface StatsBarProps {
 
 export function StatsBar({stats}: StatsBarProps) {
     return (
-        <div className="mx-auto max-w-4xl px-6 py-10">
+        <div className="mx-auto max-w-4xl px-6 py-10 bg-background">
             <div className="grid grid-cols-2 gap-5 rounded-2xl bg-muted px-6 py-5 shadow-pill md:grid-cols-4">
                 {stats.map(([value, label]) => (
-                    <div key={value} className="text-center md:border-r md:border-border md:last:border-0">
+                    <div key={label} className="text-center md:border-r md:border-border md:last:border-0">
                         <strong className="block text-base">{value}</strong>
                         <span className="text-xs text-muted-foreground">{label}</span>
                     </div>
@@ -85,7 +88,11 @@ export interface TestimonialCardProps {
 export function TestimonialCard({initial, name, role, quote, tone, avatar}: TestimonialCardProps) {
     return (
         <article className={`rounded-bl-3xl rounded-br-lg rounded-tl-lg rounded-tr-3xl p-6 ${tone}`}>
-            <p className="mb-4 text-xs text-amber">★★★★★</p>
+            <p className="mb-4 flex items-center gap-0.5 text-xs text-amber">
+                {Array.from({ length: 5 }).map((_, index) => (
+                    <FontAwesomeIcon key={index} icon={faStar} className="h-3 w-3" />
+                ))}
+            </p>
             <blockquote className="mb-5 text-xs leading-relaxed">“{quote}”</blockquote>
             <div className="flex items-center gap-3">
     <span className={`grid size-8 place-items-center rounded-full text-xs font-medium ${avatar}`}>

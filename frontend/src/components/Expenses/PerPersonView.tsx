@@ -31,7 +31,7 @@ export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => 
     const { data: balances = [], isLoading } = useGetBalancesByPerson(groupId);
 
     return (
-        <section className="mx-auto space-y-8 px-5 py-8 sm:px-8 lg:px-30">
+        <section className=" space-y-8 px-5 py-8 sm:px-8 lg:px-30 flex-1">
             <SectionBanner
                 title="Gastos por persona"
                 description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
@@ -45,7 +45,7 @@ export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => 
             ) : balances.length === 0 ? (
                 <EmptyState message="Todavía no hay deudas entre los miembros del grupo." />
             ) : (
-                <div className="grid items-start gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                     {balances.map((balance) => (
                         <BalanceCard
                             key={balance.member.id}
@@ -115,6 +115,7 @@ function BalanceCard({ balance, onPay }: BalanceCardProps): ReactElement {
             balance={balanceLabel}
             balanceStatus={balanceStatus}
             items={itemsForCard}
+            photoUrl={member.photoUrl}
         />
     );
 }

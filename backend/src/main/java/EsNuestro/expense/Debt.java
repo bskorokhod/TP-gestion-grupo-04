@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Deuda de un miembro con el acreedor de un gasto. El acreedor no se guarda acá: es el del gasto
@@ -40,6 +42,9 @@ public class Debt {
     @Enumerated(EnumType.STRING)
     private DebtStatus status;
 
+    @OneToMany(mappedBy = "debt", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Payment> payments = new ArrayList<>();
+
     private Debt(Expense expense, GroupMember debtor, BigDecimal amount) {
         this.expense = expense;
         this.debtor = debtor;
@@ -57,6 +62,15 @@ public class Debt {
 
     void reactivate() {
         this.status = DebtStatus.ACTIVE;
+    }
+
+    /**
+     * Registra un pago autodeclarado por el deudor: suma el monto a {@code paidAmount} y guarda el
+     * comprobante en el historial. No valida montos ni estado; eso lo hace {@code ExpenseService}.
+     */
+    void registerPayment(BigDecimal amount, String receiptUrl) {
+        this.payments.add(Payment.of(this, amount, receiptUrl));
+        this.paidAmount = this.paidAmount.add(amount);
     }
 
     public GroupMember getCreditor() {

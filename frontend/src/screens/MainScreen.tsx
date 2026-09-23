@@ -3,25 +3,27 @@ import homeIllustration from "@/assets/home.svg";
 import Button from "@/components/Button.jsx";
 import {FeatureCard, SectionHeading, StatsBar, StepCard, TestimonialCard, type Stat} from "@/components/Cards.jsx";
 import {Link} from "wouter";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCalendarDays, faMoneyBillWave, faClipboardList } from "@fortawesome/free-solid-svg-icons";
 
 const features = [
     {
-        icon: "📅",
+        icon: <FontAwesomeIcon icon={faCalendarDays} className="h-5 w-5 text-ink" aria-hidden />,
         title: "Calendario compartido",
         copy: "Cada miembro ve y reserva sus días sin pisarse. Colores por persona, sin ambigüedades.",
-        tone: "bg-olive/50"
+        tone: "bg-custom-green"
     },
     {
-        icon: "💰",
+        icon: <FontAwesomeIcon icon={faMoneyBillWave} className="h-5 w-5 text-ink" aria-hidden />,
         title: "Gestión de gastos",
         copy: "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore.",
-        tone: "bg-amber/50"
+        tone: "bg-custom-orange"
     },
     {
-        icon: "📋",
+        icon: <FontAwesomeIcon icon={faClipboardList} className="h-5 w-5 text-ink" aria-hidden />,
         title: "Historial y decisiones",
         copy: "Consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim.",
-        tone: "bg-lilac/50"
+        tone: "bg-custom-lilac"
     },
 ];
 
@@ -45,8 +47,8 @@ const testimonials = [
         name: "Roberto P.",
         role: "Miembro, cabaña familiar",
         quote: "Consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore. Ut enim ad minim veniam quis nostrud exercitation.",
-        tone: "bg-lilac/30",
-        avatar: "bg-lilac/55 text-foreground"
+        tone: "bg-custom-lilac/30",
+        avatar: "bg-custom-lilac/55 text-foreground"
     },
     {
         initial: "C",
@@ -67,8 +69,8 @@ const stats: Stat[] = [
 
 export const MainScreen = () => {
     return (
-        <CommonLayout className="min-h-screen overflow-hidden text-foreground login-backdrop">
-            <section className="h-[calc(100vh-60px)] ">
+        <CommonLayout className="min-h-screen overflow-hidden text-foreground bg-background">
+            <section className="h-[calc(100vh-60px)] login-backdrop">
                 <div className="h-full mx-auto px-6 py-16 md:px-12 pb-0 flex flex-row">
                     <div className="space-y-6 h-full content-center ps-16 basis-1/2">
                         <span className="inline-flex rounded-full bg-card/80 px-4 py-2 text-xs font-medium text-primary">
@@ -102,7 +104,7 @@ export const MainScreen = () => {
 
             <StatsBar stats={stats}/>
 
-            <section className="px-6 pb-20 pt-8">
+            <section className="px-6 pb-20 pt-8 bg-background">
                 <div className="mx-auto max-w-6xl space-y-9">
                     <SectionHeading
                         title="Todo lo que necesita tu grupo"

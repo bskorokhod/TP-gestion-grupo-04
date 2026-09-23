@@ -15,14 +15,7 @@ export interface PayDebtModalProps {
     onPaid?: () => void;
 }
 
-export function PayDebtModal({
-                                 groupId,
-                                 expenseId,
-                                 debtId,
-                                 debtAmount,
-                                 onClose,
-                                 onPaid,
-                             }: PayDebtModalProps) {
+export function PayDebtModal({groupId, expenseId, debtId, debtAmount, onClose, onPaid,}: PayDebtModalProps) {
     const [receipt, setReceipt] = useState<File | null>(null);
     const [receiptError, setReceiptError] = useState(false);
     const markAsPaid = useMarkDebtAsPaid();
@@ -55,6 +48,7 @@ export function PayDebtModal({
             submitLabel={markAsPaid.isPending ? "Enviando…" : "Pagar deuda"}
             onClose={onClose}
             onSubmit={handleSubmit}
+            modalClassName="max-w-lg"
         >
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                 <p className="min-w-0 text-base font-medium text-modal-ink">Monto de la deuda</p>

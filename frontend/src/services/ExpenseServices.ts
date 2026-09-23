@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
 import {
   BalanceByPerson,
+  Debt,
+  DebtSchema,
   Expense,
   ExpenseData,
   ExpenseMember,
@@ -10,28 +11,30 @@ import {
   ExpenseStatus,
   GroupSummary,
 } from "@/models/Expense";
+
 import { useApiClient } from "@/hooks/useApiClient";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import { uploadDebtReceipt } from "@/lib/supabase";
 import { useMyMember } from "@/services/GroupServices";
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reads contra el backend real
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useGetExpenses(groupId?: number, status?: ExpenseStatus) {
-  const api = useApiClient();
-  const suffix = status ? `?status=${status}` : "";
+    const api = useApiClient();
+    const suffix = status ? `?status=${status}` : "";
 
-  return useQuery({
-    queryKey: ["groups", groupId, "expenses", status ?? "ALL"] as const,
-    enabled: typeof groupId === "number" && Number.isFinite(groupId) && groupId > 0,
-    queryFn: async (): Promise<Expense[]> => {
-      if (typeof groupId !== "number") return [];
-      const data = await api.get(`/groups/${groupId}/expenses${suffix}`);
-      return ExpenseSchema.array().parse(data);
-    },
-  });
+    return useQuery({
+        queryKey: ["groups", groupId, "expenses", status ?? "ALL"] as const,
+        enabled: typeof groupId === "number" && Number.isFinite(groupId) && groupId > 0,
+        queryFn: async (): Promise<Expense[]> => {
+            if (typeof groupId !== "number") return [];
+            const data = await api.get(`/groups/${groupId}/expenses${suffix}`);
+            return ExpenseSchema.array().parse(data);
+        },
+    });
 }
 
 export function useCreateExpense(groupId: number) {
@@ -39,13 +42,13 @@ export function useCreateExpense(groupId: number) {
   const qc = useQueryClient();
 
   return useMutation<Expense, Error, ExpenseData>({
-    mutationFn: async (payload): Promise<Expense> => {
-      const response = await api.post(`/groups/${groupId}/expenses`, payload);
-      return ExpenseSchema.parse(response);
-    },
-    onSuccess: (): void => {
-      void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
-    },
+      mutationFn: async (payload): Promise<Expense> => {
+          const response = await api.post(`/groups/${groupId}/expenses`, payload);
+          return ExpenseSchema.parse(response);
+      },
+      onSuccess: (): void => {
+          void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
+      },
   });
 }
 
@@ -61,8 +64,7 @@ function toExpenseMember(m: {
   return { id: m.id, nickname: m.nickname, color: m.color };
 }
 
-/** El título es lo que el usuario ve como nombre del gasto; si el backend todavía
- *  no lo devuelve, caemos al `description` para no romper la UI. */
+
 function expenseLabel(details: Expense["details"]): string {
   const title = details.title?.trim();
   return title && title.length > 0 ? title : details.description;
@@ -77,7 +79,6 @@ export interface GroupSummaryResult {
   readonly isLoading: boolean;
 }
 
-/** Reemplazable por GET /groups/:id/expenses/summary cuando exista. */
 export function useGetGroupSummary(groupId?: number): GroupSummaryResult {
   const { data: expenses, isLoading } = useGetExpenses(groupId);
   const me = useMyMember(groupId);
@@ -117,7 +118,7 @@ export interface DerivedExpensesResult {
   readonly refetch: () => Promise<unknown>;
 }
 
-/** Reemplazable por GET /groups/:id/expenses/owed-to-me cuando exista. */
+
 export function useGetExpensesOwedToMe(groupId?: number): DerivedExpensesResult {
   const query = useGetExpenses(groupId, "APPROVED");
   const me = useMyMember(groupId);
@@ -232,7 +233,7 @@ export function useGetBalancesByPerson(groupId?: number): DerivedBalancesResult 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mock de pago
+// Pago de deudas
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface MarkDebtAsPaidInput {
@@ -245,27 +246,28 @@ export interface MarkDebtAsPaidInput {
 
 export interface MarkDebtAsPaidResult {
   readonly receiptUrl: string;
+  readonly debt: Debt;
 }
 
 export function useMarkDebtAsPaid() {
+  const api = useApiClient();
+  const qc = useQueryClient();
   const { showSuccessToast, showErrorToast } = useFormToasts();
 
   return useMutation<MarkDebtAsPaidResult, Error, MarkDebtAsPaidInput>({
     mutationFn: async ({ groupId, expenseId, debtId, amount, receipt }) => {
       const receiptUrl = await uploadDebtReceipt(receipt, groupId);
 
-      // TODO: cuando el backend exponga POST /groups/:gid/expenses/:eid/debts/:did/payments
-      //       reemplazar este console.log por la llamada real.
-      console.log("[MOCK] Payment payload", {
-        groupId,
-        expenseId,
-        debtId,
-        amount,
-        receiptUrl,
-      });
-      return { receiptUrl };
+      const response = await api.post(
+        `/groups/${groupId}/expenses/${expenseId}/debts/${debtId}/payments`,
+        { amount, receiptUrl },
+      );
+      const debt = DebtSchema.parse(response);
+
+      return { receiptUrl, debt };
     },
-    onSuccess: (): void => {
+    onSuccess: (_, { groupId }): void => {
+      void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
       showSuccessToast("Pago registrado", "El comprobante se subió correctamente.");
     },
     onError: (error): void => {

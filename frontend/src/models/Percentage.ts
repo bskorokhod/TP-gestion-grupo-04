@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {MemberColorSchema} from "@/models/Group.ts";
 
 
 export const MemberPercentageSchema = z.object({
@@ -6,6 +7,8 @@ export const MemberPercentageSchema = z.object({
     initial: z.string().min(1),
     name: z.string().min(1),
     fullName: z.string().min(1),
+    color: MemberColorSchema.optional(),
+    photoUrl: z.string().nullable().optional(),
     percentage: z
         .number()
         .min(0, "El porcentaje no puede ser menor a 0")
