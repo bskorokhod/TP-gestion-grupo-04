@@ -27,7 +27,7 @@ export const ExpensesGroupScreen = () => {
   const pendingCount = summary?.pendingExpenses ?? 0;
 
   return (
-      <CommonLayout className="min-h-screen bg-background font-poppins text-foreground">
+      <CommonLayout className="min-h-screen bg-background font-poppins text-foreground flex flex-col">
         <GroupNavbar>
           <div className="grid grid-cols-3 divide-x divide-brand/20 rounded-full bg-panel px-6 py-4 text-foreground shadow-panel sm:px-8">
             <div className="pr-5">
@@ -51,7 +51,7 @@ export const ExpensesGroupScreen = () => {
           </div>
         </GroupNavbar>
 
-        <div className="mx-auto flex justify-end">
+        <div className=" flex justify-end">
           <button
               onClick={() => setPersonView((value) => !value)}
               className="flex items-center gap-3 rounded-b-3xl bg-brand px-6 py-3 text-base text-brand-foreground"
@@ -74,6 +74,7 @@ export const ExpensesGroupScreen = () => {
                 ? <PerPersonView groupId={group.id} />
                 : <PerExpenseView groupId={group.id} />
             : null}
+
       </CommonLayout>
   );
 };

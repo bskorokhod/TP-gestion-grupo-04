@@ -42,6 +42,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             submitLabel="Crear grupo"
             onClose={onClose}
             onSubmit={handleSubmit}
+            modalClassName="max-w-lg"
         >
             <TextField
                 id="group-name"
