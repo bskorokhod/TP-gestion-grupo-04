@@ -30,7 +30,7 @@ function toMemberPercentage(member: ActiveMember): MemberPercentage {
         memberId: String(member.id),
         initial,
         name: member.nickname,
-        fullName: `@${member.username}`,
+        fullName: member.username,
         color: member.color,
         photoUrl: member.photoUrl,
         percentage: member.percentage ?? 0,

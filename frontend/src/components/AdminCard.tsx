@@ -52,7 +52,7 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
                             {member.nickname}
                         </p>
                         <p className="text-base font-normal text-warm-muted whitespace-nowrap">
-                            @{member.username}
+                            {member.username}
                         </p>
                     </div>
                 </div>

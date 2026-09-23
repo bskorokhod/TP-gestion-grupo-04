@@ -149,7 +149,7 @@ function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
 
             <div className="flex min-w-0 flex-col">
                 <p className="text-base font-semibold text-ink">{member.nickname}</p>
-                <p className="text-sm text-warm-muted">@{member.username}</p>
+                <p className="text-sm text-warm-muted">{member.username}</p>
             </div>
 
             {member.requestedAt && (
