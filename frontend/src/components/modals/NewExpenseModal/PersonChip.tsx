@@ -1,37 +1,22 @@
 import {cn} from "@/lib/cn.ts";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
-export type ChipTone = "green" | "amber" | "primary";
-
-const toneClasses: Record<ChipTone, string> = {
-  green: "bg-group-green/15 text-group-green",
-  amber: "bg-group-amber/15 text-group-amber",
-  primary: "bg-modal-primary/15 text-modal-primary",
-};
+import {MemberColor} from "@/models/Group.ts";
+import {Avatar} from "@/components/ui/Avatar.tsx";
 
 interface PersonChipProps {
-  initials: string;
-  name: string;
-  tone?: ChipTone;
-  onRemove?: () => void;
+    name: string;
+    color?: MemberColor;
+    photoUrl?: string | null;
+    onRemove?: () => void;
 }
 
-export function PersonChip({ initials, name, tone = "primary", onRemove }: PersonChipProps) {
+export function PersonChip({ name, color, photoUrl, onRemove }: PersonChipProps) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-w-0 items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-sm font-medium",
-        toneClasses[tone],
-      )}
-    >
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-modal-surface text-[0.625rem] font-medium">
-                {initials}
-            </span>
+    <span className={cn("inline-flex min-w-0 items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-sm font-medium bg-background",)}>
+        <Avatar size="sm" name={name} color={color} photoUrl={photoUrl} />
 
-            <span className="truncate">
-                {name}
-            </span>
+        <span className="truncate">{name}</span>
 
         {onRemove ? (
             <button

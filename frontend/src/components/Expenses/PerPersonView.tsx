@@ -115,6 +115,7 @@ function BalanceCard({ balance, onPay }: BalanceCardProps): ReactElement {
             balance={balanceLabel}
             balanceStatus={balanceStatus}
             items={itemsForCard}
+            photoUrl={member.photoUrl}
         />
     );
 }

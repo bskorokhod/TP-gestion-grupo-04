@@ -32,7 +32,7 @@ export function Avatar({name, color, photoUrl, size = "sm", className,}: AvatarP
             <img
                 src={photoUrl}
                 alt={name}
-                className={cn("shrink-0 rounded-full object-cover", sizeClasses, className)}
+                className={cn("shrink-0 rounded-full object-cover opacity-90", sizeClasses, className)}
             />
         );
     }

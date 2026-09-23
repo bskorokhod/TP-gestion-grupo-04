@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 
 import { Button } from "@/components/Button.tsx";
 import { CloseIcon } from "@/components/Icons.tsx";
+import {cn} from "@/lib/cn.ts";
 
 interface ModalShellProps {
     title: string;
@@ -11,9 +12,10 @@ interface ModalShellProps {
     onClose?: () => void;
     onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
     submitClassName?: string;
+    modalClassName?: string;
 }
 
-export function ModalShell({title, children, submitLabel, onClose, onSubmit, submitClassName,}: ModalShellProps) {
+export function ModalShell({title, children, submitLabel, onClose, onSubmit, submitClassName, modalClassName}: ModalShellProps) {
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape" && onClose) {
@@ -43,7 +45,7 @@ export function ModalShell({title, children, submitLabel, onClose, onSubmit, sub
             <form
                 onSubmit={onSubmit}
                 onClick={(e) => e.stopPropagation()}
-                className="max-h-screen w-full max-w-4xl overflow-y-auto rounded-3xl border border-modal-border bg-modal-surface p-6 shadow-2xl sm:p-8"            >
+                className={cn(modalClassName, "max-h-screen w-full overflow-y-auto rounded-3xl border border-modal-border bg-modal-surface p-6 shadow-2xl sm:p-8")}>
                 <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                     <h2 id="modal-title" className="min-w-0 truncate text-xl font-black text-modal-ink">
                         {title}

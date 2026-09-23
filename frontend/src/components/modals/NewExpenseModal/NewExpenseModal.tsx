@@ -4,37 +4,24 @@ import { ModalShell } from "@/components/modals/ModalShell";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
-import type { Member, MemberColor } from "@/models/Group.ts";
+import type { Member } from "@/models/Group.ts";
 import { useGetGroupMembers } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 
 import { Field } from "./Field";
 import { FileDropzone } from "./FileDropzone";
 import { MemberPicker } from "./MemberPicker";
-import { ChipButton, PersonChip, type ChipTone } from "./PersonChip";
+import { ChipButton, PersonChip } from "./PersonChip";
 import { SplitMethodSelector, type SplitMethod } from "./SplitMethodSelector";
 import { TextArea, TextInput } from "./TextInput";
 
-const COLOR_TO_TONE: Readonly<Record<MemberColor, ChipTone>> = {
-  GREEN: "green",
-  LIGHT_BLUE: "green",
-  YELLOW: "amber",
-  ORANGE: "amber",
-  RED: "primary",
-  BLUE: "primary",
-  PURPLE: "primary",
-  PINK: "primary",
-};
 
 export interface NewExpenseModalProps {
   readonly groupId: number;
   readonly onClose?: () => void;
 }
 
-export function NewExpenseModal({
-                                  groupId,
-                                  onClose,
-                                }: NewExpenseModalProps): ReactElement {
+export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): ReactElement {
   const { data: members = [] } = useGetGroupMembers(groupId, "ACTIVE");
   const createExpense = useCreateExpense(groupId);
   const { showSchemaError, showApiError, showSuccessToast } = useFormToasts();
@@ -146,9 +133,9 @@ export function NewExpenseModal({
             event.preventDefault();
             void handleSubmit();
           }}
+          modalClassName="max-w-4xl"
       >
         <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
-          {/* Columna izquierda: datos básicos del gasto */}
           <div className="flex flex-col gap-5">
             <Field label="Título del gasto" htmlFor="expense-title">
               <TextInput
@@ -190,7 +177,6 @@ export function NewExpenseModal({
             </Field>
           </div>
 
-          {/* Columna derecha: reparto y responsables */}
           <div className="flex flex-col gap-5">
             <Field
                 label="Definir reparto"
@@ -208,9 +194,9 @@ export function NewExpenseModal({
                   {participants.map((member) => (
                       <PersonChip
                           key={member.id}
-                          initials={member.nickname.slice(0, 2).toUpperCase()}
                           name={member.nickname}
-                          tone={COLOR_TO_TONE[member.color]}
+                          color={member.color}
+                          photoUrl={member.photoUrl}
                           onRemove={() => removeParticipant(member.id)}
                       />
                   ))}
@@ -244,9 +230,9 @@ export function NewExpenseModal({
                 <div className="flex flex-wrap items-center gap-2">
                   {responsible ? (
                       <PersonChip
-                          initials={responsible.nickname.slice(0, 2).toUpperCase()}
                           name={responsible.nickname}
-                          tone={COLOR_TO_TONE[responsible.color]}
+                          color={responsible.color}
+                          photoUrl={responsible.photoUrl}
                           onRemove={() => setResponsibleId(null)}
                       />
                   ) : null}

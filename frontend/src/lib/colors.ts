@@ -1,6 +1,5 @@
 import type { MemberColor } from "@/models/Group";
 
-/** Color suave (50% opacidad) — para fondos con texto oscuro encima. */
 const MEMBER_COLOR_SOFT: Readonly<Record<MemberColor, string>> = {
     RED: "bg-avatar-custom-red/50",
     BLUE: "bg-avatar-custom-blue/50",

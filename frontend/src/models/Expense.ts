@@ -29,6 +29,7 @@ export const ExpenseMemberSchema = z.object({
   id: z.number(),
   nickname: z.string(),
   color: MemberColorSchema,
+  photoUrl: z.string().nullable().optional(),
 });
 export type ExpenseMember = z.infer<typeof ExpenseMemberSchema>;
 
@@ -41,8 +42,6 @@ export const ExpenseParticipantSchema = z.object({
 export type ExpenseParticipant = z.infer<typeof ExpenseParticipantSchema>;
 
 export const ExpenseDetailsSchema = z.object({
-  // `title` es nuevo: si el backend todavía no lo devuelve, queda undefined
-  // y los consumidores usan `description` como fallback.
   title: z.string(),
   description: z.string(),
   totalAmount: z.number(),

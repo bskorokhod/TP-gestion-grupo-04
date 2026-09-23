@@ -26,6 +26,7 @@ function toMemberInfos(expense: Expense): MemberInfo[] {
     return expense.details.participants.map((p) => ({
         nickname: p.member.nickname,
         color: p.member.color,
+        photoUrl: p.member.photoUrl
     }));
 }
 
@@ -128,6 +129,7 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
             owner={{
                 nickname: expense.details.creditor.nickname,
                 color: expense.details.creditor.color,
+                photoUrl: expense.details.creditor.photoUrl
             }}
         >
             {debtsToShow.map((debt) => {
@@ -142,6 +144,7 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
                         status={status}
                         action="claim"
                         amount={formatCurrency(remaining)}
+                        photoUrl={debt.debtor.photoUrl}
                     />
                 );
             })}
@@ -150,15 +153,7 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
 }
 
 /** "Gastos que debo": filtramos la deuda propia usando el id que nos dio el summary. */
-function ExpenseAsOwedCard({
-                               expense,
-                               myMemberId,
-                               onPay,
-                           }: {
-    expense: Expense;
-    myMemberId?: number;
-    onPay: (debtId: number, amount: number) => void;
-}) {
+function ExpenseAsOwedCard({expense, myMemberId, onPay,}: { expense: Expense; myMemberId?: number; onPay: (debtId: number, amount: number) => void; }) {
     if (myMemberId == null) return null;
 
     const myDebt = expense.debts.find(
@@ -177,6 +172,7 @@ function ExpenseAsOwedCard({
             owner={{
                 nickname: expense.details.creditor.nickname,
                 color: expense.details.creditor.color,
+                photoUrl: expense.details.creditor.photoUrl
             }}
             action={{
                 label: "Marcar como pagado",

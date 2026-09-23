@@ -13,6 +13,7 @@ import {toast} from "@/hooks/useToast.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import { faCalendarDays, faPercent, faLink, faArrowRight } from "@fortawesome/free-solid-svg-icons";
+import {Avatar} from "@/components/ui/Avatar.tsx";
 
 interface SettingItem {
     readonly icon: ReactNode;
@@ -93,19 +94,6 @@ interface JoinRequestItemProps {
 }
 
 function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
-    const AVATAR_COLOR_CLASS: Record<string, string> = {
-        RED: "bg-custom-red",
-        BLUE: "bg-custom-me",
-        GREEN: "bg-custom-green",
-        YELLOW: "bg-group-amber",
-        ORANGE: "bg-custom-orange",
-        PURPLE: "bg-custom-lilac",
-        PINK: "bg-custom-red",
-        LIGHT_BLUE: "bg-custom-me",
-    };
-    const avatarClass = AVATAR_COLOR_CLASS[member.color] ?? "bg-custom-lilac";
-    const initial = member.nickname.charAt(0).toUpperCase();
-
     return (
         <button
             type="button"
@@ -138,14 +126,7 @@ function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
                 )}
             </div>
 
-            <div
-                className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                    avatarClass,
-                )}
-            >
-                <span className="text-base font-semibold text-panel">{initial}</span>
-            </div>
+            <Avatar size="lg" color={member.color} name={member.nickname} photoUrl={member.photoUrl}/>
 
             <div className="flex min-w-0 flex-col">
                 <p className="text-base font-semibold text-ink">{member.nickname}</p>

@@ -11,6 +11,7 @@ import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 export interface MemberInfo {
     readonly nickname: string;
     readonly color: MemberColor;
+    readonly photoUrl?: string | null;
 }
 
 export interface PersonRowProps {
@@ -20,6 +21,7 @@ export interface PersonRowProps {
     readonly status?: PaymentStatus;
     readonly action?: "claim" | "none";
     readonly onAction?: () => void;
+    readonly photoUrl?: string | null;
 }
 
 export interface TransactionRowProps {
@@ -36,6 +38,7 @@ export interface PersonBalanceCardProps {
     readonly balance: string;
     readonly balanceStatus: BalanceStatus;
     readonly items: TransactionRowProps[];
+    readonly photoUrl?: string | null;
 }
 
 export interface DebtCardProps {
@@ -115,13 +118,14 @@ export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
                             key={member.nickname}
                             color={member.color}
                             name={member.nickname}
+                            photoUrl={member.photoUrl}
                         />
                     ))}
                 </span>
             </div>
             <div className="flex items-center gap-1.5">
                 <span>A cargo de:</span>
-                <Avatar color={owner.color} name={owner.nickname} />
+                <Avatar color={owner.color} name={owner.nickname} photoUrl={owner.photoUrl}/>
             </div>
         </div>
     );
@@ -138,20 +142,13 @@ const PAYMENT_STATUS_CONFIG = {
 
 export type PaymentStatus = keyof typeof PAYMENT_STATUS_CONFIG;
 
-export function PersonRow({
-                              name,
-                              color,
-                              amount,
-                              status = "unpaid",
-                              action = "none",
-                              onAction,
-                          }: PersonRowProps): ReactNode {
+export function PersonRow({name, color, amount, status = "unpaid", action = "none", onAction, photoUrl}: PersonRowProps): ReactNode {
     const config = PAYMENT_STATUS_CONFIG[status];
 
     return (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl bg-group-paper px-3 py-2">
             <div className="flex min-w-0 items-center gap-2">
-                <Avatar color={color} name={name} />
+                <Avatar color={color} name={name} photoUrl={photoUrl}/>
                 <span className="truncate text-sm font-medium">{name}</span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -180,13 +177,7 @@ const TRANSACTION_VARIANTS = {
 
 export type TransactionVariant = keyof typeof TRANSACTION_VARIANTS;
 
-export function TransactionRow({
-                                   name,
-                                   amount,
-                                   variant = "credit",
-                                   action = "readonly",
-                                   onAction,
-                               }: TransactionRowProps): ReactNode {
+export function TransactionRow({name, amount, variant = "credit", action = "readonly", onAction,}: TransactionRowProps): ReactNode {
     const amountColor = TRANSACTION_VARIANTS[variant];
 
     return (
@@ -264,14 +255,7 @@ export interface ProposalCardProps {
     readonly status?: keyof typeof PROPOSAL_VARIANTS;
 }
 
-export function ProposalCard({
-                                 title,
-                                 amount,
-                                 description,
-                                 assigned,
-                                 owner,
-                                 status = "pending",
-                             }: ProposalCardProps): ReactNode {
+export function ProposalCard({title, amount, description, assigned, owner, status = "pending",}: ProposalCardProps): ReactNode {
     const config = PROPOSAL_VARIANTS[status];
 
     return (
