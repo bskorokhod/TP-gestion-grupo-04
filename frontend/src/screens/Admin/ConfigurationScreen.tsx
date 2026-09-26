@@ -12,7 +12,7 @@ import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useReje
 import {toast} from "@/hooks/useToast.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import { faCalendarDays, faPercent, faLink, faArrowRight } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDays, faPercent, faCopy, faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import {Avatar} from "@/components/ui/Avatar.tsx";
 
 interface SettingItem {
@@ -346,42 +346,72 @@ async function copyToClipboard(text: string): Promise<void> {
     await navigator.clipboard.writeText(text);
 }
 
+interface JoinCodeShareProps {
+    readonly joinCode: string;
+}
+
+function JoinCodeShare({ joinCode }: JoinCodeShareProps) {
+    async function handleCopy() {
+        try {
+            await copyToClipboard(joinCode);
+            toast({ title: "Código copiado al portapapeles" });
+        } catch {
+            toast({
+                variant: "destructive",
+                title: "No se pudo copiar el código",
+                description: `Copialo manualmente: ${joinCode}`,
+            });
+        }
+    }
+
+    return (
+        <div className="flex flex-col items-start gap-1.5 md:items-end">
+            <span className="text-xs font-semibold uppercase tracking-wide text-brand-foreground/70">
+                Código de grupo
+            </span>
+
+            <div className="inline-flex items-center gap-1 rounded-full border border-modal-border bg-modal-surface py-1 pl-5 pr-1 shadow-none">
+                <button
+                    type="button"
+                    onClick={handleCopy}
+                    aria-label={`Copiar código de grupo ${joinCode} al portapapeles`}
+                    title="Copiar al portapapeles"
+                    className="cursor-pointer text-lg font-bold tracking-widest tabular-nums text-modal-ink transition-colors hover:text-modal-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
+                >
+                    {joinCode}
+                </button>
+                <button
+                    type="button"
+                    onClick={handleCopy}
+                    aria-label="Copiar código de grupo al portapapeles"
+                    title="Copiar al portapapeles"
+                    className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-modal-primary transition-colors hover:bg-modal-field focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                    <FontAwesomeIcon icon={faCopy} className="h-4 w-4" aria-hidden />
+                </button>
+            </div>
+
+            <span className="max-w-64 text-xs text-brand-foreground/70 md:text-right">
+                Compartí este código para que otros se unan al grupo.
+            </span>
+        </div>
+    );
+}
+
 export const ConfigurationScreen = () => {
     const [location] = useLocation();
     const group = useCurrentGroup();
-    const [copied, setCopied] = useState(false);
 
     const canReviewJoinRequests = can(group, "reviewJoinRequests");
     const canConfigure = can(group, "editPercentages");
 
     const configBasePath = location.replace(/\/$/, "");
 
-    async function handleCopyJoinCode() {
-        await copyToClipboard(group.joinCode);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    }
-
     return (
         <CommonLayout>
             <GroupNavbar>
                 {canReviewJoinRequests && (
-                    <Button
-                        size="lg"
-                        variant="modalSecondary"
-                        onClick={handleCopyJoinCode}
-                        aria-label="Copiar código de invitación al portapapeles"
-                        className="inline-flex items-center gap-2"
-                    >
-                        {copied ? (
-                            "¡Código copiado!"
-                        ) : (
-                            <>
-                                <FontAwesomeIcon icon={faLink} className="h-4 w-4" aria-hidden />
-                                Compartir código de unión
-                            </>
-                        )}
-                    </Button>
+                    <JoinCodeShare joinCode={group.joinCode} />
                 )}
             </GroupNavbar>
 
