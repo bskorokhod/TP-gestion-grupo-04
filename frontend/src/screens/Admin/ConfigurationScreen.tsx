@@ -77,7 +77,7 @@ function MembersSection({ groupId }: MembersSectionProps) {
     }
 
     return (
-        <div className="grid grid-cols-3 gap-8 justify-between items-start self-stretch py-4">
+        <div className="grid grid-cols-1 gap-8 justify-between items-start self-stretch py-4 sm:grid-cols-2 xl:grid-cols-3">
             {members.map((member) => (
                 <MemberInfoCard key={member.id} member={member} />
             ))}
@@ -415,7 +415,7 @@ export const ConfigurationScreen = () => {
                 )}
             </GroupNavbar>
 
-            <div className="flex flex-col flex-1 gap-3 items-start w-full bg-background pt-14 px-30 pb-16 overflow-hidden">
+            <div className="flex flex-col flex-1 gap-3 items-start w-full bg-background pt-14 px-6 pb-16 overflow-hidden sm:px-12 lg:px-30">
                 <p className="text-3xl font-extrabold text-brand-hover">
                     Miembros y porcentajes de propiedad
                 </p>

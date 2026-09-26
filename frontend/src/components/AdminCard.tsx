@@ -29,8 +29,8 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
 
     return (
         <div className="flex flex-col gap-3 items-start flex-1 bg-panel rounded-2xl border border-field/50 py-6 px-7 overflow-hidden">
-            <div className="flex flex-row justify-between items-center self-stretch">
-                <div className="flex flex-row gap-2.5 items-center">
+            <div className="flex flex-row justify-between items-center gap-3 self-stretch">
+                <div className="flex min-w-0 flex-1 flex-row gap-2.5 items-center">
                     {hasPhoto ? (
                         <img
                             src={member.photoUrl!}
@@ -47,16 +47,16 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
                         <p className="text-lg font-medium text-panel">{initial}</p>
                     </div>
                     )}
-                    <div className="flex flex-col items-start">
-                        <p className="text-xl font-semibold text-ink leading-6.5">
+                    <div className="flex min-w-0 flex-col items-start">
+                        <p className="max-w-full truncate text-xl font-semibold text-ink leading-6.5">
                             {member.nickname}
                         </p>
-                        <p className="text-base font-normal text-warm-muted whitespace-nowrap">
+                        <p className="max-w-full truncate text-base font-normal text-warm-muted">
                             {member.username}
                         </p>
                     </div>
                 </div>
-                <p className="text-2xl font-semibold text-olive">{percentage}%</p>
+                <p className="shrink-0 whitespace-nowrap text-2xl font-semibold text-olive">{percentage}%</p>
             </div>
 
             <p className="text-base text-ink self-stretch">
