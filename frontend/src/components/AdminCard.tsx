@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLock, faLockOpen } from "@fortawesome/free-solid-svg-icons";
@@ -110,23 +110,61 @@ const LOCK_LABEL: Record<LockState, string> = {
 
 const INPUT_CLASSES: Record<LockState, string> = {
     locked:
-        "flex flex-row justify-center items-center w-[200px] h-[52px] bg-input-surface rounded-xl border border-field px-3.5 overflow-hidden opacity-70",
+        "flex flex-row justify-center items-center w-[92px] h-9 bg-input-surface rounded-xl border border-field px-3 overflow-hidden opacity-70",
     unlocked:
-        "flex flex-row justify-center items-center w-[200px] h-[52px] bg-input-surface rounded-xl border border-brand px-3.5 overflow-hidden",
+        "flex flex-row justify-center items-center w-[92px] h-9 bg-input-surface rounded-xl border border-brand px-3 overflow-hidden",
 };
+
+function percentageToInput(value: number): string {
+    return Number.isFinite(value) ? String(value) : "";
+}
 
 export function PercentageCard({member, percentage, locked, disabled = false, errorMessage, onPercentageChange, onToggleLock }: PercentageCardProps) {
     const lockState: LockState = locked ? "locked" : "unlocked";
     const hasError = Boolean(errorMessage);
     const isInputDisabled = locked || disabled;
 
+    // El valor del input se maneja como string para poder dejarlo "vacío" (placeholder 0)
+    // sin forzar un 0 adelante. Para cálculos/guardado, vacío = 0.
+    const [inputValue, setInputValue] = useState<string>(() => percentageToInput(percentage));
+    const [profileOpen, setProfileOpen] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    // Sincronizar cuando el porcentaje cambia desde afuera (ajuste equitativo, bloqueo,
+    // cancelar, recarga) sin pisar un campo vaciado a propósito.
+    useEffect(() => {
+        setInputValue((prev) => {
+            const prevNumber = prev.trim() === "" ? 0 : Number(prev);
+            return !Number.isNaN(prevNumber) && prevNumber === percentage ? prev : percentageToInput(percentage);
+        });
+    }, [percentage]);
+
+    // Cerrar el popup de perfil al clickear afuera o presionar Escape.
+    useEffect(() => {
+        if (!profileOpen) return;
+        const onPointerDown = (event: MouseEvent) => {
+            if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+                setProfileOpen(false);
+            }
+        };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setProfileOpen(false);
+        };
+        document.addEventListener("mousedown", onPointerDown);
+        document.addEventListener("keydown", onKeyDown);
+        return () => {
+            document.removeEventListener("mousedown", onPointerDown);
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [profileOpen]);
+
     const handlePercentageInputChange = (event: ChangeEvent<HTMLInputElement>) => {
         const rawValue = event.target.value;
-        if (rawValue === "") {
+        setInputValue(rawValue);
+        if (rawValue.trim() === "") {
             onPercentageChange(member.memberId, 0);
             return;
         }
-
         const parsedValue = Number(rawValue);
         if (!Number.isNaN(parsedValue)) {
             onPercentageChange(member.memberId, parsedValue);
@@ -134,39 +172,41 @@ export function PercentageCard({member, percentage, locked, disabled = false, er
     };
 
     return (
-        <div className="flex flex-col gap-2 items-start self-stretch">
-            <div className="flex flex-row justify-between items-center self-stretch bg-background rounded-xl border border-field/50 py-6 px-7 overflow-hidden">
-                <div className="flex flex-row gap-2.5 items-center">
-                    <div className="flex flex-row gap-2.5 items-center">
-                        <Avatar
-                            size="lg"
-                            name={member.name}
-                            color={member.color}
-                            photoUrl={member.photoUrl}
-                        />
-                        <div className="flex flex-col items-start">
-                            <p className="text-[22px] font-semibold text-ink leading-6.5">
-                                {member.name}
-                            </p>
-                            <p className="text-base font-normal text-warm-muted whitespace-nowrap">
-                                {member.fullName}
-                            </p>
-                        </div>
-                    </div>
+        <div className="flex flex-col gap-1 items-start self-stretch">
+            <div
+                ref={cardRef}
+                className="relative flex flex-row justify-between items-center gap-3 self-stretch bg-background rounded-xl border border-field/50 py-2 px-4"
+            >
+                <div className="flex flex-row gap-2.5 items-center min-w-0 flex-1">
+                    <button
+                        type="button"
+                        onClick={() => setProfileOpen((open) => !open)}
+                        aria-label={`Ver perfil de ${member.name}`}
+                        aria-expanded={profileOpen}
+                        className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand cursor-pointer transition-transform hover:scale-105"
+                    >
+                        <Avatar size="md" name={member.name} color={member.color} photoUrl={member.photoUrl} />
+                    </button>
+                    <p className="text-base font-semibold text-ink leading-6 truncate max-w-full">
+                        {member.name}
+                    </p>
                 </div>
-                <div className="flex flex-row gap-6 items-center">
+                <div className="flex flex-row gap-2 items-center shrink-0">
                     <div className={cn(INPUT_CLASSES[lockState], hasError && "border-group-danger")}>
                         <input
                             type="number"
+                            inputMode="decimal"
                             min={0}
                             max={100}
                             step="any"
-                            value={percentage}
+                            value={inputValue}
+                            placeholder="0"
                             disabled={isInputDisabled}
                             aria-invalid={hasError}
                             aria-label={`Porcentaje de ${member.name}`}
                             onChange={handlePercentageInputChange}
-                            className="w-full bg-brand-foreground text-base font-normal text-center text-ink outline-none"
+                            onWheel={(event) => event.currentTarget.blur()}
+                            className="w-full bg-brand-foreground text-base font-normal text-center text-ink outline-none placeholder:text-placeholder"
                         />
                         <span className="text-base font-normal text-placeholder">%</span>
                     </div>
@@ -176,11 +216,25 @@ export function PercentageCard({member, percentage, locked, disabled = false, er
                         onClick={() => onToggleLock(member.memberId)}
                         aria-label={LOCK_LABEL[lockState]}
                         aria-pressed={locked}
-                        className="flex flex-row justify-center items-center w-8 h-8 text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex flex-row justify-center items-center w-7 h-7 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <FontAwesomeIcon icon={LOCK_ICON[lockState]} className="h-5 w-5 text-primary" />
+                        <FontAwesomeIcon icon={LOCK_ICON[lockState]} className="h-4 w-4 text-primary" />
                     </button>
                 </div>
+
+                {profileOpen && (
+                    <div
+                        role="dialog"
+                        aria-label={`Perfil de ${member.name}`}
+                        className="absolute left-3 top-full z-30 mt-2 flex flex-row items-center gap-3 rounded-xl border border-field/60 bg-panel px-4 py-3 shadow-soft"
+                    >
+                        <Avatar size="lg" name={member.name} color={member.color} photoUrl={member.photoUrl} />
+                        <div className="flex flex-col items-start min-w-0">
+                            <p className="text-base font-semibold text-ink">{member.name}</p>
+                            <p className="text-sm font-normal text-warm-muted break-all">{member.fullName}</p>
+                        </div>
+                    </div>
+                )}
             </div>
             {hasError && (
                 <p role="alert" className="text-sm font-medium text-group-danger px-2">
