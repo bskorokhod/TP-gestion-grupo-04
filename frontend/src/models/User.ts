@@ -1,7 +1,7 @@
 import {z} from "zod";
 
 export const UserCreateSchema = z.object({
-    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres y un caracter especial -_*+#").max(254).regex(/([-_*+#])+/),
+    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres y un caracter especial -_*+#").max(254).regex(/([-_*+#])+/, "La contraseña debe tener al menos un caracter especial -_*+#"),
     name: z.string().min(1, "El nombre es obligatorio"),
     surname: z.string().min(1, "El apellido es obligatorio"),
     email: z.email("Email inválido"),
