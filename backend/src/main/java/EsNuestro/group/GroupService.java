@@ -34,6 +34,7 @@ public class GroupService {
     private final UserRepository userRepository;
     private final JoinCodeGenerator joinCodeGenerator;
     private final DebtRepository debtRepository;
+    private final Random colorRandom = new Random();
 
     @Autowired
     GroupService(
@@ -302,22 +303,53 @@ public class GroupService {
     }
 
     private MemberColor pickColor(Long groupId, String nickname, GroupMember current) {
-        Set<MemberColor> takenColors = groupMemberRepository
-                .findByGroup_IdAndNicknameIgnoreCaseAndStatusIn(groupId, nickname, MembershipStatus.IDENTITY_OCCUPYING)
+        List<GroupMember> groupMembers = groupMemberRepository
+                .findByGroup_IdAndStatusIn(groupId, MembershipStatus.IDENTITY_OCCUPYING)
                 .stream()
                 .filter(member -> current == null || !member.getId().equals(current.getId()))
-                .map(GroupMember::getColor)
-                .collect(Collectors.toSet());
+                .toList();
 
-        if (current != null && !takenColors.contains(current.getColor())) {
-            return current.getColor();
+        // Invariante duro: dos miembros con el MISMO apodo nunca comparten color.
+        // Estos colores quedan prohibidos para este nickname.
+        Set<MemberColor> sameNickTaken = groupMembers.stream()
+                .filter(member -> member.getNickname().equalsIgnoreCase(nickname))
+                .map(GroupMember::getColor)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(MemberColor.class)));
+
+        // Si ya tenia color y no choca con su mismo apodo, se lo conservamos (estabilidad al renombrarse).
+        MemberColor currentColor = current == null ? null : current.getColor();
+        if (currentColor != null && !sameNickTaken.contains(currentColor)) {
+            return currentColor;
         }
-        return Arrays.stream(MemberColor.values())
-                .filter(color -> !takenColors.contains(color))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT, "Nickname is already used by too many members in this group"
-                ));
+
+        // Cuantos miembros del grupo usan cada color (para priorizar libres y, si no, el menos usado).
+        Map<MemberColor, Long> usage = new EnumMap<>(MemberColor.class);
+        for (MemberColor color : MemberColor.values()) {
+            usage.put(color, 0L);
+        }
+        groupMembers.stream()
+                .map(GroupMember::getColor)
+                .filter(Objects::nonNull)
+                .forEach(color -> usage.merge(color, 1L, Long::sum));
+
+        // Candidatos: cualquier color que no colisione con el mismo apodo.
+        List<MemberColor> allowed = Arrays.stream(MemberColor.values())
+                .filter(color -> !sameNickTaken.contains(color))
+                .toList();
+        if (allowed.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Nickname is already used by too many members in this group"
+            );
+        }
+
+        // Preferimos el menos usado del grupo (0 = libre mientras haya) y desempatamos al azar.
+        long minUsage = allowed.stream().mapToLong(color -> usage.get(color)).min().orElse(0L);
+        List<MemberColor> pool = allowed.stream()
+                .filter(color -> usage.get(color) == minUsage)
+                .toList();
+
+        return pool.get(colorRandom.nextInt(pool.size()));
     }
 
     private String generateUniqueJoinCode() {
