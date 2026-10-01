@@ -22,8 +22,8 @@ export interface SubrouteConfig {
 
 export const PAGES_NAVBAR_DATA: Record<string, SubrouteConfig> = {
     "reservas": {
-        title: "...",
-        description: "Disponibilidad de días y gestión de reservas.",
+        title: "Calendario de reservas",
+        description: "Consultá la disponibilidad y reservá fechas para usar el bien.",
         activeTabKey: "reservas",
         goBackBtn: false
     },
