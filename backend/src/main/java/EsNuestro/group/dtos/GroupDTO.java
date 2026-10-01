@@ -2,7 +2,6 @@ package EsNuestro.group.dtos;
 
 import EsNuestro.group.Group;
 import EsNuestro.member.GroupMember;
-import EsNuestro.member.GroupRole;
 import EsNuestro.member.MembershipStatus;
 
 import java.time.Instant;
@@ -19,7 +18,6 @@ public record GroupDTO(
         Instant createdAt,
         int memberCount,
         String joinCode,
-        GroupRole myRole,
         MembershipStatus myStatus
 ) {
     public static GroupDTO from(Group group, GroupMember caller) {
@@ -33,7 +31,6 @@ public record GroupDTO(
                 group.getCreatedAt(),
                 (int) activeMembers,
                 group.getJoinCode(),
-                caller.getRole(),
                 caller.getStatus()
         );
     }
