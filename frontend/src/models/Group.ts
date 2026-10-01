@@ -2,8 +2,6 @@ import { z } from "zod";
 
 export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
 
-export type GroupRole = z.infer<typeof GroupRoleSchema>;
-
 export const MembershipStatusSchema = z.enum(["REJECTED", "PENDING", "ACTIVE", "DEACTIVATED", "LEFT", "REMOVED",]);
 
 export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
@@ -15,7 +13,6 @@ export const GroupSchema = z.object({
     createdAt: z.string(),
     memberCount: z.number(),
     joinCode: z.string(),
-    myRole: GroupRoleSchema,
     myStatus: MembershipStatusSchema,
 });
 
@@ -97,7 +94,6 @@ export const MemberSchema = z.object({
     username: z.string(),
     nickname: z.string(),
     color: MemberColorSchema,
-    role: GroupRoleSchema,
     status: MembershipStatusSchema,
     percentage: z.number().nullable(),
     requestedAt: z.string().nullable(),
