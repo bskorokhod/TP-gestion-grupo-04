@@ -8,16 +8,6 @@ import { cn } from "@/lib/cn.ts";
 import { memberColorClass } from "@/lib/colors"
 import {Avatar} from "@/components/ui/Avatar.tsx";
 
-const ROLE_LABEL: Record<string, string> = {
-    FOUNDER: "Fundador/a",
-    ADMIN: "Administrador/a",
-    MEMBER: "Miembro",
-};
-
-function roleLabel(role: string): string {
-    return ROLE_LABEL[role] ?? role;
-}
-
 export interface MemberInfoCardProps {
     readonly member: Member;
 }
@@ -59,9 +49,6 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
                 <p className="shrink-0 whitespace-nowrap text-2xl font-semibold text-olive">{percentage}%</p>
             </div>
 
-            <p className="text-base text-ink self-stretch">
-                <span className="font-semibold">Rol:</span> {roleLabel(member.role)}
-            </p>
             {member.joinedAt && (
                 <p className="text-base text-ink self-stretch">
                     <span className="font-semibold">Miembro desde:</span>{" "}

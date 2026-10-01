@@ -152,30 +152,6 @@ class GroupRestController {
         return groupService.changeNickname(groupId, principal.email(), data.nickname());
     }
 
-    @DeleteMapping("/{groupId}/members/{memberId}")
-    @Operation(summary = "Remove a member from the group (founder/admin only)")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiResponse(responseCode = "403", description = "Caller lacks permission to remove this member", content = @Content)
-    void removeMember(
-            @PathVariable Long groupId,
-            @PathVariable Long memberId,
-            @AuthenticationPrincipal JwtUserDetails principal
-    ) throws ItemNotFoundException {
-        groupService.removeMember(groupId, memberId, principal.email());
-    }
-
-    @PatchMapping(value = "/{groupId}/members/{memberId}/role", produces = "application/json")
-    @Operation(summary = "Change a member's role (founder only)")
-    @ApiResponse(responseCode = "403", description = "Only the founder can change roles", content = @Content)
-    MemberDTO changeRole(
-            @PathVariable Long groupId,
-            @PathVariable Long memberId,
-            @Valid @NonNull @RequestBody MemberRoleUpdateDTO data,
-            @AuthenticationPrincipal JwtUserDetails principal
-    ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.changeRole(groupId, memberId, data.role(), principal.email());
-    }
-
     @PutMapping(value = "/{groupId}/members/percentages", produces = "application/json")
     @Operation(summary = "Ajustar porcentajes de miembros ACTIVE; el total del grupo debe quedar en exactamente 100 (solo fundador/admin)")
     @ApiResponse(responseCode = "403", description = "Caller lacks permission", content = @Content)

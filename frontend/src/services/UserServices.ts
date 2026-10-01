@@ -1,25 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-    User,
-    UserSchema,
     UserProfile,
     UserProfileSchema,
     UserPhotoUpdate,
     UserPhotoUpdateSchema,
 } from "@/models/User";
 import { useApiClient } from "@/hooks/useApiClient";
-
-export function useGetUsers() {
-    const api = useApiClient();
-    return useQuery({
-        queryKey: ["users"] as const,
-        queryFn: async (): Promise<User[]> => {
-            const data = await api.get<{ results: unknown[] }>("/users");
-            return UserSchema.array().parse(data.results);
-        },
-    });
-}
 
 export function useGetUserProfile() {
     const api = useApiClient();
