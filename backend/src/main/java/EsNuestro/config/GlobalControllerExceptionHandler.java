@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
@@ -51,5 +52,11 @@ public class GlobalControllerExceptionHandler {
     public ResponseEntity<JsonResponse> handleIllegalStateException(IllegalStateException ex) {
         JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse(ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<JsonResponse> handleResponseStatusException(ResponseStatusException ex) {
+        JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse(ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(response);
     }
 }
