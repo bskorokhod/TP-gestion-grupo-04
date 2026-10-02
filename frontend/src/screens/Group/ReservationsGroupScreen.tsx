@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
@@ -6,34 +6,36 @@ import { Avatar } from "@/components/ui/Avatar.tsx";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { useMyMember } from "@/hooks/useMyMember.ts";
 import { useToast } from "@/hooks/useToast.ts";
+import { getApiErrorStatus } from "@/lib/api.ts";
 import type { Member } from "@/models/Group.ts";
 import { useGetGroupMembers } from "@/services/GroupServices.ts";
+import {
+  useCancelReservation,
+  useCreateReservation,
+  useGetCancellationRequests,
+  useGetReservations,
+  useRequestReservationCancellation,
+} from "@/services/ReservationServices.ts";
 
 type Reservation = {
-  id: string;
+  id: number;
   start: string;
   end: string;
   memberId: number;
   memberName: string;
   memberColor?: Member["color"];
   createdAt: string;
+  cancellationStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  cancellationReason?: string;
 };
 const WEEKDAYS = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
-const STORAGE_EVENT = "esnuestro-reservations-changed";
-
-function storageKey(groupId: number) {
-  return `esnuestro:reservations:${groupId}`;
-}
-function readReservations(groupId: number): Reservation[] {
-  try {
-    const raw = window.localStorage.getItem(storageKey(groupId));
-    return raw ? (JSON.parse(raw) as Reservation[]) : [];
-  } catch {
-    return [];
-  }
-}
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function tomorrowKey() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return dateKey(tomorrow);
 }
 function parseDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -48,19 +50,60 @@ function sameDay(a: string, b: string) {
 function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   return aStart <= bEnd && bStart <= aEnd;
 }
+function calendarDaysInMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+function daysBookedInMonth(reservations: Reservation[], memberId: number | undefined, month: Date) {
+  if (memberId === undefined) return 0;
+  const monthStart = dateKey(new Date(month.getFullYear(), month.getMonth(), 1));
+  const monthEnd = dateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0));
+  return reservations
+    .filter((reservation) => reservation.memberId === memberId)
+    .reduce((total, reservation) => {
+      const start = reservation.start > monthStart ? reservation.start : monthStart;
+      const end = reservation.end < monthEnd ? reservation.end : monthEnd;
+      if (start > end) return total;
+      return total + (parseDate(end).getTime() - parseDate(start).getTime()) / 86400000 + 1;
+    }, 0);
+}
 
 export function ReservationsGroupScreen() {
   const group = useCurrentGroup();
   const myMember = useMyMember(group.id);
   const { data: members = [] } = useGetGroupMembers(group.id, "ACTIVE");
+  const { data: backendReservations = [], isLoading, isError } = useGetReservations(group.id);
+  const { data: cancellationRequests = [] } = useGetCancellationRequests(group.id);
+  const createReservation = useCreateReservation(group.id);
+  const cancelReservation = useCancelReservation(group.id);
+  const requestCancellationMutation = useRequestReservationCancellation(group.id);
   const { toast } = useToast();
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [rangeEnd, setRangeEnd] = useState<string | null>(null);
-  const [selectedReservation, setSelectedReservation] = useState<string | null>(null);
-  const [refresh, setRefresh] = useState(0);
-
-  const reservations = useMemo(() => readReservations(group.id), [group.id, refresh]);
+  const [selectedReservation, setSelectedReservation] = useState<number | null>(null);
+  const reservations = useMemo<Reservation[]>(
+    () =>
+      backendReservations
+        .filter((reservation) => reservation.status === "ACTIVE")
+        .map((reservation) => {
+          const cancellation = cancellationRequests.find(
+            (request) => request.reservationId === reservation.id && request.status === "PENDING",
+          );
+          return {
+            id: reservation.id,
+            start: reservation.startDate,
+            end: reservation.endDate,
+            memberId: reservation.memberId,
+            memberName: reservation.memberNickname,
+            memberColor: reservation.memberColor,
+            createdAt: reservation.createdAt,
+            cancellationStatus: cancellation?.status ?? "NONE",
+            cancellationReason: cancellation?.reason,
+          };
+        }),
+    [backendReservations, cancellationRequests],
+  );
+  const firstBookableDate = tomorrowKey();
   const percentageTotal = members.reduce((total, member) => total + (member.percentage ?? 0), 0);
   const groupStopped = members.length > 0 && Math.abs(percentageTotal - 100) > 0.01;
   const firstWeekday = (new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay() + 6) % 7;
@@ -69,10 +112,35 @@ export function ReservationsGroupScreen() {
     index < firstWeekday ? null : index - firstWeekday + 1,
   );
   const rangeIsComplete = Boolean(rangeStart && rangeEnd);
+  const visibleMonthDays = calendarDaysInMonth(visibleMonth);
+  const monthlyReservationLimit =
+    group.settings.reservationLimitPolicy === "FIXED_DAYS_PER_MONTH"
+      ? group.settings.reservationFixedDaysPerMonth ?? 0
+      : group.settings.reservationLimitPolicy === "OWNERSHIP_PROPORTIONAL"
+        ? Math.floor((visibleMonthDays * (myMember?.percentage ?? 0)) / 100)
+        : Math.floor(visibleMonthDays / Math.max(members.length, 1));
+  const monthlyBookedDays = daysBookedInMonth(reservations, myMember?.id, visibleMonth);
+  const monthlyRemainingDays = Math.max(monthlyReservationLimit - monthlyBookedDays, 0);
 
   const reservationsForDate = (key: string) =>
     reservations.filter((reservation) => reservation.start <= key && key <= reservation.end);
   const onChooseDate = (key: string) => {
+    if (groupStopped) {
+      toast({
+        title: "Grupo stoppeado",
+        description: "No podés iniciar una reserva hasta resolver la inconsistencia del grupo.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (key < firstBookableDate) {
+      toast({
+        title: "Fecha no disponible",
+        description: "Las reservas deben comenzar como mínimo mañana.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (reservationsForDate(key).length) {
       const reservation = reservationsForDate(key)[0];
       setSelectedReservation(reservation.id);
@@ -104,7 +172,7 @@ export function ReservationsGroupScreen() {
     }
   };
 
-  const confirmReservation = () => {
+  const confirmReservation = async () => {
     if (groupStopped) {
       toast({
         title: "Grupo con inconsistencia",
@@ -123,50 +191,121 @@ export function ReservationsGroupScreen() {
     }
     const start = rangeStart < rangeEnd ? rangeStart : rangeEnd;
     const end = rangeStart < rangeEnd ? rangeEnd : rangeStart;
+    if (start < firstBookableDate) {
+      toast({
+        title: "Fecha no disponible",
+        description: "Las reservas deben comenzar como mínimo mañana.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (reservations.some((reservation) => overlaps(start, end, reservation.start, reservation.end))) {
       toast({
         title: "Fechas no disponibles",
         description: "Otro miembro ya reservó parte de ese rango.",
         variant: "destructive",
       });
-      setRefresh((value) => value + 1);
       return;
     }
-    const reservation: Reservation = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      start,
-      end,
-      memberId: myMember?.id ?? 0,
-      memberName: myMember?.nickname || myMember?.username || "Miembro del grupo",
-      memberColor: myMember?.color,
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...reservations, reservation];
-    window.localStorage.setItem(storageKey(group.id), JSON.stringify(updated));
-    window.dispatchEvent(new Event(STORAGE_EVENT));
-    setRefresh((value) => value + 1);
-    setRangeStart(null);
-    setRangeEnd(null);
-    toast({
-      title: "Reserva confirmada",
-      description: `${formatDate(start)} al ${formatDate(end)} · ${reservation.memberName}`,
-    });
+    try {
+      await createReservation.mutateAsync({ startDate: start, endDate: end });
+      setRangeStart(null);
+      setRangeEnd(null);
+      toast({
+        title: "Reserva confirmada",
+        description: `${formatDate(start)} al ${formatDate(end)}`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "";
+      const monthlyLimitError = errorMessage.toLowerCase().includes("límite mensual");
+      const conflict = getApiErrorStatus(error) === 409;
+      toast({
+        title: monthlyLimitError
+          ? "Límite mensual alcanzado"
+          : conflict
+            ? "No pudimos guardar tu reserva"
+            : "No se pudo crear la reserva",
+        description: monthlyLimitError
+          ? `Solo podés reservar ${monthlyRemainingDays} día${monthlyRemainingDays === 1 ? "" : "s"} más durante este mes.`
+          : conflict
+            ? "Ese período dejó de estar disponible. Elegí otras fechas e intentá nuevamente."
+            : errorMessage || "Revisá las fechas seleccionadas.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelOwnReservation = async (reservation: Reservation) => {
+    if (reservation.memberId !== myMember?.id) {
+      toast({
+        title: "No podés cancelar esta reserva directamente",
+        description: "Las reservas ajenas requieren una solicitud y votación del grupo.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await cancelReservation.mutateAsync(reservation.id);
+      setSelectedReservation(null);
+      toast({
+        title: "Reserva cancelada",
+        description: "La reserva propia fue cancelada correctamente.",
+      });
+    } catch (error) {
+      toast({
+        title: "No se pudo cancelar la reserva",
+        description: error instanceof Error ? error.message : "Intentá nuevamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const requestCancellation = async (reservation: Reservation, reason: string) => {
+    if (reservation.memberId === myMember?.id) {
+      await cancelOwnReservation(reservation);
+      return;
+    }
+    if (reservation.cancellationStatus === "PENDING") {
+      toast({
+        title: "Solicitud ya enviada",
+        description: "El grupo todavía debe votar esta cancelación.",
+      });
+      return;
+    }
+    const normalizedReason = reason.trim();
+    if (!normalizedReason) {
+      toast({
+        title: "Falta el motivo",
+        description: "Explicá por qué querés solicitar la cancelación de esta reserva.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await requestCancellationMutation.mutateAsync({
+        reservationId: reservation.id,
+        reason: normalizedReason,
+      });
+      toast({
+        title: "Solicitud de cancelación enviada",
+        description: `La solicitud queda sujeta a ${votingModelLabel(group.settings.votingModel)}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "No se pudo enviar la solicitud",
+        description: error instanceof Error ? error.message : "Intentá nuevamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const navigateMonth = (amount: number) => {
-    setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + amount, 1));
+    const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    setVisibleMonth((month) => {
+      const nextMonth = new Date(month.getFullYear(), month.getMonth() + amount, 1);
+      return nextMonth < currentMonth ? currentMonth : nextMonth;
+    });
   };
-
-  // Revisa escrituras hechas por otra pestaña o por otro componente del mismo grupo.
-  useEffect(() => {
-    const update = () => setRefresh((value) => value + 1);
-    window.addEventListener("storage", update);
-    window.addEventListener(STORAGE_EVENT, update);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener(STORAGE_EVENT, update);
-    };
-  }, []);
 
   return (
     <CommonLayout className="min-h-screen bg-background font-poppins text-foreground flex flex-col">
@@ -207,7 +346,11 @@ export function ReservationsGroupScreen() {
                 type="button"
                 onClick={() => navigateMonth(-1)}
                 aria-label="Mes anterior"
-                className="grid size-8 place-items-center rounded-full border border-brand/30 text-brand hover:bg-brand/10"
+                disabled={
+                  visibleMonth.getFullYear() === new Date().getFullYear() &&
+                  visibleMonth.getMonth() === new Date().getMonth()
+                }
+                className="grid size-8 place-items-center rounded-full border border-brand/30 text-brand hover:bg-brand/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ‹
               </button>
@@ -237,12 +380,29 @@ export function ReservationsGroupScreen() {
               El grupo está stoppeado por una inconsistencia de porcentajes. Resolvé los porcentajes antes de reservar.
             </div>
           )}
+          {isLoading && <p className="mb-3 text-sm text-group-muted">Cargando reservas...</p>}
+          {isError && (
+            <p role="alert" className="mb-3 rounded-xl bg-group-danger-soft px-4 py-3 text-sm text-group-danger">
+              No se pudieron cargar las reservas. Intentá actualizar la página.
+            </p>
+          )}
           <p className="mb-3 text-sm text-group-muted">
             {rangeStart
               ? rangeEnd
                 ? `Rango seleccionado: ${formatDate(rangeStart)} al ${formatDate(rangeEnd)}`
                 : `Inicio: ${formatDate(rangeStart)} · elegí la fecha de fin`
               : "Seleccioná una fecha de inicio y otra de fin."}
+          </p>
+          <p className="mb-4 rounded-xl bg-panel px-4 py-3 text-xs text-group-muted">
+            Tu límite para{" "}
+            <strong>
+              {visibleMonth.toLocaleDateString("es-AR", { month: "long" })}
+            </strong>{" "}
+            es de <strong>{monthlyReservationLimit} días</strong>. Ya tenés{" "}
+            <strong>{monthlyBookedDays} reservados</strong> y te quedan{" "}
+            <strong>{monthlyRemainingDays} disponibles</strong>
+            {group.settings.reservationLimitPolicy === "OWNERSHIP_PROPORTIONAL" &&
+              ` según tu ${myMember?.percentage ?? 0}% de propiedad.`}
           </p>
 
           <div className="grid grid-cols-7 gap-2 text-center">
@@ -264,17 +424,25 @@ export function ReservationsGroupScreen() {
               const isStart = sameDay(key, rangeStart ?? "");
               const isEnd = sameDay(key, rangeEnd ?? "");
               const selected = selectedReservation && booking?.id === selectedReservation;
+              const unavailable = key < firstBookableDate;
               const color = booking ? memberColorClass(booking.memberColor) : "";
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => onChooseDate(key)}
+                  disabled={unavailable || groupStopped}
                   aria-label={`${day} ${visibleMonth.toLocaleDateString("es-AR", { month: "long" })}${booking ? `, reservado por ${booking.memberName}, ${formatDate(booking.start)} al ${formatDate(booking.end)}` : ", disponible"}`}
                   aria-pressed={isStart || isEnd || Boolean(selected)}
-                  className={`relative flex min-h-12 flex-col items-center justify-center rounded-xl px-1 py-2 text-xs transition hover:ring-2 hover:ring-brand/40 sm:min-h-16 ${booking ? `${color} text-white` : "bg-panel text-foreground shadow-sm"} ${inRange || isStart || isEnd ? "ring-2 ring-brand" : ""} ${selected ? "outline outline-2 outline-offset-2 outline-brand" : ""}`}
+                  className={`relative flex min-h-12 flex-col items-center justify-center overflow-hidden rounded-xl px-1 py-2 text-xs transition sm:min-h-16 ${unavailable || groupStopped ? "cursor-not-allowed bg-background text-group-muted/50" : "hover:ring-2 hover:ring-brand/40"} ${booking ? `${color} text-white` : "bg-panel text-foreground shadow-sm"} ${inRange || isStart || isEnd ? "ring-2 ring-brand" : ""} ${selected ? "outline outline-2 outline-offset-2 outline-brand" : ""}`}
                 >
-                  <span>{day}</span>
+                {unavailable && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-[-12%] top-1/2 h-px w-[124%] rotate-[-25deg] bg-group-muted/60"
+                  />
+                )}
+                <span>{day}</span>
                   {booking && (
                     <span className="mt-0.5 max-w-full truncate text-[9px] opacity-90">{booking.memberName}</span>
                   )}
@@ -296,6 +464,10 @@ export function ReservationsGroupScreen() {
             <span className="flex items-center gap-1.5">
               <i className="size-2 rounded-full bg-panel ring-1 ring-black/10" />
               Disponible
+            </span>
+            <span className="flex items-center gap-1.5">
+              <i className="size-2 rounded-full bg-background ring-1 ring-black/10" />
+              No disponible para reservar
             </span>
           </div>
           {rangeIsComplete && (
@@ -349,14 +521,122 @@ export function ReservationsGroupScreen() {
             </div>
           </section>
           {selectedReservation && (
-            <button type="button" onClick={() => setSelectedReservation(null)} className="text-xs text-brand underline">
-              Cerrar detalle de reserva
-            </button>
+            <ReservationDetail
+              reservation={reservations.find((item) => item.id === selectedReservation)}
+              isOwnReservation={Boolean(
+                reservations.find((item) => item.id === selectedReservation)?.memberId === myMember?.id,
+              )}
+              onCancelOwn={cancelOwnReservation}
+              onRequestCancellation={requestCancellation}
+              onClose={() => setSelectedReservation(null)}
+            />
           )}
         </aside>
       </section>
     </CommonLayout>
   );
+}
+
+function ReservationDetail({
+  reservation,
+  isOwnReservation,
+  onCancelOwn,
+  onRequestCancellation,
+  onClose,
+}: {
+  reservation?: Reservation;
+  isOwnReservation: boolean;
+  onCancelOwn: (reservation: Reservation) => void;
+  onRequestCancellation: (reservation: Reservation, reason: string) => void;
+  onClose: () => void;
+}) {
+  if (!reservation) return null;
+
+  return (
+    <section className="border-t border-brand/10 pt-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-group-heading">Detalle de reserva</h3>
+          <p className="mt-1 text-xs text-group-muted">
+            {reservation.memberName} · {formatDate(reservation.start)} al {formatDate(reservation.end)}
+          </p>
+        </div>
+        <button type="button" onClick={onClose} className="text-xs text-brand underline">
+          Cerrar
+        </button>
+      </div>
+      {reservation.cancellationStatus === "PENDING" ? (
+        <p className="mt-3 rounded-lg bg-group-danger-soft px-3 py-2 text-xs text-group-danger">
+          Cancelación pendiente de votación del grupo.
+          {reservation.cancellationReason && (
+            <span className="mt-1 block">Motivo: {reservation.cancellationReason}</span>
+          )}
+        </p>
+      ) : isOwnReservation ? (
+        <button
+          type="button"
+          onClick={() => onCancelOwn(reservation)}
+          className="mt-3 rounded-full border border-group-danger/30 px-3 py-2 text-xs font-semibold text-group-danger hover:bg-group-danger-soft"
+        >
+          Cancelar mi reserva
+        </button>
+      ) : null}
+      {!isOwnReservation && reservation.cancellationStatus !== "PENDING" && (
+        <CancellationRequestForm reservation={reservation} onSubmit={onRequestCancellation} />
+      )}
+    </section>
+  );
+}
+
+function CancellationRequestForm({
+  reservation,
+  onSubmit,
+}: {
+  reservation: Reservation;
+  onSubmit: (reservation: Reservation, reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+
+  return (
+    <form
+      className="mt-4 space-y-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(reservation, reason);
+      }}
+    >
+      <label htmlFor={`cancellation-reason-${reservation.id}`} className="block text-xs font-semibold text-group-heading">
+        ¿Por qué querés cancelar esta reserva?
+      </label>
+      <textarea
+        id={`cancellation-reason-${reservation.id}`}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        placeholder="Explicá el motivo para que el grupo pueda evaluarlo"
+        required
+        maxLength={500}
+        rows={3}
+        className="w-full resize-none rounded-xl border border-brand/20 bg-panel px-3 py-2 text-xs text-foreground outline-none focus:border-brand"
+      />
+      <button
+        type="submit"
+        className="rounded-full border border-group-danger/30 px-3 py-2 text-xs font-semibold text-group-danger hover:bg-group-danger-soft"
+      >
+        Solicitar cancelación al grupo
+      </button>
+    </form>
+  );
+}
+
+function votingModelLabel(model: string) {
+  switch (model) {
+    case "UNANIMOUS":
+      return "votación unánime";
+    case "OWNERSHIP_WEIGHTED_MAJORITY":
+      return "mayoría proporcional al porcentaje de propiedad";
+    default:
+      return "mayoría simple";
+  }
 }
 
 function memberColorClass(color?: Member["color"]) {
