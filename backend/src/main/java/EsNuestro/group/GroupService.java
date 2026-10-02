@@ -131,7 +131,6 @@ public class GroupService {
 
         return groupMemberRepository.findByGroup_Id(groupId).stream()
                 .filter(member -> status == null || member.getStatus() == status)
-                .filter(GroupMember::isViewer)
                 .map(MemberDTO::from)
                 .toList();
     }
