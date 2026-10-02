@@ -1,0 +1,27 @@
+spring.application.name=buffet
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.open-in-view=false
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.defer-datasource-initialization=true
+spring.datasource.username=postgres
+spring.datasource.password=dev-password
+spring.datasource.url=jdbc:postgresql://127.0.0.1:20001/products
+spring.datasource.driver-class-name=org.postgresql.Driver
+server.port=8080
+server.forward-headers-strategy=FRAMEWORK
+jwt.access.secret=0000000000000000000000000000000000000000000000000000000000000000
+jwt.access.expiration=1800000
+jwt.refresh.bytes=20
+jwt.refresh.expiration=2592000000
+
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=is1.g02.comedor@gmail.com
+spring.mail.password=jyse aeay qxpu ljsd
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+spring.mail.test-connection=true
+
+debug=true

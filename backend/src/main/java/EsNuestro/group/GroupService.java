@@ -54,7 +54,9 @@ public class GroupService {
     GroupDTO createGroup(GroupCreateDTO data, String founderEmail) {
         User founder = requireUser(founderEmail);
 
-        Group group = new Group(data.name(), data.description(), generateUniqueJoinCode());
+        Group group = new Group(
+                data.name(), data.description(), generateUniqueJoinCode(), data.settings().toEntity()
+        );
         groupRepository.save(group);
 
         String nickname = (data.founderNickname() == null || data.founderNickname().isBlank())
@@ -126,11 +128,9 @@ public class GroupService {
 
     List<MemberDTO> listMembers(Long groupId, String callerEmail, MembershipStatus status) throws ItemNotFoundException {
         GroupMember caller = requireViewer(groupId, callerEmail);
-        boolean canSeeAll = caller.getRole().isAtLeast(GroupRole.ADMIN);
 
         return groupMemberRepository.findByGroup_Id(groupId).stream()
                 .filter(member -> status == null || member.getStatus() == status)
-                .filter(member -> canSeeAll || member.isViewer())
                 .map(MemberDTO::from)
                 .toList();
     }
@@ -150,55 +150,9 @@ public class GroupService {
     void leaveGroup(Long groupId, String email) throws ItemNotFoundException {
         requireGroupForUpdate(groupId);
         GroupMember membership = requireActiveMember(groupId, email);
-        if (membership.isFounder()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "The founder cannot leave the group; transfer ownership or delete the group instead"
-            );
-        }
 
         requireNoUnsettledDebts(membership);
         membership.deactivateForLeaving();
-    }
-
-    void removeMember(Long groupId, Long memberId, String actingEmail) throws ItemNotFoundException {
-        requireGroupForUpdate(groupId);
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
-
-        GroupMember target = requireMemberById(groupId, memberId);
-        if (target.isFounder()) {
-            throw new AccessDeniedException("The founder cannot be removed from the group");
-        }
-        if (target.getRole() == GroupRole.ADMIN && !acting.isFounder()) {
-            throw new AccessDeniedException("Only the founder can remove an admin");
-        }
-        if (!target.isActive()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Member is not active");
-        }
-
-        requireNoUnsettledDebts(target);
-        target.deactivateForRemoval();
-    }
-
-    MemberDTO changeRole(Long groupId, Long memberId, GroupRole newRole, String actingEmail) throws ItemNotFoundException {
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        if (!acting.isFounder()) {
-            throw new AccessDeniedException("Only the founder can change member roles");
-        }
-        if (newRole == GroupRole.FOUNDER) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Ownership transfer is not supported through this operation"
-            );
-        }
-
-        GroupMember target = requireMemberById(groupId, memberId);
-        if (target.isFounder()) {
-            throw new AccessDeniedException("The founder's role cannot be changed");
-        }
-        target.changeRole(newRole);
-        return MemberDTO.from(target);
     }
 
     MemberDTO changeNickname(Long groupId, String email, String newNickname) throws ItemNotFoundException {
@@ -212,8 +166,7 @@ public class GroupService {
 
     List<MemberDTO> updatePercentages(Long groupId, PercentagesUpdateDTO data, String actingEmail) throws ItemNotFoundException {
         requireGroupForUpdate(groupId);
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
+        requireActiveMember(groupId, actingEmail);
 
         List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
         Map<Long, GroupMember> byId = indexById(members);
@@ -230,8 +183,7 @@ public class GroupService {
 
     List<MemberDTO> finalizeExits(Long groupId, FinalizeExitsDTO data, String actingEmail) throws ItemNotFoundException {
         requireGroupForUpdate(groupId);
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
+        requireActiveMember(groupId, actingEmail);
 
         List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
         Map<Long, GroupMember> byId = indexById(members);
@@ -284,8 +236,7 @@ public class GroupService {
     }
 
     private GroupMember requirePendingRequestManagedBy(Long groupId, Long memberId, String actingEmail) throws ItemNotFoundException {
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
+        requireActiveMember(groupId, actingEmail);
 
         GroupMember target = requireMemberById(groupId, memberId);
         requireStatus(target, MembershipStatus.PENDING);
@@ -420,12 +371,6 @@ public class GroupService {
                     HttpStatus.CONFLICT,
                     "Expected membership status " + expected + " but was " + member.getStatus()
             );
-        }
-    }
-
-    public void requireAtLeast(GroupMember member, GroupRole minRole) {
-        if (!member.getRole().isAtLeast(minRole)) {
-            throw new AccessDeniedException("You don't have permission to perform this action");
         }
     }
 

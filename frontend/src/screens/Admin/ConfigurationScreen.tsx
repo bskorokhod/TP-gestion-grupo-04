@@ -6,7 +6,6 @@ import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {cn} from "@/lib/cn.ts";
-import {can} from "@/lib/permissions.ts";
 import type {Member} from "@/models/Group.ts";
 import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useRejectJoinRequest } from "@/services/GroupServices.ts";
 import {toast} from "@/hooks/useToast.ts";
@@ -402,8 +401,8 @@ export const ConfigurationScreen = () => {
     const [location] = useLocation();
     const group = useCurrentGroup();
 
-    const canReviewJoinRequests = can(group, "reviewJoinRequests");
-    const canConfigure = can(group, "editPercentages");
+    const canReviewJoinRequests = group.myStatus === "ACTIVE";
+    const canConfigure = group.myStatus === "ACTIVE";
 
     const configBasePath = location.replace(/\/$/, "");
 

@@ -85,16 +85,20 @@ interface BalanceCardProps {
 }
 
 function BalanceCard({ balance, onPay }: BalanceCardProps): ReactElement {
-    const { member, netBalance, items } = balance;
+    const { member, items } = balance;
 
-    const balanceStatus: BalanceStatus =
-        netBalance > 0 ? "positive" : netBalance < 0 ? "negative" : "neutral";
+    const pendingDebtCount = items.filter((item) => item.type === "DEBT").length;
+    const pendingCreditCount = items.filter((item) => item.type === "CREDIT").length;
+
+    const pluralizeDebt = (count: number): string => (count === 1 ? "deuda" : "deudas");
+
+    const balanceStatus: BalanceStatus = pendingDebtCount > 0 ? "negative" : "neutral";
 
     const balanceLabel =
-        netBalance > 0
-            ? `Te debe ${currency.format(netBalance)}`
-            : netBalance < 0
-                ? `Le debés ${currency.format(Math.abs(netBalance))}`
+        pendingDebtCount > 0
+            ? `Tenés que pagarle ${pendingDebtCount} ${pluralizeDebt(pendingDebtCount)}`
+            : pendingCreditCount > 0
+                ? "No tenés que pagarle ninguna deuda"
                 : "Sin deudas pendientes";
 
     const itemsForCard: PersonBalanceCardProps["items"] = items.map((item) => ({

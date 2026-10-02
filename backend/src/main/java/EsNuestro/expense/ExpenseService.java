@@ -9,7 +9,6 @@ import EsNuestro.expense.dtos.PaymentDataDTO;
 import EsNuestro.group.GroupService;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
-import EsNuestro.member.GroupRole;
 import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.ExpenseMemberDTO;
@@ -57,9 +56,8 @@ class ExpenseService {
         GroupMember creator = groupService.requireActiveMember(groupId, username);
 
         Expense expense = Expense.register(creator, buildDetails(groupId, data));
-        if (creator.isAdmin()) {
-            expense.approve(creator);
-        }
+        // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
+        expense.approve(creator);
         return ExpenseDTO.from(expenseRepository.save(expense));
     }
 
@@ -69,7 +67,7 @@ class ExpenseService {
 
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
                 .filter(expense -> status == null || expense.getStatus() == status)
-                .filter(expense -> canView(expense, caller))
+                .filter(expense -> expense.isInvolved(caller))
                 .map(ExpenseDTO::from)
                 .toList();
     }
@@ -77,7 +75,7 @@ class ExpenseService {
     ExpenseDTO getExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         Expense expense = requireExpense(groupId, expenseId);
-        if (!canView(expense, caller)) {
+        if (!expense.isInvolved(caller)) {
             throw new AccessDeniedException("You don't have access to this expense");
         }
         return ExpenseDTO.from(expense);
@@ -97,16 +95,14 @@ class ExpenseService {
         requireNoPayments(expense);
 
         expense.proposeEdit(buildDetails(groupId, data));
-        if (acting.isAdmin()) {
-            expense.approve(acting);
-        }
+        // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
+        expense.approve(acting);
         return ExpenseDTO.from(expense);
     }
 
     ExpenseDTO approveExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
-        groupService.requireAtLeast(acting, GroupRole.ADMIN);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requirePendingApproval(expense);
@@ -120,7 +116,6 @@ class ExpenseService {
     ExpenseDTO rejectExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
-        groupService.requireAtLeast(acting, GroupRole.ADMIN);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requirePendingApproval(expense);
@@ -151,9 +146,8 @@ class ExpenseService {
         }
 
         expense.resubmit(newDetails);
-        if (acting.isAdmin()) {
-            expense.approve(acting);
-        }
+        // TODO evaluar si hay q cambiar el flujo de submit -> approve
+        expense.approve(acting);
         return ExpenseDTO.from(expense);
     }
 
@@ -199,7 +193,7 @@ class ExpenseService {
         long pending = 0;
 
         for (Expense expense : expenses) {
-            if (!canView(expense, caller)) {
+            if (expense.isInvolved(caller)) {
                 continue;
             }
             if (expense.getStatus() == ExpenseStatus.PENDING_APPROVAL) {
@@ -415,12 +409,8 @@ class ExpenseService {
         }
     }
 
-    private boolean canView(Expense expense, GroupMember caller) {
-        return caller.isAdmin() || expense.isInvolved(caller);
-    }
-
     private void requireCanManage(Expense expense, GroupMember acting) {
-        if (!acting.isAdmin() && !expense.isCreatedBy(acting)) {
+        if (!expense.isCreatedBy(acting)) {
             throw new AccessDeniedException("Only the expense creator or an admin can perform this action");
         }
     }

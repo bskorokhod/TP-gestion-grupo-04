@@ -1,6 +1,5 @@
 package EsNuestro.member.dtos;
 
-import EsNuestro.member.GroupRole;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.MemberColor;
 import EsNuestro.member.MembershipStatus;
@@ -14,7 +13,6 @@ public record MemberDTO(
         String username,
         String nickname,
         MemberColor color,
-        GroupRole role,
         MembershipStatus status,
         BigDecimal percentage,
         Instant requestedAt,
@@ -28,7 +26,6 @@ public record MemberDTO(
                 member.getUser().getUsername(),
                 member.getNickname(),
                 member.getColor(),
-                member.getRole(),
                 member.getStatus(),
                 member.getPercentage(),
                 member.getRequestedAt(),

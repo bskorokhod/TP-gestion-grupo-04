@@ -32,6 +32,7 @@ export const AuthResponseSchema = z.object({
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
 
+// TODO eliminarlo, me parece que no se usa
 export const UserSchema = z.object({
     email: z.string(),
     name: z.string(),

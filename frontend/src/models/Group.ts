@@ -2,11 +2,110 @@ import { z } from "zod";
 
 export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
 
-export type GroupRole = z.infer<typeof GroupRoleSchema>;
-
 export const MembershipStatusSchema = z.enum(["REJECTED", "PENDING", "ACTIVE", "DEACTIVATED", "LEFT", "REMOVED",]);
 
 export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
+
+// ---- Configuración del grupo (se elige al crear el grupo; espeja GroupSettings del backend) ----
+
+export const DistributionModeSchema = z.enum(["EQUAL", "PERCENTAGE"], {
+    error: "Elegí cómo se reparte el bien",
+});
+export type DistributionMode = z.infer<typeof DistributionModeSchema>;
+
+export const VotingModelSchema = z.enum(["SIMPLE_MAJORITY", "OWNERSHIP_WEIGHTED_MAJORITY", "UNANIMOUS"], {
+    error: "Elegí el modelo de aprobación de votaciones",
+});
+export type VotingModel = z.infer<typeof VotingModelSchema>;
+
+export const ReservationLimitPolicySchema = z.enum(["EQUAL", "OWNERSHIP_PROPORTIONAL", "FIXED_DAYS_PER_MONTH"], {
+    error: "Elegí la restricción de reservas",
+});
+export type ReservationLimitPolicy = z.infer<typeof ReservationLimitPolicySchema>;
+
+export const MIN_FIXED_DAYS_PER_MONTH = 1;
+export const MAX_FIXED_DAYS_PER_MONTH = 31;
+
+/** Las opciones que dependen del % de propiedad solo tienen sentido si el bien se reparte por porcentaje. */
+export const VOTING_MODELS_REQUIRING_PERCENTAGE: readonly VotingModel[] = ["OWNERSHIP_WEIGHTED_MAJORITY"];
+export const RESERVATION_POLICIES_REQUIRING_PERCENTAGE: readonly ReservationLimitPolicy[] = ["OWNERSHIP_PROPORTIONAL"];
+
+export function isVotingModelAllowed(distribution: DistributionMode, voting: VotingModel): boolean {
+    return distribution === "PERCENTAGE" || !VOTING_MODELS_REQUIRING_PERCENTAGE.includes(voting);
+}
+
+export function isReservationPolicyAllowed(
+    distribution: DistributionMode,
+    policy: ReservationLimitPolicy,
+): boolean {
+    return distribution === "PERCENTAGE" || !RESERVATION_POLICIES_REQUIRING_PERCENTAGE.includes(policy);
+}
+
+/** Forma que devuelve el backend (sin refinamientos: ya viene validada). */
+export const GroupSettingsSchema = z.object({
+    distributionMode: DistributionModeSchema,
+    votingModel: VotingModelSchema,
+    reservationLimitPolicy: ReservationLimitPolicySchema,
+    reservationFixedDaysPerMonth: z.number().nullish(),
+    extraordinaryExpenseThreshold: z.number(),
+});
+
+export type GroupSettings = z.infer<typeof GroupSettingsSchema>;
+
+/** Forma que se envía al crear: replica las validaciones del backend. */
+export const GroupSettingsCreateSchema = z
+    .object({
+        distributionMode: DistributionModeSchema,
+        votingModel: VotingModelSchema,
+        reservationLimitPolicy: ReservationLimitPolicySchema,
+        reservationFixedDaysPerMonth: z
+            .number({ error: "Indicá los días fijos por mes" })
+            .int("Los días por mes deben ser un número entero")
+            .min(MIN_FIXED_DAYS_PER_MONTH, `Los días por mes deben estar entre ${MIN_FIXED_DAYS_PER_MONTH} y ${MAX_FIXED_DAYS_PER_MONTH}`)
+            .max(MAX_FIXED_DAYS_PER_MONTH, `Los días por mes deben estar entre ${MIN_FIXED_DAYS_PER_MONTH} y ${MAX_FIXED_DAYS_PER_MONTH}`)
+            .optional(),
+        extraordinaryExpenseThreshold: z
+            .number({ error: "Indicá el monto a partir del cual un gasto es extraordinario" })
+            .min(0.01, "El monto extraordinario debe ser mayor a 0")
+            .max(9_999_999_999.99, "El monto extraordinario es demasiado grande")
+            .refine(
+                (value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6,
+                "El monto extraordinario admite hasta 2 decimales",
+            ),
+    })
+    .superRefine((settings, ctx) => {
+        if (!isVotingModelAllowed(settings.distributionMode, settings.votingModel)) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["votingModel"],
+                message: "El modelo de votación elegido requiere reparto porcentual del bien",
+            });
+        }
+        if (!isReservationPolicyAllowed(settings.distributionMode, settings.reservationLimitPolicy)) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["reservationLimitPolicy"],
+                message: "La restricción de reservas elegida requiere reparto porcentual del bien",
+            });
+        }
+        const fixed = settings.reservationLimitPolicy === "FIXED_DAYS_PER_MONTH";
+        if (fixed && settings.reservationFixedDaysPerMonth === undefined) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["reservationFixedDaysPerMonth"],
+                message: "Indicá los días fijos por mes",
+            });
+        }
+        if (!fixed && settings.reservationFixedDaysPerMonth !== undefined) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["reservationFixedDaysPerMonth"],
+                message: "Los días fijos por mes solo aplican a la restricción de cantidad fija",
+            });
+        }
+    });
+
+export type GroupSettingsCreate = z.infer<typeof GroupSettingsCreateSchema>;
 
 export const GroupSchema = z.object({
     id: z.number(),
@@ -15,8 +114,8 @@ export const GroupSchema = z.object({
     createdAt: z.string(),
     memberCount: z.number(),
     joinCode: z.string(),
-    myRole: GroupRoleSchema,
     myStatus: MembershipStatusSchema,
+    settings: GroupSettingsSchema,
 });
 
 export type Group = z.infer<typeof GroupSchema>;
@@ -40,6 +139,7 @@ export const GroupCreateSchema = z.object({
         .trim()
         .max(30, "El apodo no puede superar los 30 caracteres")
         .optional(),
+    settings: GroupSettingsCreateSchema,
 });
 
 export type GroupCreate = z.infer<typeof GroupCreateSchema>;
@@ -97,7 +197,6 @@ export const MemberSchema = z.object({
     username: z.string(),
     nickname: z.string(),
     color: MemberColorSchema,
-    role: GroupRoleSchema,
     status: MembershipStatusSchema,
     percentage: z.number().nullable(),
     requestedAt: z.string().nullable(),

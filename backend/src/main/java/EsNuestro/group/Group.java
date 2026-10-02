@@ -3,6 +3,7 @@ package EsNuestro.group;
 import EsNuestro.member.GroupMember;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -40,10 +41,15 @@ public class Group {
     @Column(nullable = false, updatable = false, unique = true, length = 12)
     private String joinCode;
 
-    public Group(String name, String description, String joinCode) {
+    /** Configuración elegida al crear el grupo; no es updatable=false porque a futuro podría cambiarse por votación. */
+    @Embedded
+    private GroupSettings settings;
+
+    public Group(String name, String description, String joinCode, GroupSettings settings) {
         this.name = name;
         this.description = description;
         this.joinCode = joinCode;
+        this.settings = settings;
         this.createdAt = Instant.now();
     }
 

@@ -67,7 +67,7 @@ const GroupArea = () => {
                     <ConfigurationScreen/>
                 </Route>
                 <Route path="/grupos/:code/configuracion/porcentajes">
-                    <RequireGroupAction action="editPercentages">
+                    <RequireGroupAction>
                         <PercentageConfigScreen/>
                     </RequireGroupAction>
                 </Route>
