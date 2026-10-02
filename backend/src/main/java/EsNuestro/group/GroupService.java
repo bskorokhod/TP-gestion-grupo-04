@@ -54,7 +54,9 @@ public class GroupService {
     GroupDTO createGroup(GroupCreateDTO data, String founderEmail) {
         User founder = requireUser(founderEmail);
 
-        Group group = new Group(data.name(), data.description(), generateUniqueJoinCode());
+        Group group = new Group(
+                data.name(), data.description(), generateUniqueJoinCode(), data.settings().toEntity()
+        );
         groupRepository.save(group);
 
         String nickname = (data.founderNickname() == null || data.founderNickname().isBlank())
