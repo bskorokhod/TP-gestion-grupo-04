@@ -14,7 +14,7 @@ public enum VoteType {
     /**
      * Cambio en la configuración del grupo. Siempre requiere unanimidad, sin importar el modelo de
      * votación del grupo.
-     * TODO: todavía no se puede crear (no hay endpoint ni ejecutor); ver {@link ConfigChangeVote}.
+     * Se propone con {@code POST /groups/{id}/votes/config-change}; ver {@link ConfigChangeVote}.
      */
     CONFIG_CHANGE
 }

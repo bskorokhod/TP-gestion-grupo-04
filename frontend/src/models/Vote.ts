@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { ExpenseDetailsSchema, ExpenseMemberSchema } from "./Expense.ts";
-import { VotingModelSchema } from "./Group.ts";
+import { DistributionModeSchema, ReservationLimitPolicySchema, VotingModelSchema } from "./Group.ts";
+import type { DistributionMode, ReservationLimitPolicy, VotingModel } from "./Group.ts";
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,37 @@ export type VoteOutcome = z.infer<typeof VoteOutcomeSchema>;
 
 export const VoteChoiceSchema = z.enum(["YES", "NO"]);
 export type VoteChoice = z.infer<typeof VoteChoiceSchema>;
+
+/** Qué configuración del grupo se propone cambiar en una votación CONFIG_CHANGE. */
+export const ConfigSettingSchema = z.enum([
+  "DISTRIBUTION_MODE",
+  "VOTING_MODEL",
+  "RESERVATION_LIMIT_POLICY",
+  "EXTRAORDINARY_EXPENSE_THRESHOLD",
+]);
+export type ConfigSetting = z.infer<typeof ConfigSettingSchema>;
+
+/** Cambio propuesto: `setting` más el nuevo valor de esa configuración (el resto viene null). */
+export const ConfigChangeSchema = z.object({
+  setting: ConfigSettingSchema,
+  distributionMode: DistributionModeSchema.nullish(),
+  votingModel: VotingModelSchema.nullish(),
+  reservationLimitPolicy: ReservationLimitPolicySchema.nullish(),
+  reservationFixedDaysPerMonth: z.number().nullish(),
+  extraordinaryExpenseThreshold: z.number().nullish(),
+});
+export type ConfigChange = z.infer<typeof ConfigChangeSchema>;
+
+/** Cuerpo para proponer un cambio: `setting` y solo el nuevo valor de esa configuración. */
+export type ConfigChangeCreate =
+  | { readonly setting: "DISTRIBUTION_MODE"; readonly distributionMode: DistributionMode }
+  | { readonly setting: "VOTING_MODEL"; readonly votingModel: VotingModel }
+  | {
+      readonly setting: "RESERVATION_LIMIT_POLICY";
+      readonly reservationLimitPolicy: ReservationLimitPolicy;
+      readonly reservationFixedDaysPerMonth?: number; /** Solo con FIXED_DAYS_PER_MONTH. */
+    }
+  | { readonly setting: "EXTRAORDINARY_EXPENSE_THRESHOLD"; readonly extraordinaryExpenseThreshold: number };
 
 // ─── Vote ───────────────────────────────────────────────────────────────────
 
@@ -52,6 +84,7 @@ export const VoteSchema = z.object({
   canVote: z.boolean(),
   /** Solo en EXTRAORDINARY_EXPENSE. */
   expenseProposal: ProposedExpenseSchema.nullish(),
+  configChange: ConfigChangeSchema.nullish(), /** Solo en CONFIG_CHANGE. */
 });
 export type Vote = z.infer<typeof VoteSchema>;
 

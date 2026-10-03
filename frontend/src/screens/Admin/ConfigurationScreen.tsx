@@ -6,39 +6,145 @@ import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {cn} from "@/lib/cn.ts";
-import type {Member} from "@/models/Group.ts";
+import type {GroupSettings, Member} from "@/models/Group.ts";
 import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useRejectJoinRequest } from "@/services/GroupServices.ts";
-import {toast} from "@/hooks/useToast.ts";
+import {toast, type BackendError} from "@/hooks/useToast.ts";
+import {useFormToasts} from "@/hooks/useFormToasts.ts";
+import {describeResolvedVote} from "@/lib/votes.ts";
+import type {ConfigChangeCreate} from "@/models/Vote.ts";
+import {useCreateConfigChangeVote} from "@/services/VoteServices.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import { faCalendarDays, faPercent, faCopy, faArrowRight } from "@fortawesome/free-solid-svg-icons";
+import {
+    faPercent,
+    faCopy,
+    faArrowRight,
+    faPenToSquare,
+    faCheckToSlot,
+    faCalendarCheck,
+    faCoins,
+    faChartPie,
+} from "@fortawesome/free-solid-svg-icons";
 import {Avatar} from "@/components/ui/Avatar.tsx";
+import {
+    ConfigChangeModal,
+    type ConfigChangeKind,
+    type ConfigChangeRequest,
+} from "@/components/modals/ConfigChangeModal.tsx";
 
-interface SettingItem {
+const MODIFY_CONFIG_LABEL = "Solicitar modificación de configuración";
+const MODIFY_PERCENTAGES_LABEL = "Modificar porcentajes";
+
+// Única fila que navega a otra pantalla en lugar de abrir un modal.
+const PERCENTAGES_SETTING = {
+    icon: <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />,
+    title: "Configurar porcentajes de propiedad",
+    description:
+        "Definí qué porcentaje del bien le corresponde a cada integrante del grupo y ajustá la distribución cuando cambie.",
+} as const;
+
+interface ModalSettingItem {
+    readonly kind: ConfigChangeKind;
     readonly icon: ReactNode;
     readonly title: string;
     readonly description: string;
-    readonly target: string;
-    readonly disabled?: boolean;
+    readonly currentValue: (settings: GroupSettings) => string;
 }
-const SETTINGS: ReadonlyArray<SettingItem> = [
+
+const VOTING_VALUE_LABELS: Record<GroupSettings["votingModel"], string> = {
+    SIMPLE_MAJORITY: "Mayoría simple",
+    OWNERSHIP_WEIGHTED_MAJORITY: "Mayoría proporcional",
+    UNANIMOUS: "Unánime",
+};
+
+const DISTRIBUTION_VALUE_LABELS: Record<GroupSettings["distributionMode"], string> = {
+    EQUAL: "Equitativo",
+    PERCENTAGE: "Porcentual",
+};
+
+function reservationValue(settings: GroupSettings): string {
+    switch (settings.reservationLimitPolicy) {
+        case "EQUAL":
+            return "Equitativo";
+        case "OWNERSHIP_PROPORTIONAL":
+            return "Proporcional";
+        case "FIXED_DAYS_PER_MONTH":
+            return `${settings.reservationFixedDaysPerMonth ?? "-"} días por mes`;
+    }
+}
+
+const MODAL_SETTINGS: ReadonlyArray<ModalSettingItem> = [
     {
-        icon: <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />,
-        title: "Configurar porcentajes de propiedad",
+        kind: "voting",
+        icon: <FontAwesomeIcon icon={faCheckToSlot} className="h-5 w-5" aria-hidden />,
+        title: "Modo de aprobación de votación",
         description:
-            "Definí qué porcentaje del bien le corresponde a cada integrante del grupo y ajustá la distribución cuando cambie.",
-        target: "porcentajes",
-        disabled: false,
+            "Definí cómo se aprueban las votaciones: mayoría simple, mayoría proporcional al porcentaje de propiedad o unanimidad.",
+        currentValue: (settings) => VOTING_VALUE_LABELS[settings.votingModel],
     },
     {
-        icon: <FontAwesomeIcon icon={faCalendarDays} className="h-5 w-5" aria-hidden />,
-        title: "Configurar reservas",
+        kind: "reservation",
+        icon: <FontAwesomeIcon icon={faCalendarCheck} className="h-5 w-5" aria-hidden />,
+        title: "Restricciones de reservas",
         description:
-            "Establecé reglas de uso: máximo de días por persona, anticipación mínima y cómo se resuelven los conflictos de fechas.",
-        target: "#",
-        disabled: true,
+            "Establecé cuántos días por mes puede reservar el bien cada miembro: equitativo, proporcional al porcentaje o una cantidad fija.",
+        currentValue: reservationValue,
+    },
+    {
+        kind: "threshold",
+        icon: <FontAwesomeIcon icon={faCoins} className="h-5 w-5" aria-hidden />,
+        title: "Monto de gasto extraordinario",
+        description:
+            "Monto a partir del cual un gasto se considera extraordinario y debe aprobarse por votación.",
+        currentValue: (settings) =>
+            `$ ${settings.extraordinaryExpenseThreshold.toLocaleString("es-AR")}`,
+    },
+    {
+        kind: "distribution",
+        icon: <FontAwesomeIcon icon={faChartPie} className="h-5 w-5" aria-hidden />,
+        title: "Modo de repartición del bien",
+        description:
+            "Definí si el bien se reparte en partes iguales entre los miembros o según el porcentaje de cada uno.",
+        currentValue: (settings) => DISTRIBUTION_VALUE_LABELS[settings.distributionMode],
     },
 ];
+
+interface ModalSettingRowProps {
+    readonly item: ModalSettingItem;
+    readonly settings: GroupSettings;
+    readonly onRequestChange: (kind: ConfigChangeKind) => void;
+}
+
+function ModalSettingRow({ item, settings, onRequestChange }: ModalSettingRowProps) {
+    return (
+        <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
+            <div className="flex flex-row gap-5 items-center">
+                <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
+                    <p className="text-lg font-semibold text-brand">{item.icon}</p>
+                </div>
+                <div className="flex flex-col gap-1 items-start max-w-140">
+                    <p className="text-lg font-semibold text-ink">{item.title}</p>
+                    <p className="text-base font-normal text-warm-muted">{item.description}</p>
+                </div>
+            </div>
+            <div className="flex flex-row gap-5 items-center shrink-0">
+                <p className="text-2xl font-extrabold text-brand-hover">
+                    {item.currentValue(settings)}
+                </p>
+                <Button
+                    type="button"
+                    variant="danger"
+                    size="icon"
+                    title={MODIFY_CONFIG_LABEL}
+                    aria-label={`${MODIFY_CONFIG_LABEL}: ${item.title}`}
+                    onClick={() => onRequestChange(item.kind)}
+                >
+                    <FontAwesomeIcon icon={faPenToSquare} aria-hidden />
+                </Button>
+            </div>
+        </div>
+    );
+}
 
 // ─── Sección: Miembros ───────────────────────────────────────────────────────
 
@@ -397,9 +503,56 @@ function JoinCodeShare({ joinCode }: JoinCodeShareProps) {
     );
 }
 
+/** Traduce lo que entrega el modal al cuerpo que espera el backend: `setting` y solo el nuevo valor. */
+function toConfigChangeBody(request: ConfigChangeRequest): ConfigChangeCreate {
+    switch (request.kind) {
+        case "voting":
+            return { setting: "VOTING_MODEL", votingModel: request.votingModel };
+        case "distribution":
+            return { setting: "DISTRIBUTION_MODE", distributionMode: request.distributionMode };
+        case "reservation":
+            return {
+                setting: "RESERVATION_LIMIT_POLICY",
+                reservationLimitPolicy: request.reservationLimitPolicy,
+                reservationFixedDaysPerMonth: request.reservationFixedDaysPerMonth,
+            };
+        case "threshold":
+            return {
+                setting: "EXTRAORDINARY_EXPENSE_THRESHOLD",
+                extraordinaryExpenseThreshold: request.extraordinaryExpenseThreshold,
+            };
+    }
+}
+
 export const ConfigurationScreen = () => {
     const [location] = useLocation();
     const group = useCurrentGroup();
+    const [pendingChange, setPendingChange] = useState<ConfigChangeKind | null>(null);
+    const createConfigChange = useCreateConfigChangeVote(group.id);
+    const { showApiError, showSuccessToast, showErrorToast } = useFormToasts();
+
+    async function handleConfigChangeSubmit(request: ConfigChangeRequest) {
+        try {
+            const vote = await createConfigChange.mutateAsync(toConfigChangeBody(request));
+            setPendingChange(null);
+
+            // Con un único miembro activo la votación se resuelve en el acto.
+            const resolution = describeResolvedVote(vote);
+            if (!resolution) {
+                showSuccessToast(
+                    "Solicitud de modificación enviada",
+                    "Los demás miembros del grupo deben aprobarla por votación unánime.",
+                );
+            } else if (resolution.kind === "success") {
+                showSuccessToast(resolution.title, resolution.description);
+            } else {
+                showErrorToast(resolution.title, resolution.description);
+            }
+        } catch (error) {
+            // El modal queda abierto para poder corregir el valor y reintentar.
+            showApiError(error as BackendError, "No se pudo enviar la solicitud");
+        }
+    }
 
     const canReviewJoinRequests = group.myStatus === "ACTIVE";
     const canConfigure = group.myStatus === "ACTIVE";
@@ -437,59 +590,43 @@ export const ConfigurationScreen = () => {
                         </p>
 
                         <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
-                            {SETTINGS.map((setting) =>
-                                setting.disabled ? (
-                                    <div
-                                        key={setting.title}
-                                        aria-disabled="true"
-                                        className="flex flex-row justify-between items-center self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden opacity-40 cursor-not-allowed"
-                                    >
-                                        <div className="flex flex-row gap-5 items-center">
-                                            <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
-                                                <p className="text-lg font-semibold text-brand">
-                                                    {setting.icon}
-                                                </p>
-                                            </div>
-                                            <div className="flex flex-col gap-1 items-start w-140">
-                                                <p className="text-lg font-semibold text-ink">
-                                                    {setting.title}
-                                                </p>
-                                                <p className="text-base font-normal text-warm-muted">
-                                                    {setting.description}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <p className="text-base font-medium text-warm-muted">
-                                            Próximamente
+                            <Link
+                                href={`${configBasePath}/porcentajes`}
+                                className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left"
+                            >
+                                <div className="flex flex-row gap-5 items-center">
+                                    <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
+                                        <p className="text-lg font-semibold text-brand">
+                                            {PERCENTAGES_SETTING.icon}
                                         </p>
                                     </div>
-                                ) : (
-                                    <Link
-                                        key={setting.title}
-                                        href={`${configBasePath}/porcentajes`}
-                                        className="flex flex-row justify-between items-center self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left"
-                                    >
-                                        <div className="flex flex-row gap-5 items-center">
-                                            <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
-                                                <p className="text-lg font-semibold text-brand">
-                                                    {setting.icon}
-                                                </p>
-                                            </div>
-                                            <div className="flex flex-col gap-1 items-start w-140">
-                                                <p className="text-lg font-semibold text-ink">
-                                                    {setting.title}
-                                                </p>
-                                                <p className="text-base font-normal text-warm-muted">
-                                                    {setting.description}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <p className="text-lg font-semibold text-brand">
-                                            <FontAwesomeIcon icon={faArrowRight} aria-hidden />
+                                    <div className="flex flex-col gap-1 items-start max-w-140">
+                                        <p className="text-lg font-semibold text-ink">
+                                            {PERCENTAGES_SETTING.title}
                                         </p>
-                                    </Link>
-                                ),
-                            )}
+                                        <p className="text-base font-normal text-warm-muted">
+                                            {PERCENTAGES_SETTING.description}
+                                        </p>
+                                    </div>
+                                </div>
+                                {/* Un <button> dentro de un <a> es HTML inválido: se replica el estilo del Button danger. */}
+                                <span
+                                    title={MODIFY_PERCENTAGES_LABEL}
+                                    aria-label={MODIFY_PERCENTAGES_LABEL}
+                                    className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-group-danger text-panel text-xl transition-colors hover:bg-group-danger-soft hover:text-group-danger"
+                                >
+                                    <FontAwesomeIcon icon={faArrowRight} aria-hidden />
+                                </span>
+                            </Link>
+
+                            {MODAL_SETTINGS.map((item) => (
+                                <ModalSettingRow
+                                    key={item.kind}
+                                    item={item}
+                                    settings={group.settings}
+                                    onRequestChange={setPendingChange}
+                                />
+                            ))}
                         </div>
 
                     </>
@@ -500,6 +637,15 @@ export const ConfigurationScreen = () => {
                     </p>
                 )}
             </div>
+
+            {pendingChange && (
+                <ConfigChangeModal
+                    kind={pendingChange}
+                    settings={group.settings}
+                    onClose={() => setPendingChange(null)}
+                    onSubmit={handleConfigChangeSubmit}
+                />
+            )}
         </CommonLayout>
     );
 };

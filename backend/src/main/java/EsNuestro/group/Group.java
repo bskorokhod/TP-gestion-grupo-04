@@ -41,7 +41,7 @@ public class Group {
     @Column(nullable = false, updatable = false, unique = true, length = 12)
     private String joinCode;
 
-    /** Configuración elegida al crear el grupo; no es updatable=false porque a futuro podría cambiarse por votación. */
+    /** Configuración del grupo; solo cambia por una votación unánime de configuración (ver {@link #changeSettings}). */
     @Embedded
     private GroupSettings settings;
 
@@ -55,5 +55,9 @@ public class Group {
 
     public void addMember(GroupMember member) {
         members.add(member);
+    }
+
+    public void changeSettings(GroupSettings newSettings) {
+        this.settings = newSettings;
     }
 }

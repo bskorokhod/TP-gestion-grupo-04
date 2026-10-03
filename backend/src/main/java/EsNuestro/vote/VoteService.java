@@ -10,6 +10,7 @@ import EsNuestro.group.GroupSettings;
 import EsNuestro.group.MemberLeftEvent;
 import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
+import EsNuestro.vote.dtos.ConfigChangeDTO;
 import EsNuestro.vote.dtos.VoteDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -84,6 +85,40 @@ class VoteService {
         return VoteDTO.from(vote, proposer);
     }
 
+    /**
+     * Abre la votación para cambiar una configuración del grupo. Siempre es unánime: votan todos los miembros
+     * activos al momento de proponerla (el padrón queda fijo) y el voto "sí" de quien propone es automático, así
+     * que con un único miembro activo el cambio se aplica en el acto. Se rechaza lo que no cambiaría nada, lo que
+     * dejaría la configuración incoherente y una segunda propuesta activa sobre la misma configuración.
+     */
+    VoteDTO createConfigChangeVote(Long groupId, ConfigChangeDTO data, String username) throws ItemNotFoundException {
+        Group group = groupService.requireGroupForUpdate(groupId);
+        GroupMember proposer = groupService.requireActiveMember(groupId, username);
+
+        ConfigChangeVote vote = buildConfigChangeVote(group, proposer, data);
+        GroupSettings current = group.getSettings();
+        if (vote.changesNothingIn(current)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The proposed value is already the group's current setting"
+            );
+        }
+        try {
+            vote.applyTo(current);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+        requireNoActiveConfigChange(groupId, vote.getSetting());
+
+        group.getMembers().stream()
+                .filter(GroupMember::isActive)
+                .forEach(member -> vote.addBallot(member, BigDecimal.ONE));
+        vote.ballotOf(proposer).ifPresent(ballot -> ballot.cast(VoteChoice.YES));
+        voteRepository.save(vote);
+
+        evaluate(vote);
+        return VoteDTO.from(vote, proposer);
+    }
+
     /** Votaciones activas visibles para el caller. Las finalizadas no se listan, pero quedan guardadas. */
     List<VoteDTO> listActiveVotes(Long groupId, String username, VoteType type) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
@@ -124,6 +159,30 @@ class VoteService {
         voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
                 .filter(vote -> vote.hasBallotOf(event.memberId()))
                 .forEach(this::evaluate);
+    }
+
+    private ConfigChangeVote buildConfigChangeVote(Group group, GroupMember proposer, ConfigChangeDTO data) {
+        return switch (data.setting()) {
+            case DISTRIBUTION_MODE -> ConfigChangeVote.ofDistributionMode(group, proposer, data.distributionMode());
+            case VOTING_MODEL -> ConfigChangeVote.ofVotingModel(group, proposer, data.votingModel());
+            case RESERVATION_LIMIT_POLICY -> ConfigChangeVote.ofReservationLimit(
+                    group, proposer, data.reservationLimitPolicy(), data.reservationFixedDaysPerMonth()
+            );
+            case EXTRAORDINARY_EXPENSE_THRESHOLD -> ConfigChangeVote.ofExtraordinaryExpenseThreshold(
+                    group, proposer, data.extraordinaryExpenseThreshold()
+            );
+        };
+    }
+
+    private void requireNoActiveConfigChange(Long groupId, ConfigSetting setting) {
+        boolean alreadyProposed = voteRepository
+                .findByGroup_IdAndStatusOrderByCreatedAtDesc(groupId, VoteStatus.ACTIVE).stream()
+                .anyMatch(active -> active instanceof ConfigChangeVote change && change.getSetting() == setting);
+        if (alreadyProposed) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "There is already an active vote to change this setting"
+            );
+        }
     }
 
     private void evaluate(Vote vote) {

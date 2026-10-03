@@ -4,6 +4,7 @@ import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.config.security.JwtUserDetails;
 import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.vote.dtos.BallotDataDTO;
+import EsNuestro.vote.dtos.ConfigChangeDTO;
 import EsNuestro.vote.dtos.VoteDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -60,6 +61,19 @@ class VoteRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
         return voteService.createExtraordinaryExpenseVote(groupId, data, principal.email());
+    }
+
+    @PostMapping(value = "/config-change", produces = "application/json")
+    @Operation(summary = "Proponer el cambio de una configuración del grupo; requiere unanimidad de los miembros activos y se aplica solo si la votación es positiva")
+    @ResponseStatus(HttpStatus.CREATED)
+    @ApiResponse(responseCode = "404", description = "Grupo o miembro no encontrado", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El valor propuesto ya es el vigente, dejaría la configuración incoherente o ya hay una votación activa sobre esa configuración", content = @Content)
+    VoteDTO createConfigChange(
+            @PathVariable Long groupId,
+            @Valid @NonNull @RequestBody ConfigChangeDTO data,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException, MethodArgumentNotValidException {
+        return voteService.createConfigChangeVote(groupId, data, principal.email());
     }
 
     @PutMapping(value = "/{voteId}/ballot", produces = "application/json")

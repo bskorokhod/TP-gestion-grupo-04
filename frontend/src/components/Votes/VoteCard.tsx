@@ -7,8 +7,8 @@ import type { BackendError } from "@/hooks/useToast.ts";
 import { formatCurrency } from "@/lib/format.ts";
 import { describeResolvedVote } from "@/lib/votes.ts";
 import type { ExpenseMember, SplitMethod } from "@/models/Expense.ts";
-import type { VotingModel } from "@/models/Group.ts";
-import type { ProposedExpense, Vote, VoteChoice } from "@/models/Vote.ts";
+import type { DistributionMode, ReservationLimitPolicy, VotingModel } from "@/models/Group.ts";
+import type { ConfigChange, ConfigSetting, ProposedExpense, Vote, VoteChoice } from "@/models/Vote.ts";
 import { useCastBallot } from "@/services/VoteServices.ts";
 
 const VOTING_MODEL_LABEL: Record<VotingModel, string> = {
@@ -86,6 +86,61 @@ function ExpenseProposalDetails({ proposal }: { proposal: ProposedExpense }): Re
     );
 }
 
+const CONFIG_SETTING_LABEL: Record<ConfigSetting, string> = {
+    DISTRIBUTION_MODE: "Modo de repartición del bien",
+    VOTING_MODEL: "Modo de aprobación de votación",
+    RESERVATION_LIMIT_POLICY: "Restricción de reservas",
+    EXTRAORDINARY_EXPENSE_THRESHOLD: "Monto de gasto extraordinario",
+};
+
+const DISTRIBUTION_MODE_LABEL: Record<DistributionMode, string> = {
+    EQUAL: "Equitativo (partes iguales)",
+    PERCENTAGE: "Porcentual (según % de propiedad)",
+};
+
+const RESERVATION_POLICY_LABEL: Record<ReservationLimitPolicy, string> = {
+    EQUAL: "Equitativo",
+    OWNERSHIP_PROPORTIONAL: "Proporcional al % de propiedad",
+    FIXED_DAYS_PER_MONTH: "Cantidad fija de días por mes",
+};
+
+function describeProposedValue(change: ConfigChange): string {
+    switch (change.setting) {
+        case "DISTRIBUTION_MODE":
+            return change.distributionMode ? DISTRIBUTION_MODE_LABEL[change.distributionMode] : "-";
+        case "VOTING_MODEL":
+            return change.votingModel ? VOTING_MODEL_LABEL[change.votingModel] : "-";
+        case "RESERVATION_LIMIT_POLICY": {
+            if (!change.reservationLimitPolicy) return "-";
+            const label = RESERVATION_POLICY_LABEL[change.reservationLimitPolicy];
+            return change.reservationFixedDaysPerMonth != null
+                ? `${label}: ${change.reservationFixedDaysPerMonth} días`
+                : label;
+        }
+        case "EXTRAORDINARY_EXPENSE_THRESHOLD":
+            return change.extraordinaryExpenseThreshold != null
+                ? formatCurrency(change.extraordinaryExpenseThreshold)
+                : "-";
+    }
+}
+
+/** Lo que se está votando en un cambio de configuración: qué ajuste cambia y a qué valor. */
+function ConfigChangeDetails({ change }: { change: ConfigChange }): ReactElement {
+    return (
+        <div className="space-y-4">
+            <div>
+                <h3 className="text-lg font-black">Cambio de configuración</h3>
+                <p className="text-sm text-ink-soft">Requiere la aprobación unánime de los miembros del grupo.</p>
+            </div>
+
+            <dl className="grid gap-4 sm:grid-cols-2">
+                <Detail label="Configuración">{CONFIG_SETTING_LABEL[change.setting]}</Detail>
+                <Detail label="Nuevo valor">{describeProposedValue(change)}</Detail>
+            </dl>
+        </div>
+    );
+}
+
 function ProgressBar({ vote }: { vote: Vote }): ReactElement {
     const { progress } = vote;
     const total = progress.yesWeight + progress.noWeight + progress.pendingWeight;
@@ -141,6 +196,8 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
         <article className="space-y-5 rounded-3xl bg-panel p-6 text-foreground shadow-panel">
             {vote.expenseProposal ? (
                 <ExpenseProposalDetails proposal={vote.expenseProposal} />
+            ) : vote.configChange ? (
+                <ConfigChangeDetails change={vote.configChange} />
             ) : (
                 <p className="text-sm text-ink-soft">El detalle de esta votación todavía no está disponible.</p>
             )}

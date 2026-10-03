@@ -5,6 +5,7 @@ import EsNuestro.expense.dtos.ExpenseMemberDTO;
 import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
 import EsNuestro.vote.Ballot;
+import EsNuestro.vote.ConfigChangeVote;
 import EsNuestro.vote.ExtraordinaryExpenseVote;
 import EsNuestro.vote.Vote;
 import EsNuestro.vote.VoteChoice;
@@ -21,7 +22,7 @@ import java.util.List;
  * Vista de una votación desde la perspectiva del caller. {@code involved} son los miembros que votan;
  * {@code canVote} es si el caller es uno de ellos y la votación sigue activa. Solo se informa cuántos
  * votaron cada opción, no quién votó qué. {@code expenseProposal} solo viene en
- * EXTRAORDINARY_EXPENSE (un tipo nuevo agrega su propia propuesta).
+ * EXTRAORDINARY_EXPENSE y {@code configChange} solo en CONFIG_CHANGE (un tipo nuevo agrega su propia propuesta).
  * <p>
  * Una votación recién creada o votada puede volver ya finalizada (status/outcome): así el cliente sabe
  * si el gasto se creó, se rechazó o no pudo ejecutarse ({@code failureReason}).
@@ -40,7 +41,8 @@ public record VoteDTO(
         Progress progress,
         VoteChoice myChoice,
         boolean canVote,
-        ExpenseDTO.Details expenseProposal
+        ExpenseDTO.Details expenseProposal,
+        ConfigChangeDTO configChange
 ) {
 
     /** Votos por opción; los pesos son 1 por miembro, salvo en la mayoría ponderada (% de propiedad). */
@@ -76,6 +78,10 @@ public record VoteDTO(
                 ? ExpenseDTO.Details.from(expenseVote.getProposedDetails())
                 : null;
 
+        ConfigChangeDTO configChange = vote instanceof ConfigChangeVote changeVote
+                ? ConfigChangeDTO.from(changeVote)
+                : null;
+
         return new VoteDTO(
                 vote.getId(),
                 vote.getGroup().getId(),
@@ -90,7 +96,8 @@ public record VoteDTO(
                 progress,
                 mine == null ? null : mine.getChoice(),
                 mine != null && vote.isActive(),
-                expenseProposal
+                expenseProposal,
+                configChange
         );
     }
 

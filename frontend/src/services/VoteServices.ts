@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useApiClient } from "@/hooks/useApiClient";
 import type { ExpenseData } from "@/models/Expense";
-import { CastBallotInput, Vote, VoteSchema } from "@/models/Vote";
+import { CastBallotInput, ConfigChangeCreate, Vote, VoteSchema } from "@/models/Vote";
 
 /** Votaciones activas visibles para el usuario. Las finalizadas no se listan (quedan guardadas para el historial). */
 export function useGetVotes(groupId?: number) {
@@ -39,6 +39,26 @@ export function useCreateExtraordinaryExpenseVote(groupId: number) {
     });
 }
 
+/**
+ * Propone cambiar una configuración del grupo (votación unánime). Devuelve la votación: si ya quedó resuelta
+ * (p. ej. quien propone es el único miembro activo) `status` es FINALIZED y `outcome` dice qué pasó.
+ */
+export function useCreateConfigChangeVote(groupId: number) {
+    const api = useApiClient();
+    const qc = useQueryClient();
+
+    return useMutation<Vote, Error, ConfigChangeCreate>({
+        mutationFn: async (payload): Promise<Vote> => {
+            const response = await api.post(`/groups/${groupId}/votes/config-change`, payload);
+            return VoteSchema.parse(response);
+        },
+        onSuccess: (): void => {
+            // Si la votación se resolvió en el acto, la configuración del grupo ya cambió.
+            void qc.invalidateQueries({ queryKey: ["groups"] });
+        },
+    });
+}
+
 /** Emite o cambia el voto propio. Si el resultado queda determinado, el gasto se crea (o no) al instante. */
 export function useCastBallot(groupId: number) {
     const api = useApiClient();
@@ -52,6 +72,8 @@ export function useCastBallot(groupId: number) {
         onSuccess: (): void => {
             void qc.invalidateQueries({ queryKey: ["groups", groupId, "votes"] });
             void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
+            // El último voto de un cambio de configuración la aplica: hay que refrescar el grupo.
+            void qc.invalidateQueries({ queryKey: ["groups"], exact: false });
         },
     });
 }
