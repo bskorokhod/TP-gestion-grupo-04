@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
-
 import Button from "@/components/Button.tsx";
 import { Avatar } from "@/components/ui/Avatar";
 import type { MemberColor } from "@/models/Group";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
-
-// ─── Tipos de datos públicos ────────────────────────────────────────────────
+// import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+// import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
+import {BALANCE_COLORS, PAYMENT_STATUS_CONFIG, TRANSACTION_VARIANTS, type BalanceStatus, type PaymentStatus, type TransactionVariant,} from "@/constants/expenses.ts";
 
 export interface MemberInfo {
     readonly nickname: string;
@@ -50,7 +48,6 @@ export interface DebtCardProps {
     readonly children: ReactNode;
 }
 
-
 export interface OwedCardProps {
     readonly title: string;
     readonly amount: string;
@@ -75,8 +72,6 @@ export interface PeopleMetaProps {
 export interface EmptyStateProps {
     readonly message: string;
 }
-
-// ─── Card base ──────────────────────────────────────────────────────────────
 
 export interface ExpenseCardProps {
     readonly children: ReactNode;
@@ -105,8 +100,6 @@ export function AmountTitle({ title, amount, tag }: AmountTitleProps): ReactNode
     );
 }
 
-// ─── Meta de personas ───────────────────────────────────────────────────────
-
 export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
     return (
         <div className="flex flex-wrap items-center gap-4 text-sm text-group-muted">
@@ -130,17 +123,6 @@ export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
         </div>
     );
 }
-
-// ─── PersonRow ──────────────────────────────────────────────────────────────
-
-const PAYMENT_STATUS_CONFIG = {
-    paid: { badgeClasses: "bg-group-green/70 text-brand-foreground", label: "Pagó" },
-    partial: { badgeClasses: "bg-group-amber/70 text-brand-foreground", label: "Parcial" },
-    pending: { badgeClasses: "bg-field/70 text-group-muted", label: "Pendiente" },
-    unpaid: { badgeClasses: "bg-field/70 text-group-muted", label: "No pagó" },
-} as const;
-
-export type PaymentStatus = keyof typeof PAYMENT_STATUS_CONFIG;
 
 export function PersonRow({name, color, amount, status = "unpaid", action = "none", onAction, photoUrl}: PersonRowProps): ReactNode {
     const config = PAYMENT_STATUS_CONFIG[status];
@@ -168,15 +150,6 @@ export function PersonRow({name, color, amount, status = "unpaid", action = "non
     );
 }
 
-// ─── TransactionRow ─────────────────────────────────────────────────────────
-
-const TRANSACTION_VARIANTS = {
-    debt: "text-group-danger",
-    credit: "text-brand",
-} as const;
-
-export type TransactionVariant = keyof typeof TRANSACTION_VARIANTS;
-
 export function TransactionRow({name, amount, variant = "credit", action = "readonly", onAction,}: TransactionRowProps): ReactNode {
     const amountColor = TRANSACTION_VARIANTS[variant];
 
@@ -196,16 +169,6 @@ export function TransactionRow({name, amount, variant = "credit", action = "read
         </div>
     );
 }
-
-// ─── PersonBalanceCard ──────────────────────────────────────────────────────
-
-const BALANCE_COLORS = {
-    positive: "text-group-green",
-    negative: "text-group-danger",
-    neutral: "text-group-muted",
-} as const;
-
-export type BalanceStatus = keyof typeof BALANCE_COLORS;
 
 export function PersonBalanceCard({name, color, balance, balanceStatus, items, }: PersonBalanceCardProps): ReactNode {
     const balanceColor = BALANCE_COLORS[balanceStatus];
@@ -231,55 +194,37 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
     );
 }
 
-// ─── ProposalCard ───────────────────────────────────────────────────────────
-
-const PROPOSAL_VARIANTS = {
-    accepted: {
-        votesLabel: "3 de 4",
-        primaryBtn: { variant: "muted" as const, label: "Aceptado" },
-        secondaryBtn: { variant: "muted" as const, label: "Cancelar" },
-    },
-    pending: {
-        votesLabel: "1 de 3",
-        primaryBtn: { variant: "success" as const, label: "Aceptar" },
-        secondaryBtn: { variant: "danger" as const, label: "Rechazar" },
-    },
-} as const;
-
-export interface ProposalCardProps {
-    readonly title: string;
-    readonly amount: string;
-    readonly description: string;
-    readonly assigned: MemberInfo[];
-    readonly owner: MemberInfo;
-    readonly status?: keyof typeof PROPOSAL_VARIANTS;
-}
-
-export function ProposalCard({title, amount, description, assigned, owner, status = "pending",}: ProposalCardProps): ReactNode {
-    const config = PROPOSAL_VARIANTS[status];
-
-    return (
-        <ExpenseCard className="border-group-amber">
-            <div className="space-y-2">
-                <AmountTitle title={title} amount={amount} />
-                <p className="text-sm text-group-muted">{description}</p>
-                <PeopleMeta assigned={assigned} owner={owner} />
-            </div>
-            <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <button className="inline-flex items-center gap-1 truncate text-left text-sm font-medium text-brand">
-                    Ver votos ({config.votesLabel} votaron)
-                    <FontAwesomeIcon icon={faChevronDown} className="h-3 w-3" aria-hidden />
-                </button>
-                <div className="flex shrink-0 gap-2">
-                    <Button variant={config.primaryBtn.variant}>{config.primaryBtn.label}</Button>
-                    <Button variant={config.secondaryBtn.variant}>{config.secondaryBtn.label}</Button>
-                </div>
-            </div>
-        </ExpenseCard>
-    );
-}
-
-// ─── DebtCard / OwedCard ────────────────────────────────────────────────────
+// TODO !! Agregar proposal otra vez
+// export interface ProposalCardProps {
+//     readonly title: string;
+//     readonly amount: string;
+//     readonly description: string;
+//     readonly assigned: MemberInfo[];
+//     readonly owner: MemberInfo;
+//     readonly status?: keyof typeof PROPOSAL_VARIANTS;
+// }
+//
+// export function ProposalCard({title, amount, description, assigned, owner, status = "pending",}: ProposalCardProps): ReactNode {
+//     return (
+//         <ExpenseCard className="border-group-amber">
+//             <div className="space-y-2">
+//                 <AmountTitle title={title} amount={amount} />
+//                 <p className="text-sm text-group-muted">{description}</p>
+//                 <PeopleMeta assigned={assigned} owner={owner} />
+//             </div>
+//             <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+//                 <button className="inline-flex items-center gap-1 truncate text-left text-sm font-medium text-brand">
+//                     Ver votos ({config.votesLabel} votaron)
+//                     <FontAwesomeIcon icon={faChevronDown} className="h-3 w-3" aria-hidden />
+//                 </button>
+//                 <div className="flex shrink-0 gap-2">
+//                     <Button variant={config.primaryBtn.variant}>{config.primaryBtn.label}</Button>
+//                     <Button variant={config.secondaryBtn.variant}>{config.secondaryBtn.label}</Button>
+//                 </div>
+//             </div>
+//         </ExpenseCard>
+//     );
+// }
 
 export function DebtCard({title, amount, description, assigned, owner, children,}: DebtCardProps): ReactNode {
     return (
@@ -318,8 +263,6 @@ export function OwedCard({title, amount, description, assigned, owner, tag, acti
         </ExpenseCard>
     );
 }
-
-// ─── EmptyState ─────────────────────────────────────────────────────────────
 
 export function EmptyState({ message }: EmptyStateProps): ReactNode {
     return (

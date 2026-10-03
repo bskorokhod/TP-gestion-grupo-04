@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip, type PieSectorDataItem, type PieSectorShapeProps } from "recharts";
+import {
+    Cell,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Sector,
+    Tooltip,
+    type PieSectorDataItem,
+    type PieSectorShapeProps,
+} from "recharts";
 
 import { PercentageCard } from "@/components/AdminCard";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { cn } from "@/lib/cn.ts";
+import { resolveChartColor } from "@/lib/colors";
 import { autoBalancePercentages, canLockMemberPercentage, getPercentageDifference } from "@/lib/percentages";
-import type { MemberColor } from "@/models/Group";
 import type { MemberPercentage } from "@/models/Percentage";
 import { PercentageValueSchema } from "@/models/Percentage";
 import { useGroupPercentages, useUpdateGroupPercentages } from "@/services/PercentageServices";
@@ -21,36 +30,6 @@ interface PercentageChartDatum {
     readonly color: string;
 }
 
-const CHART_COLORS: ReadonlyArray<string> = [
-    "var(--custom-red)",
-    "var(--custom-orange)",
-    "var(--custom-green)",
-    "var(--custom-lilac)",
-    "var(--custom-me)",
-    "var(--group-amber)",
-];
-
-// Colores asignados a cada usuario (mismos que su avatar). Si el miembro no tiene
-// color asignado, se cae al paleta CHART_COLORS por posición.
-const MEMBER_COLOR_HEX: Readonly<Record<MemberColor, string>> = {
-    RED: "var(--color-avatar-custom-red)",
-    BLUE: "var(--color-avatar-custom-blue)",
-    GREEN: "var(--color-avatar-custom-green)",
-    YELLOW: "var(--color-avatar-custom-yellow)",
-    ORANGE: "var(--color-avatar-custom-orange)",
-    PURPLE: "var(--color-avatar-custom-purple)",
-    PINK: "var(--color-avatar-custom-pink)",
-    LIGHT_BLUE: "var(--color-avatar-custom-light-blue)",
-};
-
-function resolveChartColor(color: MemberColor | undefined, index: number): string {
-    if (color && MEMBER_COLOR_HEX[color]) {
-        return MEMBER_COLOR_HEX[color];
-    }
-    return CHART_COLORS[index % CHART_COLORS.length];
-}
-
-// Tooltip redondeado y legible; nombra el miembro para dejar claro a qué porción refiere.
 interface ChartTooltipProps {
     readonly active?: boolean;
     readonly payload?: ReadonlyArray<{ readonly name?: string; readonly value?: number | string }>;
@@ -70,7 +49,6 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
     );
 }
 
-// Al pasar el mouse, la porción activa se agranda para que quede claro cuál es.
 function renderActiveShape(props: PieSectorDataItem) {
     const outerRadius = typeof props.outerRadius === "number" ? props.outerRadius : 0;
     return <Sector {...(props as PieSectorShapeProps)} outerRadius={outerRadius + 6} />;
@@ -90,7 +68,6 @@ function getMemberErrorMessage(member: MemberPercentage, lockErrors: LockErrors)
 }
 
 export const PercentageConfigScreen = () => {
-    // La URL usa el código del grupo; la API de porcentajes usa el id numérico.
     const groupId = String(useCurrentGroup().id);
 
     const percentagesQuery = useGroupPercentages(groupId);

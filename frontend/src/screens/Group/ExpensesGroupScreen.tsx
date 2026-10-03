@@ -1,19 +1,13 @@
 import { useState } from "react";
 import { useParams } from "wouter";
-
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
 import { PerPersonView } from "@/components/Expenses/PerPersonView.tsx";
 import { PerExpenseView } from "@/components/Expenses/PerExpenseView.tsx";
-
 import { useGetGroupByCode } from "@/services/GroupServices.ts";
 import { useGetGroupSummary } from "@/services/ExpenseServices.ts";
+import { formatCurrency } from "@/lib/format.ts";
 
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  maximumFractionDigits: 0,
-});
 
 export const ExpensesGroupScreen = () => {
   const { code } = useParams<{ code: string }>();
@@ -32,13 +26,13 @@ export const ExpensesGroupScreen = () => {
           <div className="grid grid-cols-3 divide-x divide-brand/20 rounded-full bg-panel px-6 py-4 text-foreground shadow-panel sm:px-8">
             <div className="pr-5">
               <strong className="block text-xl font-black text-group-danger sm:text-2xl">
-                {currencyFormatter.format(owes)}
+                {formatCurrency(owes)}
               </strong>
               <span className="text-xs font-medium uppercase text-brand"> Debés </span>
             </div>
             <div className="px-5">
               <strong className="block text-xl font-black text-group-green sm:text-2xl">
-                {currencyFormatter.format(owed)}
+                {formatCurrency(owed)}
               </strong>
               <span className="text-xs font-medium uppercase text-brand"> Te deben </span>
             </div>

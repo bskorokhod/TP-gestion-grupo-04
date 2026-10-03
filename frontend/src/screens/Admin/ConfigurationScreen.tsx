@@ -1,4 +1,4 @@
-import {ReactNode, useState} from "react";
+import {useState} from "react";
 import {Link, useLocation} from "wouter";
 import {MemberInfoCard} from "@/components/AdminCard";
 import Button from "@/components/Button.tsx";
@@ -7,6 +7,7 @@ import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {cn} from "@/lib/cn.ts";
 import type {GroupSettings, Member} from "@/models/Group.ts";
+import type {ConfigChangeKind, ConfigChangeRequest, ModalSettingItem} from "@/models/Config.ts";
 import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useRejectJoinRequest } from "@/services/GroupServices.ts";
 import {toast, type BackendError} from "@/hooks/useToast.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
@@ -15,99 +16,11 @@ import type {ConfigChangeCreate} from "@/models/Vote.ts";
 import {useCreateConfigChangeVote} from "@/services/VoteServices.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {
-    faPercent,
-    faCopy,
-    faArrowRight,
-    faPenToSquare,
-    faCheckToSlot,
-    faCalendarCheck,
-    faCoins,
-    faChartPie,
-} from "@fortawesome/free-solid-svg-icons";
+import {faPercent, faCopy, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
 import {Avatar} from "@/components/ui/Avatar.tsx";
-import {
-    ConfigChangeModal,
-    type ConfigChangeKind,
-    type ConfigChangeRequest,
-} from "@/components/modals/ConfigChangeModal.tsx";
+import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
+import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
 
-const MODIFY_CONFIG_LABEL = "Solicitar modificación de configuración";
-const MODIFY_PERCENTAGES_LABEL = "Modificar porcentajes";
-
-// Única fila que navega a otra pantalla en lugar de abrir un modal.
-const PERCENTAGES_SETTING = {
-    icon: <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />,
-    title: "Configurar porcentajes de propiedad",
-    description:
-        "Definí qué porcentaje del bien le corresponde a cada integrante del grupo y ajustá la distribución cuando cambie.",
-} as const;
-
-interface ModalSettingItem {
-    readonly kind: ConfigChangeKind;
-    readonly icon: ReactNode;
-    readonly title: string;
-    readonly description: string;
-    readonly currentValue: (settings: GroupSettings) => string;
-}
-
-const VOTING_VALUE_LABELS: Record<GroupSettings["votingModel"], string> = {
-    SIMPLE_MAJORITY: "Mayoría simple",
-    OWNERSHIP_WEIGHTED_MAJORITY: "Mayoría proporcional",
-    UNANIMOUS: "Unánime",
-};
-
-const DISTRIBUTION_VALUE_LABELS: Record<GroupSettings["distributionMode"], string> = {
-    EQUAL: "Equitativo",
-    PERCENTAGE: "Porcentual",
-};
-
-function reservationValue(settings: GroupSettings): string {
-    switch (settings.reservationLimitPolicy) {
-        case "EQUAL":
-            return "Equitativo";
-        case "OWNERSHIP_PROPORTIONAL":
-            return "Proporcional";
-        case "FIXED_DAYS_PER_MONTH":
-            return `${settings.reservationFixedDaysPerMonth ?? "-"} días por mes`;
-    }
-}
-
-const MODAL_SETTINGS: ReadonlyArray<ModalSettingItem> = [
-    {
-        kind: "voting",
-        icon: <FontAwesomeIcon icon={faCheckToSlot} className="h-5 w-5" aria-hidden />,
-        title: "Modo de aprobación de votación",
-        description:
-            "Definí cómo se aprueban las votaciones: mayoría simple, mayoría proporcional al porcentaje de propiedad o unanimidad.",
-        currentValue: (settings) => VOTING_VALUE_LABELS[settings.votingModel],
-    },
-    {
-        kind: "reservation",
-        icon: <FontAwesomeIcon icon={faCalendarCheck} className="h-5 w-5" aria-hidden />,
-        title: "Restricciones de reservas",
-        description:
-            "Establecé cuántos días por mes puede reservar el bien cada miembro: equitativo, proporcional al porcentaje o una cantidad fija.",
-        currentValue: reservationValue,
-    },
-    {
-        kind: "threshold",
-        icon: <FontAwesomeIcon icon={faCoins} className="h-5 w-5" aria-hidden />,
-        title: "Monto de gasto extraordinario",
-        description:
-            "Monto a partir del cual un gasto se considera extraordinario y debe aprobarse por votación.",
-        currentValue: (settings) =>
-            `$ ${settings.extraordinaryExpenseThreshold.toLocaleString("es-AR")}`,
-    },
-    {
-        kind: "distribution",
-        icon: <FontAwesomeIcon icon={faChartPie} className="h-5 w-5" aria-hidden />,
-        title: "Modo de repartición del bien",
-        description:
-            "Definí si el bien se reparte en partes iguales entre los miembros o según el porcentaje de cada uno.",
-        currentValue: (settings) => DISTRIBUTION_VALUE_LABELS[settings.distributionMode],
-    },
-];
 
 interface ModalSettingRowProps {
     readonly item: ModalSettingItem;
@@ -120,7 +33,9 @@ function ModalSettingRow({ item, settings, onRequestChange }: ModalSettingRowPro
         <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
             <div className="flex flex-row gap-5 items-center">
                 <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
-                    <p className="text-lg font-semibold text-brand">{item.icon}</p>
+                    <p className="text-lg font-semibold text-brand">
+                        <FontAwesomeIcon icon={item.icon} className="h-5 w-5" aria-hidden />
+                    </p>
                 </div>
                 <div className="flex flex-col gap-1 items-start max-w-140">
                     <p className="text-lg font-semibold text-ink">{item.title}</p>
@@ -145,8 +60,6 @@ function ModalSettingRow({ item, settings, onRequestChange }: ModalSettingRowPro
         </div>
     );
 }
-
-// ─── Sección: Miembros ───────────────────────────────────────────────────────
 
 interface MembersSectionProps {
     readonly groupId: number;
@@ -189,8 +102,6 @@ function MembersSection({ groupId }: MembersSectionProps) {
         </div>
     );
 }
-
-// ─── Sección: Solicitudes de ingreso ────────────────────────────────────────
 
 interface JoinRequestItemProps {
     readonly member: Member;
@@ -445,8 +356,6 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
     );
 }
 
-// ─── Screen principal ────────────────────────────────────────────────────────
-
 async function copyToClipboard(text: string): Promise<void> {
     await navigator.clipboard.writeText(text);
 }
@@ -503,7 +412,6 @@ function JoinCodeShare({ joinCode }: JoinCodeShareProps) {
     );
 }
 
-/** Traduce lo que entrega el modal al cuerpo que espera el backend: `setting` y solo el nuevo valor. */
 function toConfigChangeBody(request: ConfigChangeRequest): ConfigChangeCreate {
     switch (request.kind) {
         case "voting":
@@ -536,7 +444,6 @@ export const ConfigurationScreen = () => {
             const vote = await createConfigChange.mutateAsync(toConfigChangeBody(request));
             setPendingChange(null);
 
-            // Con un único miembro activo la votación se resuelve en el acto.
             const resolution = describeResolvedVote(vote);
             if (!resolution) {
                 showSuccessToast(
@@ -549,7 +456,6 @@ export const ConfigurationScreen = () => {
                 showErrorToast(resolution.title, resolution.description);
             }
         } catch (error) {
-            // El modal queda abierto para poder corregir el valor y reintentar.
             showApiError(error as BackendError, "No se pudo enviar la solicitud");
         }
     }
@@ -577,7 +483,7 @@ export const ConfigurationScreen = () => {
                 {canConfigure ? (
                     <>
                         <p className="text-3xl font-extrabold text-brand-hover mt-4">
-                        Solicitudes de ingreso
+                            Solicitudes de ingreso
                         </p>
 
                         <JoinRequestsSection
@@ -597,7 +503,7 @@ export const ConfigurationScreen = () => {
                                 <div className="flex flex-row gap-5 items-center">
                                     <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
                                         <p className="text-lg font-semibold text-brand">
-                                            {PERCENTAGES_SETTING.icon}
+                                            <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />
                                         </p>
                                     </div>
                                     <div className="flex flex-col gap-1 items-start max-w-140">
@@ -609,7 +515,6 @@ export const ConfigurationScreen = () => {
                                         </p>
                                     </div>
                                 </div>
-                                {/* Un <button> dentro de un <a> es HTML inválido: se replica el estilo del Button danger. */}
                                 <span
                                     title={MODIFY_PERCENTAGES_LABEL}
                                     aria-label={MODIFY_PERCENTAGES_LABEL}
@@ -619,7 +524,7 @@ export const ConfigurationScreen = () => {
                                 </span>
                             </Link>
 
-                            {MODAL_SETTINGS.map((item) => (
+                            {SETTINGS_INFO.map((item) => (
                                 <ModalSettingRow
                                     key={item.kind}
                                     item={item}

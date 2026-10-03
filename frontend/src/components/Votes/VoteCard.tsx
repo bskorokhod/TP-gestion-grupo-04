@@ -6,22 +6,10 @@ import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
 import { formatCurrency } from "@/lib/format.ts";
 import { describeResolvedVote } from "@/lib/votes.ts";
-import type { ExpenseMember, SplitMethod } from "@/models/Expense.ts";
-import type { DistributionMode, ReservationLimitPolicy, VotingModel } from "@/models/Group.ts";
-import type { ConfigChange, ConfigSetting, ProposedExpense, Vote, VoteChoice } from "@/models/Vote.ts";
+import type { ExpenseMember } from "@/models/Expense.ts";
+import type { ConfigChange, ProposedExpense, Vote, VoteChoice } from "@/models/Vote.ts";
 import { useCastBallot } from "@/services/VoteServices.ts";
-
-const VOTING_MODEL_LABEL: Record<VotingModel, string> = {
-    SIMPLE_MAJORITY: "Mayoría simple",
-    OWNERSHIP_WEIGHTED_MAJORITY: "Mayoría ponderada por propiedad",
-    UNANIMOUS: "Unanimidad",
-};
-
-const SPLIT_METHOD_LABEL: Record<SplitMethod, string> = {
-    EQUAL: "Partes iguales",
-    PROPORTIONAL: "Según porcentaje de propiedad",
-    CUSTOM: "Porcentajes personalizados",
-};
+import {CONFIG_SETTING_LABEL, DISTRIBUTION_MODE_LABEL, RESERVATION_POLICY_LABEL, SPLIT_METHOD_LABEL, VOTING_MODEL_LABEL,} from "@/constants/config_modals.ts";
 
 function MemberChip({ member, suffix }: { member: ExpenseMember; suffix?: string }): ReactElement {
     return (
@@ -85,24 +73,6 @@ function ExpenseProposalDetails({ proposal }: { proposal: ProposedExpense }): Re
         </div>
     );
 }
-
-const CONFIG_SETTING_LABEL: Record<ConfigSetting, string> = {
-    DISTRIBUTION_MODE: "Modo de repartición del bien",
-    VOTING_MODEL: "Modo de aprobación de votación",
-    RESERVATION_LIMIT_POLICY: "Restricción de reservas",
-    EXTRAORDINARY_EXPENSE_THRESHOLD: "Monto de gasto extraordinario",
-};
-
-const DISTRIBUTION_MODE_LABEL: Record<DistributionMode, string> = {
-    EQUAL: "Equitativo (partes iguales)",
-    PERCENTAGE: "Porcentual (según % de propiedad)",
-};
-
-const RESERVATION_POLICY_LABEL: Record<ReservationLimitPolicy, string> = {
-    EQUAL: "Equitativo",
-    OWNERSHIP_PROPORTIONAL: "Proporcional al % de propiedad",
-    FIXED_DAYS_PER_MONTH: "Cantidad fija de días por mes",
-};
 
 function describeProposedValue(change: ConfigChange): string {
     switch (change.setting) {

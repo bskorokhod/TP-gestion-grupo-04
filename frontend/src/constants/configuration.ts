@@ -1,47 +1,70 @@
-import type {DistributionMode, ReservationLimitPolicy, VotingModel} from "@/models/Group.ts";
-import {ConfigChangeKind} from "@/components/modals";
+import type { GroupSettings } from "@/models/Group.ts";
+import type { ModalSettingItem } from "@/models/Config.ts";
+import {faCalendarCheck, faChartPie, faCheckToSlot, faCoins} from "@fortawesome/free-solid-svg-icons";
 
-export const REQUIRES_PERCENTAGE_NOTE = " (requiere reparto porcentual)";
+export const MODIFY_CONFIG_LABEL = "Solicitar modificación de configuración";
+export const MODIFY_PERCENTAGES_LABEL = "Modificar porcentajes";
 
-export const DISTRIBUTION_OPTIONS: ReadonlyArray<{ value: DistributionMode; label: string }> = [
-    {value: "EQUAL", label: "Equitativo (partes iguales)"},
-    {value: "PERCENTAGE", label: "Porcentual (según % de propiedad)"},
-];
-export const VOTING_OPTIONS: ReadonlyArray<{ value: VotingModel; label: string }> = [
-    {value: "SIMPLE_MAJORITY", label: "Mayoría simple"},
-    {value: "OWNERSHIP_WEIGHTED_MAJORITY", label: "Mayoría proporcional al % de propiedad"},
-    {value: "UNANIMOUS", label: "Unánime"},
-];
-export const RESERVATION_OPTIONS: ReadonlyArray<{ value: ReservationLimitPolicy; label: string }> = [
-    {value: "EQUAL", label: "Equitativo"},
-    {value: "OWNERSHIP_PROPORTIONAL", label: "Proporcional al % de propiedad"},
-    {value: "FIXED_DAYS_PER_MONTH", label: "Cantidad fija de días por mes"},
-];
-export const CURRENT_NOTE = " (vigente)";
+export const PERCENTAGES_SETTING = {
+    title: "Configurar porcentajes de propiedad",
+    description:
+        "Definí qué porcentaje del bien le corresponde a cada integrante del grupo y ajustá la distribución cuando cambie.",
+} as const;
 
-export const BLOCKED_BY_OWNERSHIP_NOTE = " (hay opciones configuradas que dependen del % de propiedad)";
-
-export const COPY: Record<ConfigChangeKind, { title: string; intro: string; label: string; hint?: string }> = {
-    voting: {
-        title: "Modo de aprobación de votación",
-        intro: "La modificación se somete a votación unánime de los miembros del grupo.",
-        label: "Nuevo modo de aprobación",
-        hint: "Se cuenta sobre los miembros involucrados en el gasto.",
-    },
-    reservation: {
-        title: "Restricción de reservas",
-        intro: "La modificación se somete a votación unánime de los miembros del grupo.",
-        label: "Nueva restricción de reservas",
-        hint: "Máximo de días por mes que un miembro puede reservar el bien.",
-    },
-    threshold: {
-        title: "Monto de gasto extraordinario",
-        intro: "La modificación se somete a votación unánime de los miembros del grupo.",
-        label: "Nuevo monto a partir del cual un gasto es extraordinario",
-    },
-    distribution: {
-        title: "Modo de repartición del bien",
-        intro: "La modificación se somete a votación unánime de los miembros del grupo.",
-        label: "Nuevo modo de repartición",
-    },
+const VOTING_VALUE_LABELS: Record<GroupSettings["votingModel"], string> = {
+    SIMPLE_MAJORITY: "Mayoría simple",
+    OWNERSHIP_WEIGHTED_MAJORITY: "Mayoría proporcional",
+    UNANIMOUS: "Unánime",
 };
+
+const DISTRIBUTION_VALUE_LABELS: Record<GroupSettings["distributionMode"], string> = {
+    EQUAL: "Equitativo",
+    PERCENTAGE: "Porcentual",
+};
+
+function reservationValue(settings: GroupSettings): string {
+    switch (settings.reservationLimitPolicy) {
+        case "EQUAL":
+            return "Equitativo";
+        case "OWNERSHIP_PROPORTIONAL":
+            return "Proporcional";
+        case "FIXED_DAYS_PER_MONTH":
+            return `${settings.reservationFixedDaysPerMonth ?? "-"} días por mes`;
+    }
+}
+
+export const SETTINGS_INFO: ReadonlyArray<ModalSettingItem> = [
+    {
+        kind: "voting",
+        icon: faCheckToSlot,
+        title: "Modo de aprobación de votación",
+        description:
+            "Definí cómo se aprueban las votaciones: mayoría simple, mayoría proporcional al porcentaje de propiedad o unanimidad.",
+        currentValue: (settings) => VOTING_VALUE_LABELS[settings.votingModel],
+    },
+    {
+        kind: "reservation",
+        icon: faCalendarCheck,
+        title: "Restricciones de reservas",
+        description:
+            "Establecé cuántos días por mes puede reservar el bien cada miembro: equitativo, proporcional al porcentaje o una cantidad fija.",
+        currentValue: reservationValue,
+    },
+    {
+        kind: "threshold",
+        icon: faCoins,
+        title: "Monto de gasto extraordinario",
+        description:
+            "Monto a partir del cual un gasto se considera extraordinario y debe aprobarse por votación.",
+        currentValue: (settings) =>
+            `$ ${settings.extraordinaryExpenseThreshold.toLocaleString("es-AR")}`,
+    },
+    {
+        kind: "distribution",
+        icon: faChartPie,
+        title: "Modo de repartición del bien",
+        description:
+            "Definí si el bien se reparte en partes iguales entre los miembros o según el porcentaje de cada uno.",
+        currentValue: (settings) => DISTRIBUTION_VALUE_LABELS[settings.distributionMode],
+    },
+];

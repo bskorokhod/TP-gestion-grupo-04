@@ -1,42 +1,18 @@
 import { useMemo } from "react";
-import {
-    useMutation,
-    useQueries,
-    useQuery,
-    useQueryClient,
-} from "@tanstack/react-query";
-
+import {useMutation, useQueries, useQuery, useQueryClient,} from "@tanstack/react-query";
 import { useApiClient } from "@/hooks/useApiClient";
 import { useToken } from "@/contexts/TokenContext.tsx";
-import {
-    Group,
-    GroupCreate,
-    GroupCreateSchema,
-    GroupPreview,
-    GroupPreviewSchema,
-    GroupSchema,
-    JoinGroup,
-    JoinGroupSchema,
-    JOIN_CODE_REGEX,
-    JoinRequest,
-    JoinRequestSchema,
-    Member,
-    MemberSchema,
-    MembershipStatus,
-} from "@/models/Group.ts";
+import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus,} from "@/models/Group.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
 import { ApiService } from "@/services/ApiServices";
 import { TokenService } from "@/services/TokenService";
-
-const MAX_RETRIES = 3;
-
+import { GROUP_PREVIEW_STALE_TIME_MS, MAX_QUERY_RETRIES } from "@/constants/services.ts";
 
 function retryUnlessClientError(failureCount: number, error: unknown): boolean {
     const status = getApiErrorStatus(error);
     if (status !== null && status >= 400 && status < 500) return false;
-    return failureCount < MAX_RETRIES;
+    return failureCount < MAX_QUERY_RETRIES;
 }
-
 
 export function useGetGroups() {
     const api = useApiClient();
@@ -85,9 +61,8 @@ export function usePreviewGroup(joinCode: string) {
         queryKey: ["group-preview", normalized] as const,
         enabled,
         retry: false,
-        staleTime: 30_000,
+        staleTime: GROUP_PREVIEW_STALE_TIME_MS,
         queryFn: async (): Promise<GroupPreview> => {
-            // Endpoint público: no requiere token.
             const data = await ApiService.get(`/groups/join/${encodeURIComponent(normalized)}`);
             return GroupPreviewSchema.parse(data);
         },
@@ -131,7 +106,6 @@ export function useGetPendingMembers(groupId: number) {
         },
     });
 }
-
 
 export interface PendingApproval {
     readonly groupId: number;
@@ -243,7 +217,6 @@ export function useJoinGroup() {
         },
     });
 }
-
 
 export function useMyMember(groupId?: number): Member | undefined {
     const [tokenState] = useToken();

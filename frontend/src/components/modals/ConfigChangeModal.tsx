@@ -1,23 +1,12 @@
-import {type FormEvent, useState} from "react";
+import { type FormEvent, useState } from "react";
 
-import SelectField, {type SelectOption} from "@/components/Forms/SelectField.tsx";
+import SelectField, { type SelectOption } from "@/components/Forms/SelectField.tsx";
 import TextField from "@/components/Forms/TextField.tsx";
-import {ModalShell} from "@/components/modals/ModalShell.tsx";
+import { ModalShell } from "@/components/modals/ModalShell.tsx";
 import {useFormToasts} from "@/hooks/useFormToasts";
 import {type DistributionMode, type GroupSettings, GroupSettingsCreateSchema, isReservationPolicyAllowed, isVotingModelAllowed, MAX_FIXED_DAYS_PER_MONTH, MIN_FIXED_DAYS_PER_MONTH, type ReservationLimitPolicy, type VotingModel,} from "@/models/Group.ts";
-import {BLOCKED_BY_OWNERSHIP_NOTE, COPY, CURRENT_NOTE, DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS} from "@/constants/configuration.ts";
-
-export type ConfigChangeKind = "voting" | "reservation" | "threshold" | "distribution";
-
-export type ConfigChangeRequest =
-    | { kind: "voting"; votingModel: VotingModel }
-    | {
-          kind: "reservation";
-          reservationLimitPolicy: ReservationLimitPolicy;
-          reservationFixedDaysPerMonth?: number;
-      }
-    | { kind: "threshold"; extraordinaryExpenseThreshold: number }
-    | { kind: "distribution"; distributionMode: DistributionMode };
+import type {ConfigChangeKind, ConfigChangeRequest} from "@/models/Config.ts";
+import {BLOCKED_BY_OWNERSHIP_NOTE, COPY, CURRENT_NOTE, DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS,} from "@/constants/config_modals.ts";
 
 export interface ConfigChangeModalProps {
     kind: ConfigChangeKind;
@@ -26,17 +15,12 @@ export interface ConfigChangeModalProps {
     onSubmit: (request: ConfigChangeRequest) => void | Promise<void>;
 }
 
-
 function parseOptionalNumber(raw: string): number | undefined {
     const trimmed = raw.trim();
     return trimmed === "" ? undefined : Number(trimmed);
 }
 
-/**
- * Arma las opciones del select: la vigente queda en gris y no seleccionable, y las que dejarían la
- * configuración incoherente (ver reglas de `Group.ts`) también se bloquean, con el motivo en la etiqueta.
- */
-function toOptions<T extends string>( list: ReadonlyArray<{ value: T; label: string }>, current: T, blockedNote: (value: T) => string | null,): SelectOption[] {
+function toOptions<T extends string>(list: ReadonlyArray<{ value: T; label: string }>, current: T, blockedNote: (value: T) => string | null,): SelectOption[] {
     return list.map(({ value, label }) => {
         if (value === current) {
             return { value, label: label + CURRENT_NOTE, disabled: true };

@@ -6,12 +6,6 @@ export type { PayDebtModalProps } from "./PayDebtModal";
 export { JoinGroupModal } from "./JoinGroupModal";
 export type { JoinGroupModalProps } from "./JoinGroupModal";
 export { ConfigChangeModal } from "./ConfigChangeModal";
-export type {
-  ConfigChangeKind,
-  ConfigChangeModalProps,
-  ConfigChangeRequest,
-} from "./ConfigChangeModal";
-export {NewExpenseModal} from "./NewExpenseModal/NewExpenseModal";
-export type {
-  NewExpenseModalProps,
-} from "./NewExpenseModal/NewExpenseModal";
+export type { ConfigChangeModalProps } from "./ConfigChangeModal";
+export { NewExpenseModal } from "./NewExpenseModal/NewExpenseModal";
+export type { NewExpenseModalProps } from "./NewExpenseModal/NewExpenseModal";
