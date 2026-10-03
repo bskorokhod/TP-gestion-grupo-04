@@ -12,8 +12,9 @@ import java.math.RoundingMode;
 
 /**
  * Configuración que se elige al crear el grupo. Sus columnas viven en la tabla {@code groups}.
- * Todavía no se aplica en ningún flujo (votaciones, reservas, gastos): hoy solo se persiste; cada
- * enum documenta cómo se usará. Las combinaciones incoherentes se rechazan acá, de modo que no
+ * Se aplica en gastos (el umbral extraordinario, ver {@link #isExtraordinary}) y en votaciones (el modelo de
+ * votación); todavía no se aplica en reservas: ahí hoy solo se persiste. Cada
+ * enum documenta cómo se usa. Las combinaciones incoherentes se rechazan acá, de modo que no
  * pueda existir un grupo con ellas aunque se salte la validación del DTO.
  */
 @Embeddable
@@ -83,6 +84,14 @@ public class GroupSettings {
         this.reservationLimitPolicy = reservationLimitPolicy;
         this.reservationFixedDaysPerMonth = reservationFixedDaysPerMonth;
         this.extraordinaryExpenseThreshold = extraordinaryExpenseThreshold.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Un gasto es extraordinario si su monto alcanza el umbral (mayor o igual). Un gasto extraordinario no se
+     * crea directamente: se somete a votación.
+     */
+    public boolean isExtraordinary(BigDecimal totalAmount) {
+        return totalAmount.compareTo(extraordinaryExpenseThreshold) >= 0;
     }
 
     /** Un modelo de votación que depende de la propiedad no tiene sentido si el bien se reparte en partes iguales. */

@@ -9,6 +9,7 @@ export const GROUP_PAGES = [
     { key: "reservas", label: "Reservas", pathSuffix: "/reservas" },
     { key: "gastos", label: "Gestión de gastos", pathSuffix: "/gastos" },
     { key: "balance", label: "Balance", pathSuffix: "/balance" },
+    { key: "votaciones", label: "Votaciones", pathSuffix: "/votaciones" },
     { key: "configuracion", label: "Configuración", pathSuffix: "/configuracion" },
 ];
 
@@ -16,7 +17,7 @@ export const GROUP_PAGES = [
 export interface SubrouteConfig {
     title: string;
     description: string;
-    activeTabKey: "reservas" | "gastos" | "balance" | "configuracion";
+    activeTabKey: "reservas" | "gastos" | "balance" | "votaciones" | "configuracion";
     goBackBtn: boolean
 }
 
@@ -37,6 +38,12 @@ export const PAGES_NAVBAR_DATA: Record<string, SubrouteConfig> = {
         title: "...",
         description: "Resumen e historial de gastos en un solo lugar.",
         activeTabKey: "balance",
+        goBackBtn: false
+    },
+    "votaciones": {
+        title: "Votaciones",
+        description: "Votaciones activas del grupo: revisá cada propuesta y emití tu voto.",
+        activeTabKey: "votaciones",
         goBackBtn: false
     },
     "configuracion": {

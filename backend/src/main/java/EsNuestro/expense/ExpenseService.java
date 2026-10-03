@@ -6,6 +6,7 @@ import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.expense.dtos.ExpenseParticipantDTO;
 import EsNuestro.expense.dtos.DebtDTO;
 import EsNuestro.expense.dtos.PaymentDataDTO;
+import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
@@ -33,7 +34,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @Transactional
-class ExpenseService {
+public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final GroupMemberRepository groupMemberRepository;
@@ -50,12 +51,19 @@ class ExpenseService {
         this.groupService = groupService;
     }
 
-    /** Un admin lo crea aprobado (con deudas); un miembro regular lo crea pendiente, sin deudas. */
+    /**
+     * Un admin lo crea aprobado (con deudas); un miembro regular lo crea pendiente, sin deudas.
+     * Un gasto que alcanza el umbral extraordinario del grupo no se crea por acá: se propone como votación
+     * (ver {@code VoteService.createExtraordinaryExpenseVote}).
+     */
     ExpenseDTO createExpense(Long groupId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember creator = groupService.requireActiveMember(groupId, username);
 
-        Expense expense = Expense.register(creator, buildDetails(groupId, data));
+        ExpenseDetails details = buildDetails(groupId, data);
+        requireBelowExtraordinaryThreshold(group, details);
+
+        Expense expense = Expense.register(creator, details);
         // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
         expense.approve(creator);
         return ExpenseDTO.from(expenseRepository.save(expense));
@@ -93,6 +101,10 @@ class ExpenseService {
         requireCanManage(expense, acting);
         requireEditable(expense);
         requireNoPayments(expense);
+
+        // TODO(votaciones): agujero conocido. Esta edición puede llevar el monto por encima del umbral
+        //  extraordinario sin pasar por votación (se crea un gasto chico y se lo edita después). Se cierra
+        //  con el flujo de reportes de gasto (ExpenseReportVote): la edición pasará a ser una votación.
 
         expense.proposeEdit(buildDetails(groupId, data));
         // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
@@ -140,6 +152,8 @@ class ExpenseService {
             );
         }
 
+        // TODO(votaciones): mismo agujero que en updateExpense: reenviar con cambios puede superar el umbral
+        //  extraordinario sin votación. Se cierra con el flujo de reportes de gasto.
         ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, changes);
         if (newDetails == null) {
             requireMembersActive(expense.getDetails());
@@ -321,7 +335,52 @@ class ExpenseService {
         }
     }
 
-    private ExpenseDetails buildDetails(Long groupId, ExpenseDataDTO data) throws ItemNotFoundException {
+    /**
+     * Motivo por el que un gasto propuesto ya no puede registrarse (un involucrado dejó de estar activo o el
+     * reparto se volvió imposible), o vacío si puede. Nunca lanza: lo usa una votación aprobada para decidir si
+     * ejecutarse, y una excepción que cruza este límite transaccional marcaría para rollback a la votación.
+     */
+    public Optional<String> findRegistrationBlocker(ExpenseDetails details) {
+        if (!details.getCreditor().isActive()) {
+            return Optional.of("Member '" + details.getCreditor().getNickname() + "' is no longer an active member of this group");
+        }
+        for (ExpenseParticipant participant : details.getParticipants()) {
+            if (!participant.getMember().isActive()) {
+                return Optional.of("Member '" + participant.getMember().getNickname() + "' is no longer an active member of this group");
+            }
+        }
+        if (!details.getParticipants().isEmpty()) {
+            try {
+                ExpenseSplitCalculator.split(details.getTotalAmount(), details.getSplitMethod(), details.splitParticipants());
+            } catch (ResponseStatusException e) {
+                return Optional.of(e.getReason() == null ? "The expense can no longer be split" : e.getReason());
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Crea un gasto ya aprobado, con sus deudas, a partir de datos propuestos y validados (una copia: no
+     * comparte fila con la propuesta). No chequea el umbral extraordinario: lo usa la votación que lo aprobó.
+     * Quien lo registra es el proponente; no tiene resolutor individual porque lo resolvió el grupo.
+     * Antes hay que consultar {@link #findRegistrationBlocker}.
+     */
+    public Expense registerApprovedExpense(GroupMember proposer, ExpenseDetails proposed) {
+        Expense expense = Expense.register(proposer, proposed.copy());
+        expense.approve(null);
+        return expenseRepository.save(expense);
+    }
+
+    private void requireBelowExtraordinaryThreshold(Group group, ExpenseDetails details) {
+        if (group.getSettings().isExtraordinary(details.getTotalAmount())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The expense reaches the group's extraordinary threshold and must be submitted for a vote"
+            );
+        }
+    }
+
+    public ExpenseDetails buildDetails(Long groupId, ExpenseDataDTO data) throws ItemNotFoundException {
         if (data.receiptUrl() == null || data.receiptUrl().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A receipt is required to register an expense");
         }

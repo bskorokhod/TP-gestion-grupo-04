@@ -22,7 +22,7 @@ export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarPro
     return (
         <div>
             <nav
-                className="grid grid-cols-4 overflow-hidden bg-brand text-center text-brand-foreground"
+                className="grid grid-cols-5 overflow-hidden bg-brand text-center text-brand-foreground"
                 aria-label="Secciones"
             >
                 {GROUP_PAGES.map((page) => {

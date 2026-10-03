@@ -5,7 +5,8 @@ package EsNuestro.group;
  * miembros involucrados en el gasto sometido a votación (acreedor y participantes), no sobre todos
  * los miembros del grupo.
  * <p>
- * Todavía no se aplica en ningún flujo: hoy solo se persiste.
+ * Se aplica en {@code EsNuestro.vote.VoteTally}: una votación se cierra apenas su resultado queda determinado,
+ * y un empate exacto es un rechazo. Los cambios de configuración fuerzan UNANIMOUS sin importar este valor.
  */
 public enum VotingModel {
     /**

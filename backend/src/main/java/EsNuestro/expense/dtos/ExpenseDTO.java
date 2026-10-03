@@ -31,7 +31,7 @@ public record ExpenseDTO(
             String receiptUrl,
             List<Participant> participants
     ) {
-        static Details from(ExpenseDetails details) {
+        public static Details from(ExpenseDetails details) {
             if (details == null) {
                 return null;
             }

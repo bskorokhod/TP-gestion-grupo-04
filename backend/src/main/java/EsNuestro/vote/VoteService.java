@@ -1,0 +1,181 @@
+package EsNuestro.vote;
+
+import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.expense.ExpenseDetails;
+import EsNuestro.expense.ExpenseService;
+import EsNuestro.expense.dtos.ExpenseDataDTO;
+import EsNuestro.group.Group;
+import EsNuestro.group.GroupService;
+import EsNuestro.group.GroupSettings;
+import EsNuestro.group.MemberLeftEvent;
+import EsNuestro.group.VotingModel;
+import EsNuestro.member.GroupMember;
+import EsNuestro.vote.dtos.VoteDTO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * Casos de uso de votaciones. Toda operación que modifica estado toma primero el lock del grupo (el mismo
+ * orden que {@code ExpenseService}), que serializa las votaciones del grupo con los demás cambios de
+ * miembros, porcentajes y gastos. Cuando el resultado de una votación queda determinado se finaliza y se
+ * ejecuta en la misma transacción que el voto que la resolvió.
+ */
+@Service
+@Transactional
+class VoteService {
+
+    private static final int MAX_FAILURE_REASON_LENGTH = 300;
+
+    private final VoteRepository voteRepository;
+    private final GroupService groupService;
+    private final ExpenseService expenseService;
+    private final Map<VoteType, VoteExecutor> executors = new EnumMap<>(VoteType.class);
+
+    @Autowired
+    VoteService(
+            VoteRepository voteRepository,
+            GroupService groupService,
+            ExpenseService expenseService,
+            List<VoteExecutor> voteExecutors
+    ) {
+        this.voteRepository = voteRepository;
+        this.groupService = groupService;
+        this.expenseService = expenseService;
+        voteExecutors.forEach(executor -> executors.put(executor.type(), executor));
+    }
+
+    /**
+     * Abre la votación de un gasto que alcanza el umbral extraordinario. Vota el acreedor y los participantes;
+     * si quien lo propone es uno de ellos, su voto "sí" es automático (y con un único involucrado la votación
+     * se resuelve en el acto).
+     */
+    VoteDTO createExtraordinaryExpenseVote(Long groupId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
+        Group group = groupService.requireGroupForUpdate(groupId);
+        GroupMember proposer = groupService.requireActiveMember(groupId, username);
+
+        ExpenseDetails details = expenseService.buildDetails(groupId, data);
+        GroupSettings settings = group.getSettings();
+        if (!settings.isExtraordinary(details.getTotalAmount())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The expense does not reach the extraordinary threshold; register it as a regular expense"
+            );
+        }
+
+        VotingModel votingModel = settings.getVotingModel();
+        ExtraordinaryExpenseVote vote = new ExtraordinaryExpenseVote(group, proposer, votingModel, details);
+        involvedMembers(details).forEach(member -> vote.addBallot(member, weightOf(votingModel, member)));
+        vote.ballotOf(proposer).ifPresent(ballot -> ballot.cast(VoteChoice.YES));
+        voteRepository.save(vote);
+
+        evaluate(vote);
+        return VoteDTO.from(vote, proposer);
+    }
+
+    /** Votaciones activas visibles para el caller. Las finalizadas no se listan, pero quedan guardadas. */
+    List<VoteDTO> listActiveVotes(Long groupId, String username, VoteType type) throws ItemNotFoundException {
+        GroupMember caller = groupService.requireViewer(groupId, username);
+
+        return voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(groupId, VoteStatus.ACTIVE).stream()
+                .filter(vote -> type == null || vote.getType() == type)
+                .filter(vote -> vote.isVisibleTo(caller))
+                .map(vote -> VoteDTO.from(vote, caller))
+                .toList();
+    }
+
+    /** Emite o cambia el voto del caller mientras la votación esté activa. */
+    VoteDTO castBallot(Long groupId, Long voteId, VoteChoice choice, String username) throws ItemNotFoundException {
+        groupService.requireGroupForUpdate(groupId);
+        GroupMember caller = groupService.requireActiveMember(groupId, username);
+        Vote vote = requireVote(groupId, voteId);
+
+        if (!vote.isVisibleTo(caller)) {
+            throw new ItemNotFoundException("vote", voteId);
+        }
+        if (!vote.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The vote is already finalized");
+        }
+        Ballot ballot = vote.ballotOf(caller)
+                .orElseThrow(() -> new AccessDeniedException("You are not one of the members involved in this vote"));
+
+        ballot.cast(choice);
+        evaluate(vote);
+        return VoteDTO.from(vote, caller);
+    }
+
+    /**
+     * Quien deja el grupo deja de contar en sus votaciones activas, lo que puede dejar su resultado
+     * determinado. Corre en la transacción de {@code GroupService.leaveGroup}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onMemberLeft(MemberLeftEvent event) {
+        voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
+                .filter(vote -> vote.hasBallotOf(event.memberId()))
+                .forEach(this::evaluate);
+    }
+
+    private void evaluate(Vote vote) {
+        VoteTally.Result result = VoteTally.evaluate(vote.getVotingModel(), vote.tallyEntries());
+        switch (result) {
+            case OPEN -> {
+            }
+            case REJECTED -> vote.finalizeWith(VoteOutcome.REJECTED, null);
+            case APPROVED -> executeApproved(vote);
+        }
+    }
+
+    private void executeApproved(Vote vote) {
+        VoteExecutor executor = executors.get(vote.getType());
+        Optional<String> failure = executor == null
+                ? Optional.of("Votes of type " + vote.getType() + " cannot be executed yet")
+                : executor.execute(vote);
+
+        if (failure.isPresent()) {
+            vote.finalizeWith(VoteOutcome.EXECUTION_FAILED, truncate(failure.get()));
+        } else {
+            vote.finalizeWith(VoteOutcome.APPROVED, null);
+        }
+    }
+
+    /** Acreedor y participantes, sin repetidos y en orden. */
+    private List<GroupMember> involvedMembers(ExpenseDetails details) {
+        Map<Long, GroupMember> byId = new LinkedHashMap<>();
+        byId.put(details.getCreditor().getId(), details.getCreditor());
+        details.getParticipants().forEach(participant ->
+                byId.putIfAbsent(participant.getMember().getId(), participant.getMember()));
+        return List.copyOf(byId.values());
+    }
+
+    /** El peso solo cuenta en la mayoría ponderada; se fija ahora y no cambia si luego cambian los porcentajes. */
+    private BigDecimal weightOf(VotingModel votingModel, GroupMember member) {
+        if (votingModel != VotingModel.OWNERSHIP_WEIGHTED_MAJORITY) {
+            return BigDecimal.ONE;
+        }
+        return member.getPercentage() == null ? BigDecimal.ZERO : member.getPercentage();
+    }
+
+    private Vote requireVote(Long groupId, Long voteId) throws ItemNotFoundException {
+        Vote vote = voteRepository.findById(voteId)
+                .orElseThrow(() -> new ItemNotFoundException("vote", voteId));
+        if (!vote.getGroup().getId().equals(groupId)) {
+            throw new ItemNotFoundException("vote", voteId);
+        }
+        return vote;
+    }
+
+    private String truncate(String text) {
+        return text.length() <= MAX_FAILURE_REASON_LENGTH ? text : text.substring(0, MAX_FAILURE_REASON_LENGTH);
+    }
+}
