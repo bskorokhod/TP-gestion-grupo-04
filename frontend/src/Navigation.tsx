@@ -6,6 +6,7 @@ import {LoginScreen} from "@/screens/Auth/LoginScreen.tsx";
 import {SignupScreen} from "@/screens/Auth/SignupScreen.tsx";
 import {GroupSelectionScreen} from "@/screens/GroupSelectionScreen.tsx";
 import {ExpensesGroupScreen} from "@/screens/Group/ExpensesGroupScreen.tsx";
+import {ReservationsGroupScreen} from "@/screens/Group/ReservationsGroupScreen.tsx";
 import {GroupUnavailableScreen} from "@/screens/GroupUnavailableScreen.tsx";
 import {UnderConstructionGroupScreen} from "@/screens/UnderConstructionGroupScreen";
 import {ConfigurationScreen} from "@/screens/Admin/ConfigurationScreen.tsx";
@@ -55,7 +56,7 @@ const GroupArea = () => {
                     <ExpensesGroupScreen/>
                 </Route>
                 <Route path="/grupos/:code/reservas">
-                    <UnderConstructionGroupScreen/>
+                    <ReservationsGroupScreen/>
                 </Route>
                 <Route path="/grupos/:code/balance">
                     <UnderConstructionGroupScreen/>
