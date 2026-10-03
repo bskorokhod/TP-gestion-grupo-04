@@ -98,11 +98,6 @@ function describeProposedValue(change: ConfigChange): string {
 function ConfigChangeDetails({ change }: { change: ConfigChange }): ReactElement {
     return (
         <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-black">Cambio de configuración</h3>
-                <p className="text-sm text-ink-soft">Requiere la aprobación unánime de los miembros del grupo.</p>
-            </div>
-
             <dl className="grid gap-4 sm:grid-cols-2">
                 <Detail label="Configuración">{CONFIG_SETTING_LABEL[change.setting]}</Detail>
                 <Detail label="Nuevo valor">{describeProposedValue(change)}</Detail>
