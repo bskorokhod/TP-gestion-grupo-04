@@ -90,7 +90,6 @@ export const ExpenseDataSchema = z.object({
   title: z.string().trim().min(1).max(200),         // ← nuevo, obligatorio
   description: z.string().trim().min(1).max(200),   // ← sigue obligatorio
   totalAmount: z.number().min(0.01),
-  creditorId: z.number(),
   splitMethod: SplitMethodSchema,
   participants: z
       .array(

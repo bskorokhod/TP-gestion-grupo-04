@@ -5,7 +5,7 @@ import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
 import type { Member } from "@/models/Group.ts";
-import { useGetGroupMembers } from "@/services/GroupServices.ts";
+import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 
 import { Field } from "./Field";
@@ -23,6 +23,7 @@ export interface NewExpenseModalProps {
 
 export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): ReactElement {
   const { data: members = [] } = useGetGroupMembers(groupId, "ACTIVE");
+  const me = useMyMember(groupId);
   const createExpense = useCreateExpense(groupId);
   const { showSchemaError, showApiError, showSuccessToast } = useFormToasts();
 
@@ -33,14 +34,11 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
   const [splitMethod, setSplitMethod] = useState<SplitMethod>("PROPORTIONAL");
 
   const [participantIds, setParticipantIds] = useState<Set<number>>(new Set());
-  const [responsibleId, setResponsibleId] = useState<number | null>(null);
 
   const [isParticipantPickerOpen, setIsParticipantPickerOpen] = useState<boolean>(false);
-  const [isResponsiblePickerOpen, setIsResponsiblePickerOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const responsible = members.find((member) => member.id === responsibleId) ?? null;
-  const assignableMembers = members.filter((member) => member.id !== responsibleId);
+  const assignableMembers = me ? members.filter((member) => member.id !== me.id) : [];
   const participants = assignableMembers.filter((member) => participantIds.has(member.id));
   const pickableParticipants = assignableMembers.filter(
       (member) => !participantIds.has(member.id),
@@ -63,17 +61,6 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
     setParticipantIds(new Set(assignableMembers.map((member) => member.id)));
   };
 
-  const selectResponsible = (member: Member): void => {
-    setResponsibleId(member.id);
-    setParticipantIds((current) => {
-      if (!current.has(member.id)) return current;
-      const next = new Set(current);
-      next.delete(member.id);
-      return next;
-    });
-    setIsResponsiblePickerOpen(false);
-  };
-
   const handleSubmit = async (): Promise<void> => {
     if (!title.trim()) {
       showSchemaError("El título del gasto es obligatorio");
@@ -91,8 +78,8 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
       return;
     }
 
-    if (!responsible) {
-      showSchemaError("Elegí quién está a cargo del gasto");
+    if (!me) {
+      showSchemaError("No pudimos identificar tu membresía en este grupo");
       return;
     }
 
@@ -109,7 +96,6 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
         title: title.trim(),
         description: description.trim(),
         totalAmount: parsedAmount,
-        creditorId: responsible.id,
         splitMethod,
         participants: participants.map((member) => ({ memberId: member.id })),
         receiptUrl,
@@ -187,7 +173,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
 
             <Field
                 label="Personas a quienes se les asigna"
-                hint="Agregá al menos una persona; el responsable no puede figurar acá"
+                hint="Agregá al menos una persona; vos quedás como acreedor/a y no podés figurar acá"
             >
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -224,34 +210,13 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
 
             <Field
                 label="Persona a cargo del gasto"
-                hint="A quién se le debe la plata — obligatorio, solo una persona"
+                hint="El gasto queda a tu nombre: la plata se te debe a vos"
             >
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  {responsible ? (
-                      <PersonChip
-                          name={responsible.nickname}
-                          color={responsible.color}
-                          photoUrl={responsible.photoUrl}
-                          onRemove={() => setResponsibleId(null)}
-                      />
-                  ) : null}
-
-                  <ChipButton
-                      label={responsible ? "Cambiar persona" : "Elegir persona"}
-                      onClick={() => setIsResponsiblePickerOpen((open) => !open)}
-                  />
-                </div>
-
-                {isResponsiblePickerOpen ? (
-                    <MemberPicker
-                        members={members.filter((member) => member.id !== responsibleId)}
-                        onSelect={selectResponsible}
-                        onClose={() => setIsResponsiblePickerOpen(false)}
-                        emptyLabel="No hay miembros activos en el grupo"
-                    />
-                ) : null}
-              </div>
+              {me ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PersonChip name={me.nickname} color={me.color} photoUrl={me.photoUrl} />
+                  </div>
+              ) : null}
             </Field>
           </div>
         </div>

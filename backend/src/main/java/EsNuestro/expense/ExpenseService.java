@@ -55,7 +55,7 @@ class ExpenseService {
         groupService.requireGroupForUpdate(groupId);
         GroupMember creator = groupService.requireActiveMember(groupId, username);
 
-        Expense expense = Expense.register(creator, buildDetails(groupId, data));
+        Expense expense = Expense.register(creator, buildDetails(groupId, creator, data));
         // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
         expense.approve(creator);
         return ExpenseDTO.from(expenseRepository.save(expense));
@@ -94,7 +94,7 @@ class ExpenseService {
         requireEditable(expense);
         requireNoPayments(expense);
 
-        expense.proposeEdit(buildDetails(groupId, data));
+        expense.proposeEdit(buildDetails(groupId, acting, data));
         // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
         expense.approve(acting);
         return ExpenseDTO.from(expense);
@@ -140,7 +140,7 @@ class ExpenseService {
             );
         }
 
-        ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, changes);
+        ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, acting, changes);
         if (newDetails == null) {
             requireMembersActive(expense.getDetails());
         }
@@ -321,7 +321,11 @@ class ExpenseService {
         }
     }
 
-    private ExpenseDetails buildDetails(Long groupId, ExpenseDataDTO data) throws ItemNotFoundException {
+    /**
+     * El acreedor es siempre quien registra (o edita, o reenvía) el gasto: solo el creador puede
+     * gestionarlo, así que {@code creator} es también quien pagó. Por eso no puede ser deudor del suyo.
+     */
+    private ExpenseDetails buildDetails(Long groupId, GroupMember creator, ExpenseDataDTO data) throws ItemNotFoundException {
         if (data.receiptUrl() == null || data.receiptUrl().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A receipt is required to register an expense");
         }
@@ -332,7 +336,6 @@ class ExpenseService {
 
         Map<Long, GroupMember> membersById = groupMemberRepository.findByGroup_Id(groupId).stream()
                 .collect(Collectors.toMap(GroupMember::getId, Function.identity()));
-        GroupMember creditor = requireActiveGroupMember(membersById, data.creditorId());
 
         boolean custom = data.splitMethod() == SplitMethod.CUSTOM;
         Set<Long> seenMemberIds = new HashSet<>();
@@ -341,9 +344,9 @@ class ExpenseService {
             if (!seenMemberIds.add(entry.memberId())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate participant " + entry.memberId());
             }
-            if (entry.memberId().equals(creditor.getId())) {
+            if (entry.memberId().equals(creator.getId())) {
                 throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "The creditor is already implicitly part of the split and cannot be listed as a participant"
+                        HttpStatus.BAD_REQUEST, "The creator is the creditor of the expense and cannot be listed as a participant"
                 );
             }
             if (!custom && entry.percentage() != null) {
@@ -361,7 +364,7 @@ class ExpenseService {
                 : data.description().strip();
 
         ExpenseDetails details = new ExpenseDetails(
-                title, description, total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
+                title, description, total, data.splitMethod(), creator, data.receiptUrl().strip(), participants
         );
 
         // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.
