@@ -12,8 +12,9 @@ import java.math.RoundingMode;
 
 /**
  * Configuración que se elige al crear el grupo. Sus columnas viven en la tabla {@code groups}.
- * Todavía no se aplica en ningún flujo (votaciones, reservas, gastos): hoy solo se persiste; cada
- * enum documenta cómo se usará. Las combinaciones incoherentes se rechazan acá, de modo que no
+ * Hoy solo se aplica en gastos (en un grupo EQUAL se rechaza el reparto proporcional); el resto de
+ * las opciones (votaciones, reservas) solo se persiste: cada enum documenta cómo se usará. Las
+ * combinaciones incoherentes se rechazan acá, de modo que no
  * pueda existir un grupo con ellas aunque se salte la validación del DTO.
  */
 @Embeddable

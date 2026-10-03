@@ -6,6 +6,8 @@ import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.expense.dtos.ExpenseParticipantDTO;
 import EsNuestro.expense.dtos.DebtDTO;
 import EsNuestro.expense.dtos.PaymentDataDTO;
+import EsNuestro.group.DistributionMode;
+import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
@@ -193,7 +195,7 @@ class ExpenseService {
         long pending = 0;
 
         for (Expense expense : expenses) {
-            if (expense.isInvolved(caller)) {
+            if (!expense.isInvolved(caller)) {
                 continue;
             }
             if (expense.getStatus() == ExpenseStatus.PENDING_APPROVAL) {
@@ -333,11 +335,11 @@ class ExpenseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The expense needs a title");
         }
         BigDecimal total = requireValidAmount(data.totalAmount());
+        requireSplitMethodAllowed(creator.getGroup(), data.splitMethod());
 
         Map<Long, GroupMember> membersById = groupMemberRepository.findByGroup_Id(groupId).stream()
                 .collect(Collectors.toMap(GroupMember::getId, Function.identity()));
 
-        boolean custom = data.splitMethod() == SplitMethod.CUSTOM;
         Set<Long> seenMemberIds = new HashSet<>();
         List<ExpenseParticipant> participants = new ArrayList<>();
         for (ExpenseParticipantDTO entry : data.participants()) {
@@ -349,13 +351,7 @@ class ExpenseService {
                         HttpStatus.BAD_REQUEST, "The creator is the creditor of the expense and cannot be listed as a participant"
                 );
             }
-            if (!custom && entry.percentage() != null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Percentages are only allowed when the split method is CUSTOM"
-                );
-            }
-            GroupMember member = requireActiveGroupMember(membersById, entry.memberId());
-            participants.add(new ExpenseParticipant(member, custom ? entry.percentage() : null));
+            participants.add(new ExpenseParticipant(requireActiveGroupMember(membersById, entry.memberId())));
         }
 
         String title = data.title().strip();
@@ -369,16 +365,24 @@ class ExpenseService {
 
         // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.
         if (!participants.isEmpty()) {
-            if (custom) {
-                ExpenseSplitCalculator.requireValidCustomPercentages(participants);
-            }
             // Simulacro: falla ya (y no recién al aprobar) si el reparto es imposible, p. ej. proporcional
             // entre participantes (+ acreedor) que tienen todos 0% de posesión. Se recalcula al aprobar,
-            // sobre el mismo set (participantes + acreedor en EQUAL/PROPORTIONAL) que usa regenerateDebts().
+            // sobre el mismo set (participantes + acreedor) que usa regenerateDebts().
             ExpenseSplitCalculator.split(total, data.splitMethod(), details.splitParticipants());
         }
 
         return details;
+    }
+
+    /** En un grupo EQUAL no existe el porcentaje de propiedad, así que no hay con qué repartir proporcionalmente. */
+    private void requireSplitMethodAllowed(Group group, SplitMethod method) {
+        DistributionMode distribution = group.getSettings().getDistributionMode();
+        if (!distribution.hasOwnershipPercentages() && method.dependsOnOwnership()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Split method " + method + " is not allowed in groups with " + distribution + " distribution"
+            );
+        }
     }
 
     private BigDecimal requireValidAmount(BigDecimal amount) {

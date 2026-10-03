@@ -70,17 +70,12 @@ public class ExpenseDetails {
     }
 
     /**
-     * Participantes sobre los que se calcula el reparto: en EQUAL y PROPORTIONAL se suma el
-     * acreedor (su parte se descarta después, al generar las deudas, pero primero tiene que entrar
-     * en el denominador). En CUSTOM se devuelven los participantes tal cual: los porcentajes ya son
-     * explícitos y suman 100 entre ellos, sin una porción implícita para el acreedor.
+     * Participantes sobre los que se calcula el reparto: se suma el acreedor (su parte se descarta
+     * después, al generar las deudas, pero primero tiene que entrar en el denominador).
      */
     List<ExpenseParticipant> splitParticipants() {
-        if (splitMethod == SplitMethod.CUSTOM) {
-            return participants;
-        }
         List<ExpenseParticipant> withCreditor = new ArrayList<>(participants);
-        withCreditor.add(new ExpenseParticipant(creditor, null));
+        withCreditor.add(new ExpenseParticipant(creditor));
         return withCreditor;
     }
 }

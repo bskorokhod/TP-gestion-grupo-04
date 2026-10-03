@@ -5,7 +5,7 @@ import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
 import type { Member } from "@/models/Group.ts";
-import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
+import { useGetGroup, useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 
 import { Field } from "./Field";
@@ -24,6 +24,7 @@ export interface NewExpenseModalProps {
 export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): ReactElement {
   const { data: members = [] } = useGetGroupMembers(groupId, "ACTIVE");
   const me = useMyMember(groupId);
+  const { data: group } = useGetGroup(groupId);
   const createExpense = useCreateExpense(groupId);
   const { showSchemaError, showApiError, showSuccessToast } = useFormToasts();
 
@@ -37,6 +38,10 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
 
   const [isParticipantPickerOpen, setIsParticipantPickerOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const isEqualDistribution = group?.settings.distributionMode === "EQUAL";
+  // En un grupo EQUAL el reparto proporcional no existe: el método elegido en el estado se ignora.
+  const effectiveSplitMethod: SplitMethod = isEqualDistribution ? "EQUAL" : splitMethod;
 
   const assignableMembers = me ? members.filter((member) => member.id !== me.id) : [];
   const participants = assignableMembers.filter((member) => participantIds.has(member.id));
@@ -83,6 +88,11 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
       return;
     }
 
+    if (!group) {
+      showSchemaError("No pudimos cargar la configuración del grupo");
+      return;
+    }
+
     if (participants.length === 0) {
       showSchemaError("Asigná al menos una persona al gasto");
       return;
@@ -96,7 +106,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
         title: title.trim(),
         description: description.trim(),
         totalAmount: parsedAmount,
-        splitMethod,
+        splitMethod: effectiveSplitMethod,
         participants: participants.map((member) => ({ memberId: member.id })),
         receiptUrl,
       });
@@ -168,7 +178,15 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
                 label="Definir reparto"
                 hint="Cómo se divide el gasto entre las personas asignadas"
             >
-              <SplitMethodSelector value={splitMethod} onChange={setSplitMethod} />
+              {isEqualDistribution ? (
+                  <p className="text-sm text-modal-ink">
+                    El gasto se divide en partes iguales entre vos y las personas asignadas.
+                  </p>
+              ) : null}
+
+              {group && !isEqualDistribution ? (
+                  <SplitMethodSelector value={splitMethod} onChange={setSplitMethod} />
+              ) : null}
             </Field>
 
             <Field

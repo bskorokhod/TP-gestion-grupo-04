@@ -11,7 +11,7 @@ export const ExpenseStatusSchema = z.enum([
 ]);
 export type ExpenseStatus = z.infer<typeof ExpenseStatusSchema>;
 
-export const SplitMethodSchema = z.enum(["EQUAL", "PROPORTIONAL", "CUSTOM"]);
+export const SplitMethodSchema = z.enum(["EQUAL", "PROPORTIONAL"]);
 export type SplitMethod = z.infer<typeof SplitMethodSchema>;
 
 export const ReviewOutcomeSchema = z.enum(["APPROVED", "REJECTED"]);
@@ -37,7 +37,6 @@ export type ExpenseMember = z.infer<typeof ExpenseMemberSchema>;
 
 export const ExpenseParticipantSchema = z.object({
   member: ExpenseMemberSchema,
-  customPercentage: z.number().nullable().optional(),
 });
 export type ExpenseParticipant = z.infer<typeof ExpenseParticipantSchema>;
 
@@ -91,14 +90,7 @@ export const ExpenseDataSchema = z.object({
   description: z.string().trim().min(1).max(200),   // ← sigue obligatorio
   totalAmount: z.number().min(0.01),
   splitMethod: SplitMethodSchema,
-  participants: z
-      .array(
-          z.object({
-            memberId: z.number(),
-            percentage: z.number().min(0).max(100).nullable().optional(),
-          }),
-      )
-      .nonempty(),
+  participants: z.array(z.object({ memberId: z.number() })).nonempty(),
   receiptUrl: z.string().url().max(2048),
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;

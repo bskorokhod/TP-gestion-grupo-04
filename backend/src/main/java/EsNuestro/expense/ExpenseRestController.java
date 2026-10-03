@@ -38,7 +38,7 @@ class ExpenseRestController {
     @Operation(summary = "Registrar un gasto; queda aprobado si lo registra un admin y pendiente de aprobación si no")
     @ResponseStatus(HttpStatus.CREATED)
     @ApiResponse(responseCode = "404", description = "Grupo o miembro no encontrado", content = @Content)
-    @ApiResponse(responseCode = "409", description = "Participante o acreedor inactivo, porcentajes inválidos o reparto imposible", content = @Content)
+    @ApiResponse(responseCode = "409", description = "Participante inactivo, método de reparto no permitido por el grupo o reparto imposible", content = @Content)
     ExpenseDTO create(
             @PathVariable Long groupId,
             @Valid @NonNull @RequestBody ExpenseDataDTO data,
