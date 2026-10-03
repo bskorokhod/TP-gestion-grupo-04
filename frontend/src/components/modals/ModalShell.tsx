@@ -1,9 +1,10 @@
-import { useEffect, type FormEvent, type ReactNode } from "react";
+import { type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/Button.tsx";
 import { CloseIcon } from "@/components/Icons.tsx";
 import {cn} from "@/lib/cn.ts";
+import { useDismissibleModal } from "./useDismissibleModal";
 
 interface ModalShellProps {
     title: string;
@@ -16,23 +17,7 @@ interface ModalShellProps {
 }
 
 export function ModalShell({title, children, submitLabel, onClose, onSubmit, submitClassName, modalClassName}: ModalShellProps) {
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape" && onClose) {
-                onClose();
-            }
-        };
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [onClose]);
-
-    useEffect(() => {
-        const originalOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => {
-            document.body.style.overflow = originalOverflow;
-        };
-    }, []);
+    useDismissibleModal(onClose);
 
     return createPortal(
         <div
