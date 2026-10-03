@@ -1,44 +1,17 @@
-import { useState, type FormEvent } from "react";
+import {type FormEvent, useState} from "react";
 
-import SelectField, { type SelectOption } from "@/components/Forms/SelectField.tsx";
+import SelectField, {type SelectOption} from "@/components/Forms/SelectField.tsx";
 import TextField from "@/components/Forms/TextField.tsx";
-import { ModalShell } from "@/components/modals/ModalShell.tsx";
-import {
-    GroupCreateSchema,
-    MAX_FIXED_DAYS_PER_MONTH,
-    MIN_FIXED_DAYS_PER_MONTH,
-    isReservationPolicyAllowed,
-    isVotingModelAllowed,
-    type DistributionMode,
-    type GroupCreate,
-    type ReservationLimitPolicy,
-    type VotingModel,
-} from "@/models/Group.ts";
-import { useFormToasts } from "@/hooks/useFormToasts";
+import {ModalShell} from "@/components/modals/ModalShell.tsx";
+import {type DistributionMode, type GroupCreate, GroupCreateSchema, isReservationPolicyAllowed, isVotingModelAllowed,
+    MAX_FIXED_DAYS_PER_MONTH, MIN_FIXED_DAYS_PER_MONTH, type ReservationLimitPolicy, type VotingModel} from "@/models/Group.ts";
+import {useFormToasts} from "@/hooks/useFormToasts";
+import {DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS} from "@/constants/config_modals.ts";
 
 export interface CreateGroupModalProps {
     onClose: () => void;
     onCreate: (data: GroupCreate) => void | Promise<void>;
 }
-
-const REQUIRES_PERCENTAGE_NOTE = " (requiere reparto porcentual)";
-
-const DISTRIBUTION_OPTIONS: ReadonlyArray<{ value: DistributionMode; label: string }> = [
-    { value: "EQUAL", label: "Equitativo (partes iguales)" },
-    { value: "PERCENTAGE", label: "Porcentual (según % de propiedad)" },
-];
-
-const VOTING_OPTIONS: ReadonlyArray<{ value: VotingModel; label: string }> = [
-    { value: "SIMPLE_MAJORITY", label: "Mayoría simple" },
-    { value: "OWNERSHIP_WEIGHTED_MAJORITY", label: "Mayoría proporcional al % de propiedad" },
-    { value: "UNANIMOUS", label: "Unánime" },
-];
-
-const RESERVATION_OPTIONS: ReadonlyArray<{ value: ReservationLimitPolicy; label: string }> = [
-    { value: "EQUAL", label: "Equitativo" },
-    { value: "OWNERSHIP_PROPORTIONAL", label: "Proporcional al % de propiedad" },
-    { value: "FIXED_DAYS_PER_MONTH", label: "Cantidad fija de días por mes" },
-];
 
 /** "" -> undefined (para que Zod lo reporte como faltante); si no, el número (NaN incluido). */
 function parseOptionalNumber(raw: string): number | undefined {
@@ -49,19 +22,16 @@ function parseOptionalNumber(raw: string): number | undefined {
 export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) => {
     const { showSchemaError } = useFormToasts();
 
-    // "" = todavía sin elegir. Ninguna configuración tiene valor por defecto: hay que elegirlas.
     const [distribution, setDistribution] = useState<DistributionMode | "">("");
     const [voting, setVoting] = useState<VotingModel | "">("");
     const [reservation, setReservation] = useState<ReservationLimitPolicy | "">("");
     const [fixedDays, setFixedDays] = useState("");
     const [threshold, setThreshold] = useState("");
 
-    // Todo lo que sigue al modo de repartición queda bloqueado hasta elegirlo.
     const settingsLocked = distribution === "";
 
     function handleDistributionChange(next: DistributionMode) {
         setDistribution(next);
-        // Si lo ya elegido deja de ser coherente con el nuevo reparto, se limpia para que se vuelva a elegir.
         if (voting !== "" && !isVotingModelAllowed(next, voting)) setVoting("");
         if (reservation !== "" && !isReservationPolicyAllowed(next, reservation)) {
             setReservation("");

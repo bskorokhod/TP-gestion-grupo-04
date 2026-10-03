@@ -3,7 +3,7 @@ package EsNuestro.group;
 /**
  * Restricción de reservas: cantidad máxima de días por mes que un miembro puede reservar el bien.
  * <p>
- * Todavía no se aplica en ningún flujo: hoy solo se persiste.
+ * Se aplica en {@code ReservationService}, al validar el límite mensual de días de cada reserva.
  */
 public enum ReservationLimitPolicy {
     /**

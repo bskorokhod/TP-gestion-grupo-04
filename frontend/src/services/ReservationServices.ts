@@ -1,15 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useApiClient } from "@/hooks/useApiClient.ts";
-import {
-    CancellationRequest,
-    CancellationRequestCreateSchema,
-    CancellationRequestSchema,
-    Reservation,
-    ReservationCreate,
-    ReservationCreateSchema,
-    ReservationSchema,
-} from "@/models/Reservation.ts";
+import { CancellationRequest, CancellationRequestCreateSchema, CancellationRequestSchema, Reservation, ReservationCreate, ReservationCreateSchema, ReservationSchema, } from "@/models/Reservation.ts";
+import { RESERVATIONS_REFETCH_INTERVAL_MS } from "@/constants/services.ts";
 
 const reservationsKey = (groupId: number) => ["groups", groupId, "reservations"] as const;
 const cancellationRequestsKey = (groupId: number) =>
@@ -20,7 +13,7 @@ export function useGetReservations(groupId: number) {
     return useQuery({
         queryKey: reservationsKey(groupId),
         enabled: Number.isFinite(groupId) && groupId > 0,
-        refetchInterval: 5000,
+        refetchInterval: RESERVATIONS_REFETCH_INTERVAL_MS,
         refetchOnWindowFocus: true,
         queryFn: async (): Promise<Reservation[]> => {
             const data = await api.get(`/groups/${groupId}/reservations`);
@@ -62,9 +55,9 @@ export function useRequestReservationCancellation(groupId: number) {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async ({
-            reservationId,
-            reason,
-        }: { reservationId: number; reason: string }): Promise<CancellationRequest> => {
+                               reservationId,
+                               reason,
+                           }: { reservationId: number; reason: string }): Promise<CancellationRequest> => {
             const validated = CancellationRequestCreateSchema.parse({ reason });
             const data = await api.post(
                 `/groups/${groupId}/reservations/${reservationId}/cancellation-requests`,

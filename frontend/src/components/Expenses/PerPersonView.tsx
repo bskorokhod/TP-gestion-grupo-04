@@ -1,18 +1,14 @@
 import { useState, type ReactElement } from "react";
 
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
-import {
-    EmptyState,
-    PersonBalanceCard,
-    type BalanceStatus,
-    type PersonBalanceCardProps,
-} from "@/components/Expenses/ExpensesCard.tsx";
+import {EmptyState, PersonBalanceCard, type PersonBalanceCardProps,} from "@/components/Expenses/ExpensesCard.tsx";
 import { NewExpenseModal } from "@/components/modals";
 import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
-
 import { useGetBalancesByPerson } from "@/services/ExpenseServices.ts";
 import type { BalanceByPerson } from "@/models/Expense.ts";
+import type { BalanceStatus } from "@/constants/expenses.ts";
 import { currency } from "@/lib/format";
+
 
 interface PayTarget {
     readonly expenseId: number;

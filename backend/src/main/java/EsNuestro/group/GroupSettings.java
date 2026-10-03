@@ -11,10 +11,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * Configuración que se elige al crear el grupo. Sus columnas viven en la tabla {@code groups}.
- * Todavía no se aplica en ningún flujo (votaciones, reservas, gastos): hoy solo se persiste; cada
- * enum documenta cómo se usará. Las combinaciones incoherentes se rechazan acá, de modo que no
- * pueda existir un grupo con ellas aunque se salte la validación del DTO.
+ * Configuración del grupo. Se elige al crear el grupo y después solo cambia por una votación unánime de
+ * configuración (ver {@code ConfigChangeVote}), que la reemplaza por la copia que devuelven los métodos
+ * {@code with...}. Sus columnas viven en la tabla {@code groups}.
+ * Se aplica en gastos (el umbral extraordinario, ver {@link #isExtraordinary}), en votaciones (el modelo de
+ * votación) y en reservas (el límite mensual de días). Cada enum documenta cómo se usa. Las
+ * combinaciones incoherentes se rechazan acá, de modo que no pueda existir un grupo con ellas aunque se
+ * salte la validación del DTO.
  */
 @Embeddable
 @NoArgsConstructor
@@ -83,6 +86,47 @@ public class GroupSettings {
         this.reservationLimitPolicy = reservationLimitPolicy;
         this.reservationFixedDaysPerMonth = reservationFixedDaysPerMonth;
         this.extraordinaryExpenseThreshold = extraordinaryExpenseThreshold.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Un gasto es extraordinario si su monto alcanza el umbral (mayor o igual). Un gasto extraordinario no se
+     * crea directamente: se somete a votación.
+     */
+    public boolean isExtraordinary(BigDecimal totalAmount) {
+        return totalAmount.compareTo(extraordinaryExpenseThreshold) >= 0;
+    }
+
+    /**
+     * Copia con otro modo de repartición. Las cuatro variantes {@code with...} validan la combinación
+     * resultante con el constructor y lanzan {@link IllegalArgumentException} si es incoherente.
+     */
+    public GroupSettings withDistributionMode(DistributionMode newDistributionMode) {
+        return new GroupSettings(
+                newDistributionMode, votingModel, reservationLimitPolicy,
+                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold
+        );
+    }
+
+    /** Copia con otro modelo de aprobación de votaciones. */
+    public GroupSettings withVotingModel(VotingModel newVotingModel) {
+        return new GroupSettings(
+                distributionMode, newVotingModel, reservationLimitPolicy,
+                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold
+        );
+    }
+
+    /** Copia con otra restricción de reservas; los días fijos van si y solo si es FIXED_DAYS_PER_MONTH. */
+    public GroupSettings withReservationLimit(ReservationLimitPolicy newPolicy, Integer newFixedDaysPerMonth) {
+        return new GroupSettings(
+                distributionMode, votingModel, newPolicy, newFixedDaysPerMonth, extraordinaryExpenseThreshold
+        );
+    }
+
+    /** Copia con otro monto a partir del cual un gasto es extraordinario. */
+    public GroupSettings withExtraordinaryExpenseThreshold(BigDecimal newThreshold) {
+        return new GroupSettings(
+                distributionMode, votingModel, reservationLimitPolicy, reservationFixedDaysPerMonth, newThreshold
+        );
     }
 
     /** Un modelo de votación que depende de la propiedad no tiene sentido si el bien se reparte en partes iguales. */

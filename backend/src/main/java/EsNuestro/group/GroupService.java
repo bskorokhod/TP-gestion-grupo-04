@@ -14,6 +14,7 @@ import EsNuestro.member.dtos.PercentagesUpdateDTO;
 import EsNuestro.user.User;
 import EsNuestro.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class GroupService {
     private final UserRepository userRepository;
     private final JoinCodeGenerator joinCodeGenerator;
     private final DebtRepository debtRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final Random colorRandom = new Random();
 
     @Autowired
@@ -42,13 +44,15 @@ public class GroupService {
             GroupMemberRepository groupMemberRepository,
             UserRepository userRepository,
             JoinCodeGenerator joinCodeGenerator,
-            DebtRepository debtRepository
+            DebtRepository debtRepository,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.userRepository = userRepository;
         this.joinCodeGenerator = joinCodeGenerator;
         this.debtRepository = debtRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     GroupDTO createGroup(GroupCreateDTO data, String founderEmail) {
@@ -153,6 +157,8 @@ public class GroupService {
 
         requireNoUnsettledDebts(membership);
         membership.deactivateForLeaving();
+        // Las votaciones activas dejan de contar a este miembro y pueden quedar resueltas.
+        eventPublisher.publishEvent(new MemberLeftEvent(groupId, membership.getId()));
     }
 
     MemberDTO changeNickname(Long groupId, String email, String newNickname) throws ItemNotFoundException {
