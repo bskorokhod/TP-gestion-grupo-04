@@ -13,12 +13,11 @@ import {CONFIG_SETTING_LABEL, DISTRIBUTION_MODE_LABEL, RESERVATION_POLICY_LABEL,
 import { useIsGroupStopped } from "@/contexts/GroupContext.tsx";
 import { GROUP_STOPPED_VOTE_TITLE } from "@/constants/group.ts";
 
-function MemberChip({ member, suffix }: { member: ExpenseMember; suffix?: string }): ReactElement {
+function MemberChip({ member }: { member: ExpenseMember }): ReactElement {
     return (
         <span className="inline-flex items-center gap-2 rounded-full bg-muted py-1 pl-1 pr-3 text-sm">
             <Avatar name={member.nickname} color={member.color} photoUrl={member.photoUrl} size="sm" />
             <span className="font-medium">{member.nickname}</span>
-            {suffix ? <span className="text-ink-soft">{suffix}</span> : null}
         </span>
     );
 }
@@ -52,11 +51,7 @@ function ExpenseProposalDetails({ proposal }: { proposal: ProposedExpense }): Re
                         <span className="text-ink-soft">Nadie más: lo cubre quien está a cargo</span>
                     ) : (
                         proposal.participants.map((participant) => (
-                            <MemberChip
-                                key={participant.member.id}
-                                member={participant.member}
-                                suffix={participant.customPercentage != null ? `${participant.customPercentage}%` : undefined}
-                            />
+                            <MemberChip key={participant.member.id} member={participant.member} />
                         ))
                     )}
                 </Detail>

@@ -62,11 +62,10 @@ public class ExpenseService {
         GroupMember creator = groupService.requireActiveMember(groupId, username);
         groupService.requireRunning(group);
 
-        ExpenseDetails details = buildDetails(groupId, data);
+        ExpenseDetails details = buildDetails(groupId, creator, data);
         requireBelowExtraordinaryThreshold(group, details);
 
-        // Expense expense = Expense.register(creator, details);
-        Expense expense = Expense.register(creator, buildDetails(groupId, creator, data));
+        Expense expense = Expense.register(creator, details);
         // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
         expense.approve(creator);
         return ExpenseDTO.from(expenseRepository.save(expense));
@@ -107,12 +106,10 @@ public class ExpenseService {
         requireEditable(expense);
         requireNoPayments(expense);
 
-        expense.proposeEdit(buildDetails(groupId, acting, data));
         // TODO(votaciones): agujero conocido. Esta edición puede llevar el monto por encima del umbral
         //  extraordinario sin pasar por votación (se crea un gasto chico y se lo edita después). Se cierra
         //  con el flujo de reportes de gasto (ExpenseReportVote): la edición pasará a ser una votación.
-        // expense.proposeEdit(buildDetails(groupId, data));
-
+        expense.proposeEdit(buildDetails(groupId, acting, data));
         // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
         expense.approve(acting);
         return ExpenseDTO.from(expense);
@@ -164,7 +161,6 @@ public class ExpenseService {
 
         // TODO(votaciones): mismo agujero que en updateExpense: reenviar con cambios puede superar el umbral
         //  extraordinario sin votación. Se cierra con el flujo de reportes de gasto.
-        // ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, changes);
         ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, acting, changes);
         if (newDetails == null) {
             requireMembersActive(expense.getDetails());
@@ -397,8 +393,9 @@ public class ExpenseService {
     /**
      * El acreedor es siempre quien registra (o edita, o reenvía) el gasto: solo el creador puede
      * gestionarlo, así que {@code creator} es también quien pagó. Por eso no puede ser deudor del suyo.
+     * Público porque también lo usa la votación de gastos extraordinarios al proponerlos.
      */
-    private ExpenseDetails buildDetails(Long groupId, GroupMember creator, ExpenseDataDTO data) throws ItemNotFoundException {
+    public ExpenseDetails buildDetails(Long groupId, GroupMember creator, ExpenseDataDTO data) throws ItemNotFoundException {
         if (data.receiptUrl() == null || data.receiptUrl().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A receipt is required to register an expense");
         }

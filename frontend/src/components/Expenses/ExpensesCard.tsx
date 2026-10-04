@@ -1,14 +1,11 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
-
 import Button from "@/components/Button.tsx";
 import { ReceiptModal } from "@/components/modals/ReceiptModal.tsx";
 import { Avatar } from "@/components/ui/Avatar";
 import type { MemberColor } from "@/models/Group";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { /*faChevronDown,*/ faFlag, faPenToSquare, faReceipt } from "@fortawesome/free-solid-svg-icons";
+import { faFlag, faPenToSquare, faReceipt } from "@fortawesome/free-solid-svg-icons";
 import {BALANCE_COLORS, PAYMENT_STATUS_CONFIG, TRANSACTION_VARIANTS, type BalanceStatus, type PaymentStatus, type TransactionVariant,} from "@/constants/expenses.ts";
-
-// ─── Tipos de datos públicos ────────────────────────────────────────────────
 
 export interface MemberInfo {
     readonly nickname: string;

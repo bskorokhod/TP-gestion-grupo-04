@@ -70,7 +70,7 @@ public class ExpenseDetails {
      */
     public ExpenseDetails copy() {
         List<ExpenseParticipant> participantCopies = participants.stream()
-                .map(participant -> new ExpenseParticipant(participant.getMember(), participant.getCustomPercentage()))
+                .map(participant -> new ExpenseParticipant(participant.getMember()))
                 .toList();
         return new ExpenseDetails(title, description, totalAmount, splitMethod, creditor, receiptUrl, participantCopies);
     }
