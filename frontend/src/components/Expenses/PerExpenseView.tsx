@@ -44,7 +44,7 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     const myMemberId = summary?.me.id;
 
     return (
-        <section className=" space-y-8 px-5 py-8 sm:px-8 lg:px-30">
+        <section className=" space-y-8 px-5 py-8 sm:px-8 lg:px-30 flex-1">
             <div className="space-y-4">
                 <SectionBanner
                     title="Gastos que me deben"

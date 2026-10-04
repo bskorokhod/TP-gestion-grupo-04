@@ -6,43 +6,11 @@ import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
 import { GroupStoppedBanner } from "@/components/GroupStoppedBanner.tsx";
 import { VoteCard } from "@/components/Votes/VoteCard.tsx";
-import type { Vote, VoteType } from "@/models/Vote.ts";
+import type { Vote } from "@/models/Vote.ts";
 import { useGetGroupByCode } from "@/services/GroupServices.ts";
 import { useGetVotes } from "@/services/VoteServices.ts";
+import {SECTIONS} from "@/constants/votes.ts";
 
-interface VoteSectionConfig {
-  readonly type: VoteType;
-  readonly title: string;
-  readonly description: string;
-  readonly emptyMessage: string;
-}
-
-const SECTIONS: readonly VoteSectionConfig[] = [
-  {
-    type: "EXTRAORDINARY_EXPENSE",
-    title: "Gastos extraordinarios",
-    description: "Gastos que alcanzan el umbral del grupo y se registran solo si se aprueban.",
-    emptyMessage: "No hay gastos extraordinarios en votación.",
-  },
-  {
-    type: "EXPENSE_REPORT",
-    title: "Reportes de gasto",
-    description: "Pedidos para modificar o eliminar gastos ya registrados.",
-    emptyMessage: "No hay reportes de gasto en votación.",
-  },
-  {
-    type: "RESERVATION_CLAIM",
-    title: "Reclamos de reservas",
-    description: "Pedidos para cancelar la reserva de otro miembro.",
-    emptyMessage: "No hay reclamos de reservas en votación.",
-  },
-  {
-    type: "CONFIG_CHANGE",
-    title: "Cambios de configuración",
-    description: "Cambios en los ajustes del grupo. Requieren la aprobación unánime de los miembros.",
-    emptyMessage: "No hay cambios de configuración en votación.",
-  },
-];
 
 /** Más nuevas primero (las fechas ISO se ordenan como texto). */
 function newestFirst(votes: readonly Vote[]): Vote[] {
@@ -72,7 +40,7 @@ export const VotesGroupScreen = () => {
         </div>
       </GroupNavbar>
 
-      <section className="space-y-8 px-5 py-8 sm:px-8 lg:px-30">
+      <section className="space-y-8 px-5 py-8 sm:px-8 lg:px-30 flex-1">
         <GroupStoppedBanner />
         {SECTIONS.map((section) => {
           const sectionVotes = newestFirst(votes.filter((vote) => vote.type === section.type));

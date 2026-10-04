@@ -14,14 +14,7 @@ import {ConfigurationScreen} from "@/screens/Admin/ConfigurationScreen.tsx";
 import {PercentageConfigScreen} from "@/screens/Admin/PercentageConfigScreen.tsx";
 import {GroupGuard} from "@/components/GroupGuard.tsx";
 import {RequireGroupAction} from "@/components/RequireGroupAction.tsx";
-import {
-    GROUP_UNAVAILABLE_PATH,
-    GROUPS_PATH,
-    groupExpensesPath,
-    HOME_PATH,
-    LOGIN_PATH,
-    SIGNUP_PATH,
-} from "@/constants/routes.ts";
+import {GROUP_UNAVAILABLE_PATH, GROUPS_PATH, HOME_PATH, LOGIN_PATH, SIGNUP_PATH, groupReservationsPath} from "@/constants/routes.ts";
 
 /** Sin sesión: solo home, login y signup. Cualquier otra ruta lleva a login. */
 const PublicRoutes = () => (
@@ -53,11 +46,11 @@ const GroupArea = () => {
     return (
         <GroupGuard>
             <Switch>
-                <Route path="/grupos/:code/gastos">
-                    <ExpensesGroupScreen/>
-                </Route>
                 <Route path="/grupos/:code/reservas">
                     <ReservationsGroupScreen/>
+                </Route>
+                <Route path="/grupos/:code/gastos">
+                    <ExpensesGroupScreen/>
                 </Route>
                 <Route path="/grupos/:code/balance">
                     <UnderConstructionGroupScreen/>
@@ -66,7 +59,6 @@ const GroupArea = () => {
                     <VotesGroupScreen/>
                 </Route>
 
-                {/* Miembros comunes la ven en solo lectura; la pantalla decide qué acciones mostrar. */}
                 <Route path="/grupos/:code/configuracion">
                     <ConfigurationScreen/>
                 </Route>
@@ -78,7 +70,7 @@ const GroupArea = () => {
 
                 {/* /grupos/:code y subrutas desconocidas: el usuario ya es miembro, va a la vista de gastos */}
                 <Route>
-                    <Redirect href={groupExpensesPath(code)} replace/>
+                    <Redirect href={groupReservationsPath(code)} replace/>
                 </Route>
             </Switch>
         </GroupGuard>
@@ -101,7 +93,6 @@ const PrivateRoutes = () => (
             <GroupSelectionScreen/>
         </Route>
 
-        {/* TODO: reemplazar el placeholder por la pantalla definitiva */}
         <Route path={GROUP_UNAVAILABLE_PATH}>
             <GroupUnavailableScreen/>
         </Route>
