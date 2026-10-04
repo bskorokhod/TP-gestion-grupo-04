@@ -31,6 +31,12 @@ const SECTIONS: readonly VoteSectionConfig[] = [
     emptyMessage: "No hay reportes de gasto en votación.",
   },
   {
+    type: "RESERVATION_CLAIM",
+    title: "Reclamos de reservas",
+    description: "Pedidos para cancelar la reserva de otro miembro.",
+    emptyMessage: "No hay reclamos de reservas en votación.",
+  },
+  {
     type: "CONFIG_CHANGE",
     title: "Cambios de configuración",
     description: "Cambios en los ajustes del grupo. Requieren la aprobación unánime de los miembros.",

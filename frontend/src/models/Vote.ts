@@ -6,7 +6,7 @@ import type { DistributionMode, ReservationLimitPolicy, VotingModel } from "./Gr
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
-export const VoteTypeSchema = z.enum(["EXTRAORDINARY_EXPENSE", "EXPENSE_REPORT", "CONFIG_CHANGE"]);
+export const VoteTypeSchema = z.enum(["EXTRAORDINARY_EXPENSE", "EXPENSE_REPORT", "CONFIG_CHANGE", "RESERVATION_CLAIM"]);
 export type VoteType = z.infer<typeof VoteTypeSchema>;
 
 export const VoteStatusSchema = z.enum(["ACTIVE", "FINALIZED"]);
@@ -68,6 +68,16 @@ const ProposedExpenseSchema = ExpenseDetailsSchema.extend({
 });
 export type ProposedExpense = z.infer<typeof ProposedExpenseSchema>;
 
+/** Lo que se vota en un reclamo: la reserva reclamada, su dueño y el motivo del reclamo. */
+export const ReservationClaimSchema = z.object({
+  reservationId: z.number(),
+  startDate: z.string(),
+  endDate: z.string(),
+  owner: ExpenseMemberSchema,
+  reason: z.string(),
+});
+export type ReservationClaim = z.infer<typeof ReservationClaimSchema>;
+
 export const VoteSchema = z.object({
   id: z.number(),
   groupId: z.number(),
@@ -85,6 +95,7 @@ export const VoteSchema = z.object({
   /** Solo en EXTRAORDINARY_EXPENSE. */
   expenseProposal: ProposedExpenseSchema.nullish(),
   configChange: ConfigChangeSchema.nullish(), /** Solo en CONFIG_CHANGE. */
+  reservationClaim: ReservationClaimSchema.nullish(), /** Solo en RESERVATION_CLAIM. */
 });
 export type Vote = z.infer<typeof VoteSchema>;
 
