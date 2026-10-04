@@ -11,6 +11,9 @@ import EsNuestro.group.MemberJoinedEvent;
 import EsNuestro.group.MemberLeftEvent;
 import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
+import EsNuestro.reservation.CancellationRequest;
+import EsNuestro.reservation.CancellationRequestedEvent;
+import EsNuestro.reservation.ReservationCancelledEvent;
 import EsNuestro.vote.dtos.ConfigChangeDTO;
 import EsNuestro.vote.dtos.VoteDTO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -181,6 +184,47 @@ class VoteService {
                 .forEach(vote -> vote.addBallot(member, BigDecimal.ONE));
     }
 
+    /**
+     * Un reclamo sobre una reserva abre su votación. Votan los miembros activos salvo el dueño de la reserva
+     * (el padrón queda fijo) con el modelo de votación del grupo, y el voto "sí" de quien reclama es automático: si
+     * es el único que vota, la reserva se cancela en el acto. Corre en la transacción de
+     * {@code ReservationService.requestCancellation}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onCancellationRequested(CancellationRequestedEvent event) {
+        CancellationRequest request = event.request();
+        Group group = request.getReservation().getGroup();
+        GroupMember claimant = request.getRequester();
+        Long ownerId = request.getReservation().getMember().getId();
+
+        VotingModel votingModel = group.getSettings().getVotingModel();
+        ReservationClaimVote vote = new ReservationClaimVote(group, claimant, votingModel, request);
+        group.getMembers().stream()
+                .filter(GroupMember::isActive)
+                .filter(member -> !member.getId().equals(ownerId))
+                .forEach(member -> vote.addBallot(member, weightOf(votingModel, member)));
+        vote.ballotOf(claimant).ifPresent(ballot -> ballot.cast(VoteChoice.YES));
+        voteRepository.save(vote);
+
+        evaluate(vote);
+    }
+
+    /**
+     * Si el dueño cancela su reserva, los reclamos abiertos sobre ella dejan de tener sentido: se cierran y la
+     * solicitud queda rechazada. Corre en la transacción de {@code ReservationService.cancelOwnReservation}, que ya
+     * tiene el lock del grupo.
+     */
+    @EventListener
+    public void onReservationCancelled(ReservationCancelledEvent event) {
+        for (Vote vote : voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE)) {
+            if (vote instanceof ReservationClaimVote claim
+                    && claim.getCancellationRequest().getReservation().getId().equals(event.reservationId())) {
+                claim.getCancellationRequest().reject();
+                claim.finalizeWith(VoteOutcome.EXECUTION_FAILED, "The reservation was canceled by its owner");
+            }
+        }
+    }
+
     private ConfigChangeVote buildConfigChangeVote(Group group, GroupMember proposer, ConfigChangeDTO data) {
         return switch (data.setting()) {
             case DISTRIBUTION_MODE -> ConfigChangeVote.ofDistributionMode(group, proposer, data.distributionMode());
@@ -210,7 +254,13 @@ class VoteService {
         switch (result) {
             case OPEN -> {
             }
-            case REJECTED -> vote.finalizeWith(VoteOutcome.REJECTED, null);
+            case REJECTED -> {
+                VoteExecutor executor = executors.get(vote.getType());
+                if (executor != null) {
+                    executor.onRejected(vote);
+                }
+                vote.finalizeWith(VoteOutcome.REJECTED, null);
+            }
             case APPROVED -> executeApproved(vote);
         }
     }

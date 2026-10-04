@@ -10,6 +10,7 @@ import EsNuestro.reservation.dtos.CancellationRequestCreateDTO;
 import EsNuestro.reservation.dtos.CancellationRequestDTO;
 import EsNuestro.reservation.dtos.ReservationCreateDTO;
 import EsNuestro.reservation.dtos.ReservationDTO;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -28,15 +29,18 @@ class ReservationService {
     private final ReservationRepository reservationRepository;
     private final CancellationRequestRepository cancellationRequestRepository;
     private final GroupService groupService;
+    private final ApplicationEventPublisher eventPublisher;
 
     ReservationService(
             ReservationRepository reservationRepository,
             CancellationRequestRepository cancellationRequestRepository,
-            GroupService groupService
+            GroupService groupService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.reservationRepository = reservationRepository;
         this.cancellationRequestRepository = cancellationRequestRepository;
         this.groupService = groupService;
+        this.eventPublisher = eventPublisher;
     }
 
     List<ReservationDTO> listReservations(Long groupId, String email) throws ItemNotFoundException {
@@ -82,6 +86,7 @@ class ReservationService {
         }
         requireActive(reservation);
         reservation.cancel();
+        eventPublisher.publishEvent(new ReservationCancelledEvent(groupId, reservationId));
     }
 
     CancellationRequestDTO requestCancellation(
@@ -110,8 +115,10 @@ class ReservationService {
         }
 
         String reason = data.reason().strip();
-        CancellationRequest request = CancellationRequest.create(reservation, requester, reason);
-        return CancellationRequestDTO.from(cancellationRequestRepository.save(request));
+        CancellationRequest request = cancellationRequestRepository.save(CancellationRequest.create(reservation, requester, reason));
+        // Abre la votación del reclamo; si queda resuelta en el acto, el DTO ya refleja el estado final.
+        eventPublisher.publishEvent(new CancellationRequestedEvent(groupId, request));
+        return CancellationRequestDTO.from(request);
     }
 
     List<CancellationRequestDTO> listCancellationRequests(Long groupId, String email)

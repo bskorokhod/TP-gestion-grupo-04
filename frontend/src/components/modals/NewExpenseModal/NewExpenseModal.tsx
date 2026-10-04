@@ -1,5 +1,7 @@
 import { useState, type ReactElement } from "react";
 
+import { Field } from "@/components/Forms/Field";
+import { TextArea, TextInput } from "@/components/Forms/TextInput";
 import { ModalShell } from "@/components/modals/ModalShell";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
@@ -12,12 +14,10 @@ import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 import { useCreateExtraordinaryExpenseVote } from "@/services/VoteServices.ts";
 
-import { Field } from "./Field";
 import { FileDropzone } from "./FileDropzone";
 import { MemberPicker } from "./MemberPicker";
 import { ChipButton, PersonChip } from "./PersonChip";
 import { SplitMethodSelector, type SplitMethod } from "./SplitMethodSelector";
-import { TextArea, TextInput } from "./TextInput";
 
 
 export interface NewExpenseModalProps {

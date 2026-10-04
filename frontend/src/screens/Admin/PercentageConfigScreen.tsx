@@ -18,7 +18,7 @@ import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import { useMyMember } from "@/hooks/useMyMember.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
 import { cn } from "@/lib/cn.ts";
-import { resolveChartColor } from "@/lib/colors";
+import { memberChartColor } from "@/lib/colors";
 import { getMaxPercentageFor, getPercentageDifference, roundToTwoDecimals } from "@/lib/percentages";
 import { OwnershipPercentageSchema } from "@/models/Group.ts";
 import { useGetGroupMembers } from "@/services/GroupServices.ts";
@@ -29,7 +29,12 @@ interface PercentageChartDatum {
     readonly name: string;
     readonly value: number;
     readonly color: string;
+    /** Parte del 100% que todavía no tiene dueño; no corresponde a ningún miembro. */
+    readonly unassigned?: boolean;
 }
+
+const UNASSIGNED_COLOR = "var(--background)";
+const UNASSIGNED_STROKE = "var(--field)";
 
 interface ChartTooltipProps {
     readonly active?: boolean;
@@ -107,18 +112,21 @@ export const PercentageConfigScreen = () => {
     const difference = useMemo(() => getPercentageDifference(previewMembers), [previewMembers]);
     const totalIsComplete = difference === 0;
 
-    const chartData = useMemo<PercentageChartDatum[]>(
-        () =>
-            previewMembers.map((member, index) => ({
-                memberId: String(member.id),
-                name: member.nickname,
-                value: Math.max(0, member.percentage ?? 0),
-                color: resolveChartColor(member.color, index),
-            })),
-        [previewMembers],
-    );
+    const chartData = useMemo<PercentageChartDatum[]>(() => {
+        const data: PercentageChartDatum[] = previewMembers.map((member) => ({
+            memberId: String(member.id),
+            name: member.nickname,
+            value: Math.max(0, member.percentage ?? 0),
+            color: memberChartColor(member.color),
+        }));
+        // El gráfico reparte siempre el círculo completo entre sus partes: sin esta parte, lo que falta
+        // para llegar al 100% se vería como un crecimiento de los porcentajes de los demás.
+        return difference > 0
+            ? [...data, { memberId: "unassigned", name: "Sin asignar", value: difference, color: UNASSIGNED_COLOR, unassigned: true }]
+            : data;
+    }, [previewMembers, difference]);
 
-    const hasChartData = useMemo(() => chartData.some((datum) => datum.value > 0), [chartData]);
+    const hasChartData = useMemo(() => chartData.some((datum) => !datum.unassigned && datum.value > 0), [chartData]);
 
     const handleCancel = () => {
         setDraft(toInputValue(savedPercentage));
@@ -249,6 +257,7 @@ export const PercentageConfigScreen = () => {
                                                             <Cell
                                                                 key={entry.memberId}
                                                                 fill={entry.color}
+                                                                {...(entry.unassigned ? { stroke: UNASSIGNED_STROKE } : {})}
                                                             />
                                                         ))}
                                                     </Pie>
@@ -262,7 +271,7 @@ export const PercentageConfigScreen = () => {
                                             <li key={entry.memberId} className="flex items-center gap-2 text-sm text-ink">
                                                 <span
                                                     aria-hidden="true"
-                                                    className="inline-block w-3 h-3 rounded-full shrink-0"
+                                                    className={cn("inline-block w-3 h-3 rounded-full shrink-0", entry.unassigned && "border border-field")}
                                                     style={{ backgroundColor: entry.color }}
                                                 />
                                                 <span className="truncate max-w-[9rem]">{entry.name}</span>

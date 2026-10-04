@@ -7,7 +7,7 @@ import type { BackendError } from "@/hooks/useToast.ts";
 import { formatCurrency } from "@/lib/format.ts";
 import { describeResolvedVote } from "@/lib/votes.ts";
 import type { ExpenseMember } from "@/models/Expense.ts";
-import type { ConfigChange, ProposedExpense, Vote, VoteChoice } from "@/models/Vote.ts";
+import type { ConfigChange, ProposedExpense, ReservationClaim, Vote, VoteChoice } from "@/models/Vote.ts";
 import { useCastBallot } from "@/services/VoteServices.ts";
 import {CONFIG_SETTING_LABEL, DISTRIBUTION_MODE_LABEL, RESERVATION_POLICY_LABEL, SPLIT_METHOD_LABEL, VOTING_MODEL_LABEL,} from "@/constants/config_modals.ts";
 import { useIsGroupStopped } from "@/contexts/GroupContext.tsx";
@@ -103,6 +103,31 @@ function ConfigChangeDetails({ change }: { change: ConfigChange }): ReactElement
     );
 }
 
+/** Las fechas llegan como "YYYY-MM-DD": se arman en hora local para que no corran un día. */
+function formatReservationDay(value: string): string {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString("es-AR", {day: "numeric", month: "short"});
+}
+
+/** Lo que se está votando en un reclamo: qué reserva se pide cancelar, de quién es y por qué. */
+function ReservationClaimDetails({claim}: { claim: ReservationClaim }): ReactElement {
+    return (
+        <div className="space-y-4">
+            <dl className="grid gap-4 sm:grid-cols-2">
+                <Detail label="Reserva">
+                    {formatReservationDay(claim.startDate)} al {formatReservationDay(claim.endDate)}
+                </Detail>
+                <Detail label="Reservada por">
+                    <MemberChip member={claim.owner}/>
+                </Detail>
+            </dl>
+            <dl>
+                <Detail label="Motivo del reclamo">{claim.reason}</Detail>
+            </dl>
+        </div>
+    );
+}
+
 function ProgressBar({ vote }: { vote: Vote }): ReactElement {
     const { progress } = vote;
     const total = progress.yesWeight + progress.noWeight + progress.pendingWeight;
@@ -161,6 +186,8 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
                 <ExpenseProposalDetails proposal={vote.expenseProposal} />
             ) : vote.configChange ? (
                 <ConfigChangeDetails change={vote.configChange} />
+            ) : vote.reservationClaim ? (
+                <ReservationClaimDetails claim={vote.reservationClaim} />
             ) : (
                 <p className="text-sm text-ink-soft">El detalle de esta votación todavía no está disponible.</p>
             )}
@@ -169,7 +196,8 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
 
             <footer className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-ink-soft">
-                    Propuesto por <strong>{vote.proposer.nickname}</strong> el {createdAt}
+                    {vote.type === "RESERVATION_CLAIM" ? "Reclamado por" : "Propuesto por"}{" "}
+                    <strong>{vote.proposer.nickname}</strong> el {createdAt}
                 </p>
 
                 {vote.canVote ? (

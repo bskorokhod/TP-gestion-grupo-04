@@ -8,6 +8,7 @@ export const GROUP_ROUTE_PATTERN = "/grupos/:code/*";
 export const GROUP_UNAVAILABLE_PATH = "/grupo-no-disponible";
 
 /** En las URLs el grupo se identifica por su código (ABC-1234-XYZ), no por su id numérico. */
+export const groupReservationsPath = (groupCode: string) => `/grupos/${groupCode}/reservas`;
 export const groupExpensesPath = (groupCode: string) => `/grupos/${groupCode}/gastos`;
 export const groupConfigPath = (groupCode: string) => `/grupos/${groupCode}/configuracion`;
 export const groupVotesPath = (groupCode: string) => `/grupos/${groupCode}/votaciones`;
