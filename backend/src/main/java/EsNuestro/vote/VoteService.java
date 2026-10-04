@@ -65,6 +65,7 @@ class VoteService {
     VoteDTO createExtraordinaryExpenseVote(Long groupId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
 
         ExpenseDetails details = expenseService.buildDetails(groupId, data);
         GroupSettings settings = group.getSettings();
@@ -94,6 +95,7 @@ class VoteService {
     VoteDTO createConfigChangeVote(Long groupId, ConfigChangeDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
 
         ConfigChangeVote vote = buildConfigChangeVote(group, proposer, data);
         GroupSettings current = group.getSettings();
@@ -132,8 +134,10 @@ class VoteService {
 
     /** Emite o cambia el voto del caller mientras la votación esté activa. */
     VoteDTO castBallot(Long groupId, Long voteId, VoteChoice choice, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember caller = groupService.requireActiveMember(groupId, username);
+        // Con el grupo detenido nada se resuelve: así una votación aprobada no se ejecuta sobre porcentajes en flujo.
+        groupService.requireRunning(group);
         Vote vote = requireVote(groupId, voteId);
 
         if (!vote.isVisibleTo(caller)) {

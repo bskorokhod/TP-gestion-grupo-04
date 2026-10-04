@@ -1,9 +1,11 @@
 package EsNuestro.group.dtos;
 
 import EsNuestro.group.Group;
+import EsNuestro.group.GroupStatus;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.MembershipStatus;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -19,7 +21,10 @@ public record GroupDTO(
         int memberCount,
         String joinCode,
         MembershipStatus myStatus,
-        GroupSettingsDTO settings
+        GroupSettingsDTO settings,
+        GroupStatus status,
+        BigDecimal assignedPercentage,
+        BigDecimal missingPercentage
 ) {
     public static GroupDTO from(Group group, GroupMember caller) {
         long activeMembers = group.getMembers().stream()
@@ -33,7 +38,10 @@ public record GroupDTO(
                 (int) activeMembers,
                 group.getJoinCode(),
                 caller.getStatus(),
-                GroupSettingsDTO.from(group.getSettings())
+                GroupSettingsDTO.from(group.getSettings()),
+                group.getStatus(),
+                group.assignedPercentage(),
+                group.missingPercentage()
         );
     }
 }

@@ -59,6 +59,7 @@ public class ExpenseService {
     ExpenseDTO createExpense(Long groupId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember creator = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
 
         ExpenseDetails details = buildDetails(groupId, data);
         requireBelowExtraordinaryThreshold(group, details);
@@ -94,8 +95,10 @@ public class ExpenseService {
      * (no admin) queda pendiente de aprobación y sus deudas se suspenden hasta la resolución.
      */
     ExpenseDTO updateExpense(Long groupId, Long expenseId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
+        // Editar vuelve a repartir el gasto con los porcentajes vigentes: no con el grupo detenido, que está en flujo.
+        groupService.requireRunning(group);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requireCanManage(expense, acting);
@@ -113,8 +116,10 @@ public class ExpenseService {
     }
 
     ExpenseDTO approveExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
+        // Aprobar genera las deudas con los porcentajes vigentes: no con el grupo detenido.
+        groupService.requireRunning(group);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requirePendingApproval(expense);
@@ -141,8 +146,10 @@ public class ExpenseService {
      * admin queda aprobado directo; si no, vuelve a pendiente de aprobación.
      */
     ExpenseDTO resubmitExpense(Long groupId, Long expenseId, ExpenseDataDTO changes, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
+        // Reenviar vuelve a generar las deudas con los porcentajes vigentes: no con el grupo detenido.
+        groupService.requireRunning(group);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requireCanManage(expense, acting);
@@ -341,6 +348,9 @@ public class ExpenseService {
      * ejecutarse, y una excepción que cruza este límite transaccional marcaría para rollback a la votación.
      */
     public Optional<String> findRegistrationBlocker(ExpenseDetails details) {
+        if (details.getCreditor().getGroup().isStopped()) {
+            return Optional.of("The group is stopped: the percentages of the active members must add up to exactly 100%");
+        }
         if (!details.getCreditor().isActive()) {
             return Optional.of("Member '" + details.getCreditor().getNickname() + "' is no longer an active member of this group");
         }
