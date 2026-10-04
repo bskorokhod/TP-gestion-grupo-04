@@ -1,18 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-
-import {
-    AuthResponse,
-    AuthResponseSchema,
-    LoginRequest,
-    UserCreate,
-    UserCreateSchema,
-} from "@/models/User";
+import {AuthResponse, AuthResponseSchema, LoginRequest, UserCreate, UserCreateSchema,} from "@/models/User";
 import { useToken } from "@/contexts/TokenContext.tsx";
 import { ApiService } from "@/services/ApiServices";
-
-const HOME_ROUTE = "/";
-const GROUPS_ROUTE = "/grupos";
+import { GROUPS_PATH, HOME_PATH } from "@/constants/routes.ts";
 
 async function auth(
     method: "PUT" | "POST",
@@ -38,7 +29,7 @@ export function useLogin() {
         },
         onSuccess: async (): Promise<void> => {
             await qc.resetQueries();
-            navigate(GROUPS_ROUTE);
+            navigate(GROUPS_PATH);
         },
     });
 }
@@ -81,7 +72,7 @@ export function useSignup() {
         },
         onSuccess: async (): Promise<void> => {
             await qc.resetQueries();
-            navigate(GROUPS_ROUTE);
+            navigate(GROUPS_PATH);
         },
     });
 }
@@ -92,6 +83,6 @@ export function useLogout(): () => void {
 
     return function logOut(): void {
         setToken({ state: "LOGGED_OUT" });
-        navigate(HOME_ROUTE);
+        navigate(HOME_PATH);
     };
 }

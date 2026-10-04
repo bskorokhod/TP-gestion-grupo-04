@@ -1,12 +1,16 @@
 import { useState, type ReactElement } from "react";
 
 import { ModalShell } from "@/components/modals/ModalShell";
+import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
+import { formatCurrency } from "@/lib/format.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
+import { describeResolvedVote, reachesExtraordinaryThreshold } from "@/lib/votes.ts";
 import type { Member } from "@/models/Group.ts";
 import { useGetGroup, useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
+import { useCreateExtraordinaryExpenseVote } from "@/services/VoteServices.ts";
 
 import { Field } from "./Field";
 import { FileDropzone } from "./FileDropzone";
@@ -26,7 +30,9 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
   const me = useMyMember(groupId);
   const { data: group } = useGetGroup(groupId);
   const createExpense = useCreateExpense(groupId);
-  const { showSchemaError, showApiError, showSuccessToast } = useFormToasts();
+  const createExpenseVote = useCreateExtraordinaryExpenseVote(groupId);
+  const group = useCurrentGroup();
+  const { showSchemaError, showApiError, showSuccessToast, showErrorToast } = useFormToasts();
 
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
@@ -44,6 +50,16 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
   const effectiveSplitMethod: SplitMethod = isEqualDistribution ? "EQUAL" : splitMethod;
 
   const assignableMembers = me ? members.filter((member) => member.id !== me.id) : [];
+  /*
+  TODO: revisar
+  const responsible = members.find((member) => member.id === responsibleId) ?? null;
+
+  const threshold = group.settings.extraordinaryExpenseThreshold;
+  const previewAmount = Number(amount.replace(",", "."));
+  const requiresVote =
+      amount.trim() !== "" && Number.isFinite(previewAmount) && reachesExtraordinaryThreshold(previewAmount, threshold);
+  const assignableMembers = members.filter((member) => member.id !== responsibleId);
+  */
   const participants = assignableMembers.filter((member) => participantIds.has(member.id));
   const pickableParticipants = assignableMembers.filter(
       (member) => !participantIds.has(member.id),
@@ -102,16 +118,32 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
     try {
       const receiptUrl = await uploadExpenseReceipt(file);
 
-      await createExpense.mutateAsync({
+      const payload = {
         title: title.trim(),
         description: description.trim(),
         totalAmount: parsedAmount,
         splitMethod: effectiveSplitMethod,
         participants: participants.map((member) => ({ memberId: member.id })),
         receiptUrl,
-      });
+      };
 
-      showSuccessToast("Gasto registrado");
+      if (reachesExtraordinaryThreshold(parsedAmount, threshold)) {
+        // Gasto extraordinario: no se crea; se propone y se registra solo si la votación se aprueba.
+        const vote = await createExpenseVote.mutateAsync(payload);
+        const resolution = describeResolvedVote(vote);
+
+        if (!resolution) {
+          showSuccessToast("Gasto enviado a votación", "Se registrará si lo aprueban las personas involucradas.");
+        } else if (resolution.kind === "success") {
+          showSuccessToast("Gasto registrado", resolution.description);
+        } else {
+          showErrorToast(resolution.title, resolution.description);
+        }
+      } else {
+        await createExpense.mutateAsync(payload);
+        showSuccessToast("Gasto registrado");
+      }
+
       onClose?.();
     } catch (error) {
       showApiError(error as BackendError, "No se pudo registrar el gasto");
@@ -123,7 +155,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
   return (
       <ModalShell
           title="Nuevo gasto"
-          submitLabel={isSubmitting ? "Guardando..." : "Guardar gasto"}
+          submitLabel={isSubmitting ? "Guardando..." : requiresVote ? "Enviar a votación" : "Guardar gasto"}
           onClose={onClose}
           onSubmit={(event) => {
             event.preventDefault();
@@ -163,6 +195,12 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
                   inputMode="decimal"
                   placeholder="$ 0"
               />
+              {requiresVote ? (
+                  <p className="mt-2 rounded-xl bg-modal-soft px-4 py-3 text-sm text-modal-ink">
+                    Este gasto alcanza el umbral de gasto extraordinario del grupo ({formatCurrency(threshold)}).
+                    No se registrará de inmediato: se enviará a votación entre las personas involucradas.
+                  </p>
+              ) : null}
             </Field>
 
             <Field

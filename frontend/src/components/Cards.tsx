@@ -17,10 +17,10 @@ export function SectionHeading({title, copy}: SectionHeadingProps) {
     );
 }
 
-export type Stat = [value: ReactNode, label: string];
+export type Stat = readonly [value: ReactNode, label: string];
 
 export interface StatsBarProps {
-    stats: Stat[];
+    stats: ReadonlyArray<Stat>;
 }
 
 export function StatsBar({stats}: StatsBarProps) {
@@ -65,10 +65,10 @@ export function StepCard({index, title, copy}: StepCardProps) {
     return (
         <article className="min-h-32 rounded-bl-lg rounded-br-3xl rounded-tl-3xl rounded-tr-lg bg-card p-6 shadow-soft">
             <div className="mb-4 flex items-center gap-3">
-        <span
-            className="grid size-8 place-items-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-            {index}
-            </span>
+                <span
+                    className="grid size-8 place-items-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                    {index}
+                </span>
                 <h3 className="text-base font-semibold">{title}</h3>
             </div>
             <p className="text-xs leading-relaxed text-ink-soft">{copy}</p>
@@ -95,9 +95,9 @@ export function TestimonialCard({initial, name, role, quote, tone, avatar}: Test
             </p>
             <blockquote className="mb-5 text-xs leading-relaxed">“{quote}”</blockquote>
             <div className="flex items-center gap-3">
-    <span className={`grid size-8 place-items-center rounded-full text-xs font-medium ${avatar}`}>
-    {initial}
-    </span>
+                <span className={`grid size-8 place-items-center rounded-full text-xs font-medium ${avatar}`}>
+                    {initial}
+                </span>
                 <div>
                     <h3 className="text-xs font-semibold">{name}</h3>
                     <p className="text-xs text-ink-soft">{role}</p>

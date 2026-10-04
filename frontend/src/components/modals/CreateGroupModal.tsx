@@ -1,44 +1,17 @@
-import { useState, type FormEvent } from "react";
+import {type FormEvent, type ReactNode, useState} from "react";
 
-import SelectField, { type SelectOption } from "@/components/Forms/SelectField.tsx";
+import SelectField, {type SelectOption} from "@/components/Forms/SelectField.tsx";
 import TextField from "@/components/Forms/TextField.tsx";
-import { ModalShell } from "@/components/modals/ModalShell.tsx";
-import {
-    GroupCreateSchema,
-    MAX_FIXED_DAYS_PER_MONTH,
-    MIN_FIXED_DAYS_PER_MONTH,
-    isReservationPolicyAllowed,
-    isVotingModelAllowed,
-    type DistributionMode,
-    type GroupCreate,
-    type ReservationLimitPolicy,
-    type VotingModel,
-} from "@/models/Group.ts";
-import { useFormToasts } from "@/hooks/useFormToasts";
+import {ModalShell} from "@/components/modals/ModalShell.tsx";
+import {type DistributionMode, type GroupCreate, GroupCreateSchema, isReservationPolicyAllowed, isVotingModelAllowed,
+    MAX_FIXED_DAYS_PER_MONTH, MIN_FIXED_DAYS_PER_MONTH, type ReservationLimitPolicy, type VotingModel} from "@/models/Group.ts";
+import {useFormToasts} from "@/hooks/useFormToasts";
+import {DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS} from "@/constants/config_modals.ts";
 
 export interface CreateGroupModalProps {
     onClose: () => void;
     onCreate: (data: GroupCreate) => void | Promise<void>;
 }
-
-const REQUIRES_PERCENTAGE_NOTE = " (requiere reparto porcentual)";
-
-const DISTRIBUTION_OPTIONS: ReadonlyArray<{ value: DistributionMode; label: string }> = [
-    { value: "EQUAL", label: "Equitativo (partes iguales)" },
-    { value: "PERCENTAGE", label: "Porcentual (según % de propiedad)" },
-];
-
-const VOTING_OPTIONS: ReadonlyArray<{ value: VotingModel; label: string }> = [
-    { value: "SIMPLE_MAJORITY", label: "Mayoría simple" },
-    { value: "OWNERSHIP_WEIGHTED_MAJORITY", label: "Mayoría proporcional al % de propiedad" },
-    { value: "UNANIMOUS", label: "Unánime" },
-];
-
-const RESERVATION_OPTIONS: ReadonlyArray<{ value: ReservationLimitPolicy; label: string }> = [
-    { value: "EQUAL", label: "Equitativo" },
-    { value: "OWNERSHIP_PROPORTIONAL", label: "Proporcional al % de propiedad" },
-    { value: "FIXED_DAYS_PER_MONTH", label: "Cantidad fija de días por mes" },
-];
 
 /** "" -> undefined (para que Zod lo reporte como faltante); si no, el número (NaN incluido). */
 function parseOptionalNumber(raw: string): number | undefined {
@@ -46,27 +19,49 @@ function parseOptionalNumber(raw: string): number | undefined {
     return trimmed === "" ? undefined : Number(trimmed);
 }
 
+interface FormSectionProps {
+    readonly id: string;
+    readonly title: string;
+    readonly description: string;
+    readonly children: ReactNode;
+}
+
+function FormSection({id, title, description, children}: FormSectionProps) {
+    return (
+        <section aria-labelledby={id} className="flex flex-col gap-6">
+            <div>
+                <h3 id={id} className="text-sm font-bold uppercase tracking-wide text-modal-primary">
+                    {title}
+                </h3>
+                <p className="mt-1 text-xs text-modal-muted">{description}</p>
+            </div>
+            {children}
+        </section>
+    );
+}
+
 export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) => {
     const { showSchemaError } = useFormToasts();
 
-    // "" = todavía sin elegir. Ninguna configuración tiene valor por defecto: hay que elegirlas.
     const [distribution, setDistribution] = useState<DistributionMode | "">("");
     const [voting, setVoting] = useState<VotingModel | "">("");
     const [reservation, setReservation] = useState<ReservationLimitPolicy | "">("");
     const [fixedDays, setFixedDays] = useState("");
     const [threshold, setThreshold] = useState("");
+    const [founderPercentage, setFounderPercentage] = useState("");
 
-    // Todo lo que sigue al modo de repartición queda bloqueado hasta elegirlo.
     const settingsLocked = distribution === "";
+    const requiresFounderPercentage = distribution === "PERCENTAGE";
 
     function handleDistributionChange(next: DistributionMode) {
         setDistribution(next);
-        // Si lo ya elegido deja de ser coherente con el nuevo reparto, se limpia para que se vuelva a elegir.
         if (voting !== "" && !isVotingModelAllowed(next, voting)) setVoting("");
         if (reservation !== "" && !isReservationPolicyAllowed(next, reservation)) {
             setReservation("");
             setFixedDays("");
         }
+        // El porcentaje del fundador solo existe en el reparto porcentual.
+        if (next !== "PERCENTAGE") setFounderPercentage("");
     }
 
     function handleReservationChange(next: ReservationLimitPolicy) {
@@ -96,6 +91,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             name: rawName,
             description: rawDescription,
             ...(rawFounderNickname && { founderNickname: rawFounderNickname }),
+            ...(requiresFounderPercentage && { founderPercentage: parseOptionalNumber(founderPercentage) }),
             settings: {
                 distributionMode: distribution === "" ? undefined : distribution,
                 votingModel: voting === "" ? undefined : voting,
@@ -124,93 +120,124 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             onSubmit={handleSubmit}
             modalClassName="max-w-lg"
         >
-            <TextField
-                id="group-name"
-                name="groupName"
-                label="Nombre del grupo"
-                placeholder="Ej. Casa de la playa"
-                required
-                autoComplete="off"
-                maxLength={30}
-            />
-            <TextField
-                id="group-description"
-                name="description"
-                label="Descripción"
-                placeholder="Ej. Gastos compartidos de la casa"
-                required
-                autoComplete="off"
-                maxLength={500}
-            />
-            <TextField
-                id="founder-nickname"
-                name="founderNickname"
-                label="Tu apodo (opcional)"
-                placeholder="Ej. Juan"
-                autoComplete="off"
-                maxLength={30}
-            />
-
-            <SelectField
-                id="group-distribution"
-                label="Reparto del bien"
-                hint="Elegí esto primero: condiciona las opciones siguientes."
-                placeholder="Elegí una opción"
-                options={DISTRIBUTION_OPTIONS}
-                value={distribution}
-                onChange={(event) => handleDistributionChange(event.target.value as DistributionMode)}
-                required
-            />
-            <SelectField
-                id="group-voting"
-                label="Aprobación de votaciones"
-                hint="Se cuenta sobre los miembros involucrados en el gasto."
-                placeholder="Elegí una opción"
-                options={votingOptions}
-                value={voting}
-                onChange={(event) => setVoting(event.target.value as VotingModel)}
-                disabled={settingsLocked}
-                required
-            />
-            <SelectField
-                id="group-reservation"
-                label="Restricción de reservas"
-                hint="Máximo de días por mes que un miembro puede reservar el bien."
-                placeholder="Elegí una opción"
-                options={reservationOptions}
-                value={reservation}
-                onChange={(event) => handleReservationChange(event.target.value as ReservationLimitPolicy)}
-                disabled={settingsLocked}
-                required
-            />
-            {reservation === "FIXED_DAYS_PER_MONTH" && (
+            <FormSection
+                id="create-group-config-title"
+                title="Configuración del grupo"
+                description="Datos y reglas del grupo. Algunas se pueden cambiar después por votación."
+            >
                 <TextField
-                    id="group-fixed-days"
-                    label="Días por mes por miembro"
-                    type="number"
-                    inputMode="numeric"
-                    min={MIN_FIXED_DAYS_PER_MONTH}
-                    max={MAX_FIXED_DAYS_PER_MONTH}
-                    step={1}
-                    placeholder="Ej. 7"
-                    value={fixedDays}
-                    onChange={(event) => setFixedDays(event.target.value)}
+                    id="group-name"
+                    name="groupName"
+                    label="Nombre del grupo"
+                    placeholder="Ej. Casa de la playa"
+                    required
+                    autoComplete="off"
+                    maxLength={30}
+                />
+                <TextField
+                    id="group-description"
+                    name="description"
+                    label="Descripción"
+                    placeholder="Ej. Gastos compartidos de la casa"
+                    required
+                    autoComplete="off"
+                    maxLength={500}
+                />
+
+                <SelectField
+                    id="group-distribution"
+                    label="Reparto del bien"
+                    hint="Elegí esto primero: condiciona las opciones siguientes."
+                    placeholder="Elegí una opción"
+                    options={DISTRIBUTION_OPTIONS}
+                    value={distribution}
+                    onChange={(event) => handleDistributionChange(event.target.value as DistributionMode)}
                     required
                 />
-            )}
-            <TextField
-                id="group-extraordinary-threshold"
-                label="Monto a partir del cual un gasto es extraordinario"
-                type="number"
-                inputMode="decimal"
-                min={0.01}
-                step={0.01}
-                placeholder="Ej. 100000"
-                value={threshold}
-                onChange={(event) => setThreshold(event.target.value)}
-                disabled={settingsLocked}
-                required
-            />
+                <SelectField
+                    id="group-voting"
+                    label="Aprobación de votaciones"
+                    hint="Se cuenta sobre los miembros involucrados en el gasto."
+                    placeholder="Elegí una opción"
+                    options={votingOptions}
+                    value={voting}
+                    onChange={(event) => setVoting(event.target.value as VotingModel)}
+                    disabled={settingsLocked}
+                    required
+                />
+                <SelectField
+                    id="group-reservation"
+                    label="Restricción de reservas"
+                    hint="Máximo de días por mes que un miembro puede reservar el bien."
+                    placeholder="Elegí una opción"
+                    options={reservationOptions}
+                    value={reservation}
+                    onChange={(event) => handleReservationChange(event.target.value as ReservationLimitPolicy)}
+                    disabled={settingsLocked}
+                    required
+                />
+                {reservation === "FIXED_DAYS_PER_MONTH" && (
+                    <TextField
+                        id="group-fixed-days"
+                        label="Días por mes por miembro"
+                        type="number"
+                        inputMode="numeric"
+                        min={MIN_FIXED_DAYS_PER_MONTH}
+                        max={MAX_FIXED_DAYS_PER_MONTH}
+                        step={1}
+                        placeholder="Ej. 7"
+                        value={fixedDays}
+                        onChange={(event) => setFixedDays(event.target.value)}
+                        required
+                    />
+                )}
+                <TextField
+                    id="group-extraordinary-threshold"
+                    label="Monto a partir del cual un gasto es extraordinario"
+                    type="number"
+                    inputMode="decimal"
+                    min={0.01}
+                    step={0.01}
+                    placeholder="Ej. 100000"
+                    value={threshold}
+                    onChange={(event) => setThreshold(event.target.value)}
+                    disabled={settingsLocked}
+                    required
+                />
+            </FormSection>
+
+            <hr className="border-modal-border" />
+
+            <FormSection
+                id="create-group-profile-title"
+                title="Tu perfil en el grupo"
+                description="Cómo te van a ver los demás miembros y qué parte del bien te corresponde."
+            >
+                <TextField
+                    id="founder-nickname"
+                    name="founderNickname"
+                    label="Tu apodo (opcional)"
+                    placeholder="Ej. Juan"
+                    autoComplete="off"
+                    maxLength={30}
+                />
+                {requiresFounderPercentage && (
+                    <TextField
+                        id="founder-percentage"
+                        label="Tu porcentaje de propiedad"
+                        hint="El grupo queda detenido hasta que los porcentajes de todos los miembros sumen 100%."
+                        type="number"
+                        inputMode="decimal"
+                        min={0.01}
+                        max={100}
+                        step={0.01}
+                        placeholder="Ej. 50"
+                        value={founderPercentage}
+                        onChange={(event) => setFounderPercentage(event.target.value)}
+                        required
+                    />
+                )}
+            </FormSection>
         </ModalShell>
     );
 };

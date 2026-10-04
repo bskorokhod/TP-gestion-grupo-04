@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public record FinalizeExitsDTO(
-        @NotEmpty List<Long> memberIds,
-        @NotNull @Valid List<PercentageEntryDTO> percentages
+        @NotEmpty List<Long> memberIds
 ) {
 }
