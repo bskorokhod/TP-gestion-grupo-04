@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import Button from "@/components/Button.tsx";
+import { ReceiptModal } from "@/components/modals/ReceiptModal.tsx";
 import { Avatar } from "@/components/ui/Avatar";
 import type { MemberColor } from "@/models/Group";
-// import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-// import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFlag, faPenToSquare, faReceipt } from "@fortawesome/free-solid-svg-icons";
 import {BALANCE_COLORS, PAYMENT_STATUS_CONFIG, TRANSACTION_VARIANTS, type BalanceStatus, type PaymentStatus, type TransactionVariant,} from "@/constants/expenses.ts";
 
 export interface MemberInfo {
@@ -45,6 +46,8 @@ export interface DebtCardProps {
     readonly description: string;
     readonly assigned?: MemberInfo[];
     readonly owner?: MemberInfo;
+    readonly receiptUrl?: string | null;
+    readonly onEdit?: () => void;
     readonly children: ReactNode;
 }
 
@@ -55,6 +58,8 @@ export interface OwedCardProps {
     readonly assigned: MemberInfo[];
     readonly owner: MemberInfo;
     readonly tag?: string;
+    readonly receiptUrl?: string | null;
+    readonly onReport?: () => void;
     readonly action?: { readonly label: string; readonly onClick: () => void };
 }
 
@@ -226,11 +231,63 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
 //     );
 // }
 
-export function DebtCard({title, amount, description, assigned, owner, children,}: DebtCardProps): ReactNode {
+type IconProp = ComponentProps<typeof FontAwesomeIcon>["icon"];
+
+interface CardActionButtonProps {
+    readonly icon: IconProp;
+    readonly label: string;
+    readonly onClick?: () => void;
+}
+
+/** Botón de ícono para la esquina superior derecha de la tarjeta, con tooltip en hover y foco. */
+function CardActionButton({ icon, label, onClick }: CardActionButtonProps): ReactNode {
+    return (
+        <span className="group relative inline-flex">
+            <button
+                type="button"
+                onClick={onClick}
+                aria-label={label}
+                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-brand transition-colors hover:bg-group-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
+                <FontAwesomeIcon icon={icon} className="h-4 w-4" aria-hidden />
+            </button>
+            <span
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md bg-brand px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            >
+                {label}
+            </span>
+        </span>
+    );
+}
+
+interface ReceiptActionProps {
+    readonly title: string;
+    readonly receiptUrl?: string | null;
+}
+
+function ReceiptAction({ title, receiptUrl }: ReceiptActionProps): ReactNode {
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+    return (
+        <>
+            <CardActionButton icon={faReceipt} label="Ver comprobante adjunto" onClick={() => setIsModalOpen(true)} />
+            {isModalOpen && (
+                <ReceiptModal title={title} receiptUrl={receiptUrl} onClose={() => setIsModalOpen(false)} />
+            )}
+        </>
+    );
+}
+
+export function DebtCard({title, amount, description, assigned, owner, receiptUrl, onEdit, children,}: DebtCardProps): ReactNode {
     return (
         <ExpenseCard>
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-start justify-between gap-2">
                 <AmountTitle title={title} amount={amount} />
+                <div className="flex shrink-0 items-center gap-1">
+                    <ReceiptAction title={title} receiptUrl={receiptUrl} />
+                    <CardActionButton icon={faPenToSquare} label="Editar" onClick={onEdit} />
+                </div>
             </div>
             <p className="mt-3 text-sm text-group-muted">{description}</p>
 
@@ -245,11 +302,17 @@ export function DebtCard({title, amount, description, assigned, owner, children,
     );
 }
 
-export function OwedCard({title, amount, description, assigned, owner, tag, action,}: OwedCardProps): ReactNode {
+export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, action,}: OwedCardProps): ReactNode {
     return (
         <ExpenseCard className="flex min-h-48 flex-col justify-between">
             <div className="space-y-2">
-                <AmountTitle title={title} amount={amount} tag={tag} />
+                <div className="flex items-start justify-between gap-2">
+                    <AmountTitle title={title} amount={amount} tag={tag} />
+                    <div className="flex shrink-0 items-center gap-1">
+                        <ReceiptAction title={title} receiptUrl={receiptUrl} />
+                        <CardActionButton icon={faFlag} label="Reportar" onClick={onReport} />
+                    </div>
+                </div>
                 <p className="text-sm text-group-muted">{description}</p>
                 <PeopleMeta assigned={assigned} owner={owner} />
             </div>

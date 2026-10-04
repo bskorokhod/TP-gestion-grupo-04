@@ -61,7 +61,6 @@ export const VOTING_MODEL_LABEL: Record<VotingModel, string> = {
 export const SPLIT_METHOD_LABEL: Record<SplitMethod, string> = {
     EQUAL: "Partes iguales",
     PROPORTIONAL: "Según porcentaje de propiedad",
-    CUSTOM: "Porcentajes personalizados",
 };
 
 export const CONFIG_SETTING_LABEL: Record<ConfigSetting, string> = {

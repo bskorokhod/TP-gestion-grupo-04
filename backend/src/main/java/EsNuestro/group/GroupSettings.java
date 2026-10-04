@@ -11,13 +11,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * Configuración del grupo. Se elige al crear el grupo y después solo cambia por una votación unánime de
- * configuración (ver {@code ConfigChangeVote}), que la reemplaza por la copia que devuelven los métodos
- * {@code with...}. Sus columnas viven en la tabla {@code groups}.
- * Se aplica en gastos (el umbral extraordinario, ver {@link #isExtraordinary}), en votaciones (el modelo de
- * votación) y en reservas (el límite mensual de días). Cada enum documenta cómo se usa. Las
- * combinaciones incoherentes se rechazan acá, de modo que no pueda existir un grupo con ellas aunque se
- * salte la validación del DTO.
+ * Configuración que se elige al crear el grupo. Sus columnas viven en la tabla {@code groups}.
+ * Hoy solo se aplica en gastos (en un grupo EQUAL se rechaza el reparto proporcional); el resto de
+ * las opciones (votaciones, reservas) solo se persiste: cada enum documenta cómo se usará. Las
+ * combinaciones incoherentes se rechazan acá, de modo que no
+ * pueda existir un grupo con ellas aunque se salte la validación del DTO.
  */
 @Embeddable
 @NoArgsConstructor

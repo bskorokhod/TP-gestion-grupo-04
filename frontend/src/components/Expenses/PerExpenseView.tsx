@@ -129,6 +129,7 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
         <DebtCard
             title={expense.details.title || ""}
             amount={`Total: ${total}`}
+            receiptUrl={expense.details.receiptUrl}
             description={expense.details.description || "Sin descripción"}
             assigned={toMemberInfos(expense)}
             owner={{
@@ -172,6 +173,7 @@ function ExpenseAsOwedCard({expense, myMemberId, onPay,}: { expense: Expense; my
         <OwedCard
             title={expense.details.title || ""}
             amount={`Total: ${formatCurrency(expense.details.totalAmount)} - Tu parte: ${formatCurrency(remaining)}`}
+            receiptUrl={expense.details.receiptUrl}
             description={expense.details.description || "Sin descripción"}
             assigned={toMemberInfos(expense)}
             owner={{

@@ -60,15 +60,15 @@ class VoteService {
 
     /**
      * Abre la votación de un gasto que alcanza el umbral extraordinario. Vota el acreedor y los participantes;
-     * si quien lo propone es uno de ellos, su voto "sí" es automático (y con un único involucrado la votación
-     * se resuelve en el acto).
+     * quien lo propone es siempre el acreedor, así que su voto "sí" es automático (y sin participantes la
+     * votación se resuelve en el acto).
      */
     VoteDTO createExtraordinaryExpenseVote(Long groupId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember proposer = groupService.requireActiveMember(groupId, username);
         groupService.requireRunning(group);
 
-        ExpenseDetails details = expenseService.buildDetails(groupId, data);
+        ExpenseDetails details = expenseService.buildDetails(groupId, proposer, data);
         GroupSettings settings = group.getSettings();
         if (!settings.isExtraordinary(details.getTotalAmount())) {
             throw new ResponseStatusException(

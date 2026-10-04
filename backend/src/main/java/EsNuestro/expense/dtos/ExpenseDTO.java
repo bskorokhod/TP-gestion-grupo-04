@@ -47,9 +47,9 @@ public record ExpenseDTO(
         }
     }
 
-    public record Participant(ExpenseMemberDTO member, BigDecimal customPercentage) {
+    public record Participant(ExpenseMemberDTO member) {
         static Participant from(ExpenseParticipant participant) {
-            return new Participant(ExpenseMemberDTO.from(participant.getMember()), participant.getCustomPercentage());
+            return new Participant(ExpenseMemberDTO.from(participant.getMember()));
         }
     }
 
