@@ -11,3 +11,4 @@ export const GROUP_UNAVAILABLE_PATH = "/grupo-no-disponible";
 export const groupExpensesPath = (groupCode: string) => `/grupos/${groupCode}/gastos`;
 export const groupConfigPath = (groupCode: string) => `/grupos/${groupCode}/configuracion`;
 export const groupVotesPath = (groupCode: string) => `/grupos/${groupCode}/votaciones`;
+export const groupPercentagesPath = (groupCode: string) => `/grupos/${groupCode}/configuracion/porcentajes`;

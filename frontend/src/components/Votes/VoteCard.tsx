@@ -10,6 +10,8 @@ import type { ExpenseMember } from "@/models/Expense.ts";
 import type { ConfigChange, ProposedExpense, Vote, VoteChoice } from "@/models/Vote.ts";
 import { useCastBallot } from "@/services/VoteServices.ts";
 import {CONFIG_SETTING_LABEL, DISTRIBUTION_MODE_LABEL, RESERVATION_POLICY_LABEL, SPLIT_METHOD_LABEL, VOTING_MODEL_LABEL,} from "@/constants/config_modals.ts";
+import { useIsGroupStopped } from "@/contexts/GroupContext.tsx";
+import { GROUP_STOPPED_VOTE_TITLE } from "@/constants/group.ts";
 
 function MemberChip({ member, suffix }: { member: ExpenseMember; suffix?: string }): ReactElement {
     return (
@@ -134,10 +136,11 @@ export interface VoteCardProps {
 
 export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
     const castBallot = useCastBallot(groupId);
+    const isGroupStopped = useIsGroupStopped();
     const { showApiError, showSuccessToast, showErrorToast } = useFormToasts();
 
     const handleVote = async (choice: VoteChoice): Promise<void> => {
-        if (choice === vote.myChoice || castBallot.isPending) return;
+        if (choice === vote.myChoice || castBallot.isPending || isGroupStopped) return;
 
         try {
             const updated = await castBallot.mutateAsync({ voteId: vote.id, choice });
@@ -180,7 +183,8 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
                             type="button"
                             variant={vote.myChoice === "NO" ? "muted" : "success"}
                             aria-pressed={vote.myChoice === "YES"}
-                            disabled={castBallot.isPending}
+                            disabled={castBallot.isPending || isGroupStopped}
+                            title={isGroupStopped ? GROUP_STOPPED_VOTE_TITLE : undefined}
                             onClick={() => void handleVote("YES")}
                         >
                             A favor
@@ -189,7 +193,8 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
                             type="button"
                             variant={vote.myChoice === "YES" ? "muted" : "danger"}
                             aria-pressed={vote.myChoice === "NO"}
-                            disabled={castBallot.isPending}
+                            disabled={castBallot.isPending || isGroupStopped}
+                            title={isGroupStopped ? GROUP_STOPPED_VOTE_TITLE : undefined}
                             onClick={() => void handleVote("NO")}
                         >
                             En contra

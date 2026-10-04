@@ -5,6 +5,7 @@ import Button from "@/components/Button.tsx";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
+import {GroupStoppedBanner} from "@/components/GroupStoppedBanner.tsx";
 import {cn} from "@/lib/cn.ts";
 import type {GroupSettings, Member} from "@/models/Group.ts";
 import type {ConfigChangeKind, ConfigChangeRequest, ModalSettingItem} from "@/models/Config.ts";
@@ -22,13 +23,17 @@ import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
 
 
+const CONFIG_BLOCKED_WHEN_STOPPED_LABEL =
+    "No disponible: el grupo está detenido hasta que los porcentajes sumen 100%";
+
 interface ModalSettingRowProps {
     readonly item: ModalSettingItem;
     readonly settings: GroupSettings;
+    readonly disabled?: boolean;
     readonly onRequestChange: (kind: ConfigChangeKind) => void;
 }
 
-function ModalSettingRow({ item, settings, onRequestChange }: ModalSettingRowProps) {
+function ModalSettingRow({ item, settings, disabled = false, onRequestChange }: ModalSettingRowProps) {
     return (
         <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
             <div className="flex flex-row gap-5 items-center">
@@ -50,8 +55,9 @@ function ModalSettingRow({ item, settings, onRequestChange }: ModalSettingRowPro
                     type="button"
                     variant="danger"
                     size="icon"
-                    title={MODIFY_CONFIG_LABEL}
+                    title={disabled ? CONFIG_BLOCKED_WHEN_STOPPED_LABEL : MODIFY_CONFIG_LABEL}
                     aria-label={`${MODIFY_CONFIG_LABEL}: ${item.title}`}
+                    disabled={disabled}
                     onClick={() => onRequestChange(item.kind)}
                 >
                     <FontAwesomeIcon icon={faPenToSquare} aria-hidden />
@@ -106,10 +112,13 @@ function MembersSection({ groupId }: MembersSectionProps) {
 interface JoinRequestItemProps {
     readonly member: Member;
     readonly selected: boolean;
+    /** En grupos porcentuales, muestra el porcentaje que pide quien solicita unirse. */
+    readonly showPercentage: boolean;
     readonly onToggle: (id: number) => void;
 }
 
-function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
+function JoinRequestItem({ member, selected, showPercentage, onToggle }: JoinRequestItemProps) {
+    const requestedPercentage = showPercentage && member.percentage != null ? member.percentage : null;
     return (
         <button
             type="button"
@@ -149,8 +158,14 @@ function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
                 <p className="text-sm text-warm-muted">{member.username}</p>
             </div>
 
+            {requestedPercentage !== null && (
+                <p className="ml-auto shrink-0 text-sm font-semibold text-brand">
+                    Pide {requestedPercentage}%
+                </p>
+            )}
+
             {member.requestedAt && (
-                <p className="ml-auto shrink-0 text-sm text-warm-muted">
+                <p className={cn("shrink-0 text-sm text-warm-muted", requestedPercentage === null && "ml-auto")}>
                     {new Date(member.requestedAt).toLocaleDateString("es-AR", {
                         day: "numeric",
                         month: "short",
@@ -164,18 +179,16 @@ function JoinRequestItem({ member, selected, onToggle }: JoinRequestItemProps) {
 
 interface JoinRequestsSectionProps {
     readonly groupId: number;
-    readonly configBasePath: string;
+    readonly showPercentages: boolean;
 }
 
-function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionProps) {
+function JoinRequestsSection({ groupId, showPercentages }: JoinRequestsSectionProps) {
     const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
     const [isBatchPending, setIsBatchPending] = useState(false);
 
     const pendingQuery = useGetPendingMembers(groupId);
     const approveMutation = useApproveJoinRequest(groupId);
     const rejectMutation = useRejectJoinRequest(groupId);
-
-    const [, navigate] = useLocation();
 
     const pendingMembers = pendingQuery.data ?? [];
     const hasSelection = selectedIds.size > 0;
@@ -235,7 +248,13 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
         setIsBatchPending(false);
         setSelectedIds(new Set());
         if (allSucceeded) {
-            navigate(`${configBasePath}/porcentajes`);
+            toast({
+                title:
+                    ids.length === 1
+                        ? "Solicitud aceptada"
+                        : `${ids.length} solicitudes aceptadas`,
+                description: "Las personas seleccionadas ya forman parte del grupo.",
+            });
         }
     }
 
@@ -310,6 +329,7 @@ function JoinRequestsSection({ groupId, configBasePath }: JoinRequestsSectionPro
                                 key={member.id}
                                 member={member}
                                 selected={selectedIds.has(member.id)}
+                                showPercentage={showPercentages}
                                 onToggle={toggleSelection}
                             />
                         ))}
@@ -462,6 +482,8 @@ export const ConfigurationScreen = () => {
 
     const canReviewJoinRequests = group.myStatus === "ACTIVE";
     const canConfigure = group.myStatus === "ACTIVE";
+    const isPercentageGroup = group.settings.distributionMode === "PERCENTAGE";
+    const isStopped = group.status === "STOPPED";
 
     const configBasePath = location.replace(/\/$/, "");
 
@@ -474,6 +496,8 @@ export const ConfigurationScreen = () => {
             </GroupNavbar>
 
             <div className="flex flex-col flex-1 gap-3 items-start w-full bg-background pt-14 px-6 pb-16 overflow-hidden sm:px-12 lg:px-30">
+                <GroupStoppedBanner className="self-stretch" />
+
                 <p className="text-3xl font-extrabold text-brand-hover">
                     Miembros y porcentajes de propiedad
                 </p>
@@ -488,7 +512,7 @@ export const ConfigurationScreen = () => {
 
                         <JoinRequestsSection
                             groupId={group.id}
-                            configBasePath={configBasePath}
+                            showPercentages={isPercentageGroup}
                         />
 
                         <p className="text-3xl font-extrabold text-brand-hover">
@@ -496,6 +520,7 @@ export const ConfigurationScreen = () => {
                         </p>
 
                         <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
+                            {isPercentageGroup && (
                             <Link
                                 href={`${configBasePath}/porcentajes`}
                                 className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left"
@@ -523,12 +548,14 @@ export const ConfigurationScreen = () => {
                                     <FontAwesomeIcon icon={faArrowRight} aria-hidden />
                                 </span>
                             </Link>
+                            )}
 
                             {SETTINGS_INFO.map((item) => (
                                 <ModalSettingRow
                                     key={item.kind}
                                     item={item}
                                     settings={group.settings}
+                                    disabled={isStopped}
                                     onRequestChange={setPendingChange}
                                 />
                             ))}

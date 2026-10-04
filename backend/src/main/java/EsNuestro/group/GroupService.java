@@ -164,6 +164,8 @@ public class GroupService {
 
         target.approve();
         group.refreshOwnership();
+        // Las votaciones de configuración abiertas suman al nuevo miembro como participante.
+        eventPublisher.publishEvent(new MemberJoinedEvent(groupId, target));
         return MemberDTO.from(target);
     }
 

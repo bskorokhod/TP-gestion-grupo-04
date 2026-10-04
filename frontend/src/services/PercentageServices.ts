@@ -1,92 +1,29 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { z } from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import {
-    GroupPercentagesResponse,
-    MemberPercentage,
-    UpdateGroupPercentagesRequest,
-    UpdateGroupPercentagesRequestSchema,
-} from "@/models/Percentage";
 import { useApiClient } from "@/hooks/useApiClient";
-import {MemberColorSchema} from "@/models/Group.ts";
+import { type Member, MemberSchema } from "@/models/Group.ts";
+import {
+    type UpdateMyPercentageRequest,
+    UpdateMyPercentageRequestSchema,
+} from "@/models/Percentage.ts";
 
-function percentagesQueryKey(groupId: string) {
-    return ["groups", groupId, "percentages"] as const;
-}
-
-const ActiveMemberSchema = z.object({
-    id: z.number(),
-    username: z.string(),
-    nickname: z.string(),
-    percentage: z.number().nullable(),
-    color: MemberColorSchema.optional(),
-    photoUrl: z.string().nullable().optional(),
-});
-type ActiveMember = z.infer<typeof ActiveMemberSchema>;
-
-function toMemberPercentage(member: ActiveMember): MemberPercentage {
-    const initial = member.nickname.charAt(0).toUpperCase();
-    return {
-        memberId: String(member.id),
-        initial,
-        name: member.nickname,
-        fullName: member.username,
-        color: member.color,
-        photoUrl: member.photoUrl,
-        percentage: member.percentage ?? 0,
-        locked: false,
-    };
-}
-
-export function useGroupPercentages(groupId: string) {
-    const api = useApiClient();
-
-    return useQuery({
-        queryKey: percentagesQueryKey(groupId),
-        enabled: Boolean(groupId),
-        queryFn: async (): Promise<GroupPercentagesResponse> => {
-            const data = await api.get(`/groups/${groupId}/members?status=ACTIVE`);
-            const members = ActiveMemberSchema.array().parse(data);
-            return { groupId, members: members.map(toMemberPercentage) };
-        },
-    });
-}
-
-export function useUpdateGroupPercentages(groupId: string) {
+/**
+ * Cambia el porcentaje de propiedad del miembro que consulta (PATCH /groups/{id}/members/me/percentage).
+ * Es solo para uno mismo y sin aprobación: no toca a los demás. Como puede cambiar el estado del grupo
+ * (RUNNING/STOPPED, porcentaje asignado y faltante), se invalida todo lo que cuelga de ["groups"].
+ */
+export function useUpdateMyPercentage(groupId: number) {
     const api = useApiClient();
     const queryClient = useQueryClient();
 
-    return useMutation<GroupPercentagesResponse, Error, UpdateGroupPercentagesRequest>({
-        mutationFn: async (req): Promise<GroupPercentagesResponse> => {
-            const validated = UpdateGroupPercentagesRequestSchema.parse(req);
-
-            const backendPayload = {
-                percentages: validated.members.map(({ memberId, percentage }) => ({
-                    memberId: Number(memberId),
-                    percentage,
-                })),
-            };
-
-            const data = await api.put(
-                `/groups/${groupId}/members/percentages`,
-                backendPayload,
-            );
-
-            const members = ActiveMemberSchema.array().parse(data);
-            const lockedByMemberId: Record<string, boolean> = Object.fromEntries(
-                validated.members.map((m) => [m.memberId, m.locked]),
-            );
-
-            return {
-                groupId,
-                members: members.map((member) => ({
-                    ...toMemberPercentage(member),
-                    locked: lockedByMemberId[String(member.id)] ?? false,
-                })),
-            };
+    return useMutation<Member, Error, UpdateMyPercentageRequest>({
+        mutationFn: async (req): Promise<Member> => {
+            const validated = UpdateMyPercentageRequestSchema.parse(req);
+            const data = await api.patch(`/groups/${groupId}/members/me/percentage`, validated);
+            return MemberSchema.parse(data);
         },
-        onSuccess: (data): void => {
-            queryClient.setQueryData(percentagesQueryKey(groupId), data);
+        onSuccess: (): void => {
+            void queryClient.invalidateQueries({ queryKey: ["groups"] });
         },
     });
 }

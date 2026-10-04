@@ -14,14 +14,15 @@ import { PercentageCard } from "@/components/AdminCard";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
+import { useFormToasts } from "@/hooks/useFormToasts.ts";
+import { useMyMember } from "@/hooks/useMyMember.ts";
+import type { BackendError } from "@/hooks/useToast.ts";
 import { cn } from "@/lib/cn.ts";
 import { resolveChartColor } from "@/lib/colors";
-import { autoBalancePercentages, canLockMemberPercentage, getPercentageDifference } from "@/lib/percentages";
-import type { MemberPercentage } from "@/models/Percentage";
-import { PercentageValueSchema } from "@/models/Percentage";
-import { useGroupPercentages, useUpdateGroupPercentages } from "@/services/PercentageServices";
-
-type LockErrors = Readonly<Record<string, string>>;
+import { getMaxPercentageFor, getPercentageDifference, roundToTwoDecimals } from "@/lib/percentages";
+import { OwnershipPercentageSchema } from "@/models/Group.ts";
+import { useGetGroupMembers } from "@/services/GroupServices.ts";
+import { useUpdateMyPercentage } from "@/services/PercentageServices";
 
 interface PercentageChartDatum {
     readonly memberId: string;
@@ -54,232 +55,159 @@ function renderActiveShape(props: PieSectorDataItem) {
     return <Sector {...(props as PieSectorShapeProps)} outerRadius={outerRadius + 6} />;
 }
 
-function withoutKey<T extends Record<string, string>>(record: T, key: string): T {
-    const entries = Object.entries(record).filter(([entryKey]) => entryKey !== key);
-    return Object.fromEntries(entries) as T;
+function toInputValue(percentage: number | null | undefined): string {
+    return percentage == null ? "" : String(percentage);
 }
 
-function getMemberErrorMessage(member: MemberPercentage, lockErrors: LockErrors): string | undefined {
-    const rangeResult = PercentageValueSchema.safeParse(member.percentage);
-    if (!rangeResult.success) {
-        return rangeResult.error.issues[0]?.message ?? "Porcentaje inválido";
-    }
-    return lockErrors[member.memberId];
-}
-
+/** Cada miembro modifica únicamente su propio porcentaje; el de los demás se ve en solo lectura. */
 export const PercentageConfigScreen = () => {
-    const groupId = String(useCurrentGroup().id);
+    const group = useCurrentGroup();
+    const myMember = useMyMember(group.id);
+    const membersQuery = useGetGroupMembers(group.id, "ACTIVE");
+    const updateMutation = useUpdateMyPercentage(group.id);
+    const { showApiError, showSuccessToast } = useFormToasts();
 
-    const percentagesQuery = useGroupPercentages(groupId);
-    const updateMutation = useUpdateGroupPercentages(groupId);
+    const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
+    const savedPercentage = myMember?.percentage ?? null;
 
-    const [members, setMembers] = useState<ReadonlyArray<MemberPercentage>>([]);
-    const [lockErrors, setLockErrors] = useState<LockErrors>({});
-    const [saveError, setSaveError] = useState<string | null>(null);
+    const [draft, setDraft] = useState<string>("");
 
+    // Sincroniza el input con lo guardado (carga inicial, guardado exitoso, cambios desde afuera).
     useEffect(() => {
-        if (percentagesQuery.data) {
-            setMembers(percentagesQuery.data.members.map((member) => ({ ...member })));
-            setLockErrors({});
-            setSaveError(null);
-        }
-    }, [percentagesQuery.data]);
+        setDraft(toInputValue(savedPercentage));
+    }, [savedPercentage]);
 
-    const difference = useMemo(() => getPercentageDifference(members), [members]);
-    const totalIsComplete = difference === 0;
-
-    const hasInvalidPercentage = useMemo(
-        () => members.some((member) => !PercentageValueSchema.safeParse(member.percentage).success),
-        [members],
+    const draftIsEmpty = draft.trim() === "";
+    const validation = useMemo(
+        () => OwnershipPercentageSchema.safeParse(draftIsEmpty ? undefined : Number(draft)),
+        [draft, draftIsEmpty],
     );
 
-    const isDirty = useMemo(() => {
-        const saved = percentagesQuery.data?.members;
-        if (!saved) {
-            return false;
-        }
-        if (saved.length !== members.length) {
-            return true;
-        }
-        const savedById = new Map(saved.map((member) => [member.memberId, member]));
-        return members.some((member) => {
-            const original = savedById.get(member.memberId);
-            return !original || original.percentage !== member.percentage || original.locked !== member.locked;
-        });
-    }, [members, percentagesQuery.data]);
+    const isDirty = (draftIsEmpty ? null : Number(draft)) !== savedPercentage;
 
-    const canSave =
-        members.length > 0 && isDirty && totalIsComplete && !hasInvalidPercentage && !updateMutation.isPending;
+    const maxAllowed = myMember ? getMaxPercentageFor(members, myMember.id) : 0;
+    const exceededBy =
+        validation.success && validation.data > maxAllowed
+            ? roundToTwoDecimals(validation.data - maxAllowed)
+            : 0;
+
+    const canSave = Boolean(myMember) && isDirty && validation.success && exceededBy === 0 && !updateMutation.isPending;
+
+    // Vista previa: el porcentaje propio con lo que se está escribiendo (si es válido).
+    const previewMembers = useMemo(
+        () =>
+            members.map((member) =>
+                member.id === myMember?.id && validation.success
+                    ? { ...member, percentage: validation.data }
+                    : member,
+            ),
+        [members, myMember?.id, validation],
+    );
+
+    const difference = useMemo(() => getPercentageDifference(previewMembers), [previewMembers]);
+    const totalIsComplete = difference === 0;
 
     const chartData = useMemo<PercentageChartDatum[]>(
         () =>
-            members.map((member, index) => ({
-                memberId: member.memberId,
-                name: member.name,
-                value: Math.max(0, member.percentage),
+            previewMembers.map((member, index) => ({
+                memberId: String(member.id),
+                name: member.nickname,
+                value: Math.max(0, member.percentage ?? 0),
                 color: resolveChartColor(member.color, index),
             })),
-        [members],
+        [previewMembers],
     );
 
     const hasChartData = useMemo(() => chartData.some((datum) => datum.value > 0), [chartData]);
 
-    const handlePercentageChange = (memberId: string, value: number) => {
-        setSaveError(null);
-        setMembers((prev) =>
-            prev.map((member) =>
-                member.memberId === memberId && !member.locked
-                    ? { ...member, percentage: value }
-                    : member,
-            ),
-        );
-    };
-
-    const handleToggleLock = (memberId: string) => {
-        setSaveError(null);
-        setMembers((prev) => {
-            const target = prev.find((member) => member.memberId === memberId);
-            if (!target) {
-                return prev;
-            }
-
-            if (target.locked) {
-                setLockErrors((prevErrors) => withoutKey(prevErrors, memberId));
-                return prev.map((member) =>
-                    member.memberId === memberId ? { ...member, locked: false } : member,
-                );
-            }
-
-            const rangeResult = PercentageValueSchema.safeParse(target.percentage);
-            if (!rangeResult.success) {
-                setLockErrors((prevErrors) => ({
-                    ...prevErrors,
-                    [memberId]: rangeResult.error.issues[0]?.message ?? "Porcentaje inválido",
-                }));
-                return prev;
-            }
-
-            if (!canLockMemberPercentage(prev, memberId, target.percentage)) {
-                setLockErrors((prevErrors) => ({
-                    ...prevErrors,
-                    [memberId]:
-                        "No se puede bloquear: la suma de los porcentajes bloqueados superaría el 100%",
-                }));
-                return prev;
-            }
-
-            setLockErrors((prevErrors) => withoutKey(prevErrors, memberId));
-            return prev.map((member) =>
-                member.memberId === memberId ? { ...member, locked: true } : member,
-            );
-        });
-    };
-
-    const handleAutoBalance = () => {
-        setSaveError(null);
-        setMembers((prev) => autoBalancePercentages(prev));
-    };
-
     const handleCancel = () => {
-        if (percentagesQuery.data) {
-            setMembers(percentagesQuery.data.members.map((member) => ({ ...member })));
-        }
-        setLockErrors({});
-        setSaveError(null);
+        setDraft(toInputValue(savedPercentage));
     };
 
     const handleSave = () => {
-        if (!canSave) {
+        if (!canSave || !validation.success) {
             return;
         }
 
-        setSaveError(null);
         updateMutation.mutate(
+            { percentage: validation.data },
             {
-                members: members.map(({ memberId, percentage, locked }) => ({
-                    memberId,
-                    percentage,
-                    locked,
-                })),
-            },
-            {
-                onError: (mutationError) => {
-                    setSaveError(
-                        mutationError instanceof Error
-                            ? mutationError.message
-                            : "No se pudo guardar la configuración de porcentajes",
+                onSuccess: (updated) => {
+                    showSuccessToast(
+                        "Porcentaje actualizado",
+                        `Tu porcentaje de propiedad ahora es ${updated.percentage}%.`,
                     );
+                },
+                onError: (error) => {
+                    showApiError(error as BackendError, "No se pudo guardar tu porcentaje");
                 },
             },
         );
     };
+
+    const isLoading = membersQuery.isLoading;
+    const isError = membersQuery.isError;
 
     return (
         <CommonLayout className="flex flex-col min-h-screen lg:h-screen lg:overflow-hidden">
             <GroupNavbar children={undefined} groupName="" />
 
             <div className="flex flex-col lg:flex-row flex-1 lg:min-h-0 items-stretch gap-6 bg-background pt-4 px-4 sm:px-12 lg:px-30 pb-6 lg:overflow-hidden">
-                {percentagesQuery.isLoading && (
+                {isLoading && (
                     <p className="text-base text-warm-muted">Cargando porcentajes del grupo...</p>
                 )}
 
-                {percentagesQuery.isError && (
+                {isError && (
                     <p role="alert" className="text-base font-medium text-group-danger">
-                        {percentagesQuery.error instanceof Error
-                            ? percentagesQuery.error.message
-                            : "No se pudieron cargar los porcentajes del grupo."}
+                        No se pudieron cargar los porcentajes del grupo.
                     </p>
                 )}
 
-                {!percentagesQuery.isLoading && !percentagesQuery.isError && (
+                {!isLoading && !isError && (
                     <>
                         <div className="bg-panel p-5 flex flex-col gap-2.5 items-center w-full lg:basis-3/4 lg:min-h-0 rounded-2xl order-2 lg:order-1">
-                            <p role="status"
-                               className={cn("text-sm font-semibold text-right w-full leading-none", totalIsComplete ? "text-olive" : "text-group-danger")}>
-                                {totalIsComplete
-                                    ? "Total asignado: 100%"
-                                    : difference > 0
-                                        ? `Falta asignar ${difference}% para llegar al 100%`
-                                        : `Te pasaste ${Math.abs(difference)}% del 100%`}
-                            </p>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 w-full flex-1 min-h-0 content-start overflow-visible">
-                                {members.map((member) => (
-                                    <PercentageCard
-                                        key={member.memberId}
-                                        member={member}
-                                        percentage={member.percentage}
-                                        locked={member.locked}
-                                        disabled={updateMutation.isPending}
-                                        errorMessage={getMemberErrorMessage(member, lockErrors)}
-                                        onPercentageChange={handlePercentageChange}
-                                        onToggleLock={handleToggleLock}
-                                    />
-                                ))}
+                                {members.map((member) => {
+                                    const isMine = member.id === myMember?.id;
+                                    return (
+                                        <PercentageCard
+                                            key={member.id}
+                                            member={member}
+                                            percentage={member.percentage ?? 0}
+                                            editable={isMine}
+                                            inputValue={isMine ? draft : undefined}
+                                            disabled={updateMutation.isPending}
+                                            onInputChange={isMine ? setDraft : undefined}
+                                        />
+                                    );
+                                })}
                             </div>
 
-                            {saveError && (
-                                <p role="alert" className="text-base font-medium text-group-danger self-stretch">
-                                    {saveError}
+                            <div className="flex flex-col gap-1 w-full">
+                                <p
+                                    role="status"
+                                    className={cn(
+                                        "text-sm font-semibold text-right w-full leading-none",
+                                        totalIsComplete ? "text-olive" : "text-group-danger",
+                                    )}
+                                >
+                                    {totalIsComplete
+                                        ? "Total asignado: 100%"
+                                        : difference > 0
+                                            ? `Falta asignar ${difference}% para llegar al 100%`
+                                            : `Te pasaste ${Math.abs(difference)}% del 100%`}
                                 </p>
-                            )}
+                            </div>
 
                             <div className="flex flex-row flex-wrap lg:flex-nowrap gap-2 justify-center lg:justify-end items-center self-stretch">
                                 <button
                                     type="button"
                                     onClick={handleCancel}
-                                    disabled={updateMutation.isPending}
+                                    disabled={updateMutation.isPending || !isDirty}
                                     className="flex flex-row justify-center items-center bg-panel rounded-[50px] border border-field/60 py-2 px-4 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <p className="text-base font-medium text-ink">Cancelar</p>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleAutoBalance}
-                                    disabled={updateMutation.isPending}
-                                    className="flex flex-row justify-center items-center h-10 px-4 bg-accent/30 rounded-full border border-amber/30 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <p className="text-base font-medium text-ink whitespace-nowrap">Ajustar equitativamente</p>
                                 </button>
                                 <button
                                     type="button"
@@ -288,7 +216,13 @@ export const PercentageConfigScreen = () => {
                                     aria-disabled={!canSave}
                                     className="flex flex-row justify-center items-center bg-brand rounded-[50px] border border-brand py-2 px-4 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <p className="text-base font-medium text-brand-foreground whitespace-nowrap">{updateMutation.isPending ? "Guardando..." : !isDirty ? "Cambios guardados" : "Guardar configuración"}</p>
+                                    <p className="text-base font-medium text-brand-foreground whitespace-nowrap">
+                                        {updateMutation.isPending
+                                            ? "Guardando..."
+                                            : !isDirty
+                                                ? "Cambios guardados"
+                                                : "Guardar mi porcentaje"}
+                                    </p>
                                 </button>
                             </div>
                         </div>

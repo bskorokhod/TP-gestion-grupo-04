@@ -6,6 +6,23 @@ export const MembershipStatusSchema = z.enum(["REJECTED", "PENDING", "ACTIVE", "
 
 export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
 
+/**
+ * Estado de funcionamiento del grupo (lo deriva el backend de los miembros activos, no se persiste).
+ * RUNNING: todo funciona. STOPPED: porcentual con los activos sumando distinto de 100%, o sin miembros activos.
+ */
+export const GroupStatusSchema = z.enum(["RUNNING", "STOPPED"]);
+export type GroupStatus = z.infer<typeof GroupStatusSchema>;
+
+/** Porcentaje de propiedad: mayor a 0, hasta 100 y con a lo sumo 2 decimales (espeja PercentageDistribution del backend). */
+export const OwnershipPercentageSchema = z
+    .number({ error: "El porcentaje debe ser un número" })
+    .gt(0, "El porcentaje debe ser mayor a 0")
+    .max(100, "El porcentaje no puede ser mayor a 100")
+    .refine(
+        (value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6,
+        "El porcentaje admite hasta 2 decimales",
+    );
+
 // ---- Configuración del grupo (se elige al crear el grupo; espeja GroupSettings del backend) ----
 
 export const DistributionModeSchema = z.enum(["EQUAL", "PERCENTAGE"], {
@@ -116,6 +133,11 @@ export const GroupSchema = z.object({
     joinCode: z.string(),
     myStatus: MembershipStatusSchema,
     settings: GroupSettingsSchema,
+    status: GroupStatusSchema,
+    /** Suma de los porcentajes de los miembros activos. */
+    assignedPercentage: z.number(),
+    /** Lo que falta para llegar a 100 (0 si el grupo está completo). */
+    missingPercentage: z.number(),
 });
 
 export type Group = z.infer<typeof GroupSchema>;
@@ -139,7 +161,17 @@ export const GroupCreateSchema = z.object({
         .trim()
         .max(30, "El apodo no puede superar los 30 caracteres")
         .optional(),
+    /** Porcentaje de propiedad del fundador: obligatorio en modo porcentual, se omite en equitativo. */
+    founderPercentage: OwnershipPercentageSchema.optional(),
     settings: GroupSettingsCreateSchema,
+}).superRefine((group, ctx) => {
+    if (group.settings.distributionMode === "PERCENTAGE" && group.founderPercentage === undefined) {
+        ctx.addIssue({
+            code: "custom",
+            path: ["founderPercentage"],
+            message: "Indicá tu porcentaje de propiedad",
+        });
+    }
 });
 
 export type GroupCreate = z.infer<typeof GroupCreateSchema>;
@@ -155,12 +187,15 @@ export const JoinGroupSchema = z.object({
         .trim()
         .min(1, "El apodo es obligatorio")
         .max(30, "El apodo no puede superar los 30 caracteres"),
+    /** Porcentaje que se pide al unirse: obligatorio si el grupo es porcentual, se omite si es equitativo. */
+    percentage: OwnershipPercentageSchema.optional(),
 });
 
 export type JoinGroup = z.infer<typeof JoinGroupSchema>;
 
 export const GroupPreviewSchema = z.object({
     name: z.string(),
+    distributionMode: DistributionModeSchema,
 });
 
 export type GroupPreview = z.infer<typeof GroupPreviewSchema>;

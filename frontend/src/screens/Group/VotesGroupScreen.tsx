@@ -4,6 +4,7 @@ import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { EmptyState } from "@/components/Expenses/ExpensesCard.tsx";
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
+import { GroupStoppedBanner } from "@/components/GroupStoppedBanner.tsx";
 import { VoteCard } from "@/components/Votes/VoteCard.tsx";
 import type { Vote, VoteType } from "@/models/Vote.ts";
 import { useGetGroupByCode } from "@/services/GroupServices.ts";
@@ -66,6 +67,7 @@ export const VotesGroupScreen = () => {
       </GroupNavbar>
 
       <section className="space-y-8 px-5 py-8 sm:px-8 lg:px-30">
+        <GroupStoppedBanner />
         {SECTIONS.map((section) => {
           const sectionVotes = newestFirst(votes.filter((vote) => vote.type === section.type));
 

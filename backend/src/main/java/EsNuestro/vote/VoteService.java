@@ -7,6 +7,7 @@ import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
 import EsNuestro.group.GroupSettings;
+import EsNuestro.group.MemberJoinedEvent;
 import EsNuestro.group.MemberLeftEvent;
 import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
@@ -163,6 +164,21 @@ class VoteService {
         voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
                 .filter(vote -> vote.hasBallotOf(event.memberId()))
                 .forEach(this::evaluate);
+    }
+
+    /**
+     * Un cambio de configuración lo votan todos los miembros activos; quien ingresa mientras hay una abierta pasa
+     * a ser parte del padrón y puede votarla (su voto queda pendiente, así que la votación sigue abierta). Las
+     * votaciones de gastos no se tocan: involucran solo al acreedor y a los participantes. Corre en la transacción de
+     * {@code GroupService.approveJoinRequest}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onMemberJoined(MemberJoinedEvent event) {
+        GroupMember member = event.member();
+        voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
+                .filter(vote -> vote instanceof ConfigChangeVote)
+                .filter(vote -> !vote.hasBallotOf(member.getId()))
+                .forEach(vote -> vote.addBallot(member, BigDecimal.ONE));
     }
 
     private ConfigChangeVote buildConfigChangeVote(Group group, GroupMember proposer, ConfigChangeDTO data) {

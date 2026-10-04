@@ -4,7 +4,6 @@ import { useApiClient } from "@/hooks/useApiClient";
 import { useToken } from "@/contexts/TokenContext.tsx";
 import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus,} from "@/models/Group.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
-import { ApiService } from "@/services/ApiServices";
 import { TokenService } from "@/services/TokenService";
 import { GROUP_PREVIEW_STALE_TIME_MS, MAX_QUERY_RETRIES } from "@/constants/services.ts";
 
@@ -54,6 +53,8 @@ export function useGetGroupByCode(groupCode: string) {
 }
 
 export function usePreviewGroup(joinCode: string) {
+    // /groups/** exige autenticación en el backend, incluido el preview por código: va con el token.
+    const api = useApiClient();
     const normalized = joinCode.trim().toUpperCase();
     const enabled = JOIN_CODE_REGEX.test(normalized);
 
@@ -63,7 +64,7 @@ export function usePreviewGroup(joinCode: string) {
         retry: false,
         staleTime: GROUP_PREVIEW_STALE_TIME_MS,
         queryFn: async (): Promise<GroupPreview> => {
-            const data = await ApiService.get(`/groups/join/${encodeURIComponent(normalized)}`);
+            const data = await api.get(`/groups/join/${encodeURIComponent(normalized)}`);
             return GroupPreviewSchema.parse(data);
         },
     });
@@ -165,7 +166,8 @@ export function useApproveJoinRequest(groupId: number) {
             return MemberSchema.parse(data);
         },
         onSuccess: (): void => {
-            void qc.invalidateQueries({ queryKey: ["groups", groupId, "members"] });
+            // Aprobar cambia los miembros activos y, con ellos, el estado y los porcentajes del grupo.
+            void qc.invalidateQueries({ queryKey: ["groups"] });
         },
     });
 }

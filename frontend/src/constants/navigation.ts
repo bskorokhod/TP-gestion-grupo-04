@@ -55,7 +55,7 @@ export const PAGES_NAVBAR_DATA: Record<string, SubrouteConfig> = {
     // Sub-rutas de configuración
     "porcentajes": {
         title: "Porcentajes de propiedad",
-        description: "Definí qué porcentaje del bien le corresponde a cada integrante del grupo. Podés bloquear porcentajes para que ajustar los demás automáticamente de forma equitativa.",
+        description: "Solo podés modificar tu propio porcentaje. Si el total no llega a 100%, varias funcionalidad del grupo quedan detenidas hasta completarlo.",
         activeTabKey: "configuracion",
         goBackBtn: true
     },
