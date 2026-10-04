@@ -7,6 +7,7 @@ import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
 import EsNuestro.group.GroupSettings;
+import EsNuestro.group.MemberJoinedEvent;
 import EsNuestro.group.MemberLeftEvent;
 import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
@@ -65,6 +66,7 @@ class VoteService {
     VoteDTO createExtraordinaryExpenseVote(Long groupId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
 
         ExpenseDetails details = expenseService.buildDetails(groupId, data);
         GroupSettings settings = group.getSettings();
@@ -94,6 +96,7 @@ class VoteService {
     VoteDTO createConfigChangeVote(Long groupId, ConfigChangeDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
 
         ConfigChangeVote vote = buildConfigChangeVote(group, proposer, data);
         GroupSettings current = group.getSettings();
@@ -132,8 +135,10 @@ class VoteService {
 
     /** Emite o cambia el voto del caller mientras la votación esté activa. */
     VoteDTO castBallot(Long groupId, Long voteId, VoteChoice choice, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember caller = groupService.requireActiveMember(groupId, username);
+        // Con el grupo detenido nada se resuelve: así una votación aprobada no se ejecuta sobre porcentajes en flujo.
+        groupService.requireRunning(group);
         Vote vote = requireVote(groupId, voteId);
 
         if (!vote.isVisibleTo(caller)) {
@@ -159,6 +164,21 @@ class VoteService {
         voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
                 .filter(vote -> vote.hasBallotOf(event.memberId()))
                 .forEach(this::evaluate);
+    }
+
+    /**
+     * Un cambio de configuración lo votan todos los miembros activos; quien ingresa mientras hay una abierta pasa
+     * a ser parte del padrón y puede votarla (su voto queda pendiente, así que la votación sigue abierta). Las
+     * votaciones de gastos no se tocan: involucran solo al acreedor y a los participantes. Corre en la transacción de
+     * {@code GroupService.approveJoinRequest}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onMemberJoined(MemberJoinedEvent event) {
+        GroupMember member = event.member();
+        voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
+                .filter(vote -> vote instanceof ConfigChangeVote)
+                .filter(vote -> !vote.hasBallotOf(member.getId()))
+                .forEach(vote -> vote.addBallot(member, BigDecimal.ONE));
     }
 
     private ConfigChangeVote buildConfigChangeVote(Group group, GroupMember proposer, ConfigChangeDTO data) {

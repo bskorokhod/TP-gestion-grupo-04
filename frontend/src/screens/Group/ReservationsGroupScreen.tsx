@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
+import { GroupStoppedBanner } from "@/components/GroupStoppedBanner.tsx";
 import { Avatar } from "@/components/ui/Avatar.tsx";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { useMyMember } from "@/hooks/useMyMember.ts";
@@ -104,8 +105,8 @@ export function ReservationsGroupScreen() {
     [backendReservations, cancellationRequests],
   );
   const firstBookableDate = tomorrowKey();
-  const percentageTotal = members.reduce((total, member) => total + (member.percentage ?? 0), 0);
-  const groupStopped = members.length > 0 && Math.abs(percentageTotal - 100) > 0.01;
+  // Con el grupo detenido no se puede reservar; sí se pueden cancelar reservas (propias o solicitar la de otros).
+  const groupStopped = group.status === "STOPPED";
   const firstWeekday = (new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay() + 6) % 7;
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
   const monthDays = Array.from({ length: firstWeekday + daysInMonth }, (_, index) =>
@@ -125,14 +126,6 @@ export function ReservationsGroupScreen() {
   const reservationsForDate = (key: string) =>
     reservations.filter((reservation) => reservation.start <= key && key <= reservation.end);
   const onChooseDate = (key: string) => {
-    if (groupStopped) {
-      toast({
-        title: "Grupo stoppeado",
-        description: "No podés iniciar una reserva hasta resolver la inconsistencia del grupo.",
-        variant: "destructive",
-      });
-      return;
-    }
     if (key < firstBookableDate) {
       toast({
         title: "Fecha no disponible",
@@ -151,6 +144,15 @@ export function ReservationsGroupScreen() {
       return;
     }
     setSelectedReservation(null);
+    // Los días ya reservados siguen siendo seleccionables (para cancelar); iniciar una reserva nueva no.
+    if (groupStopped) {
+      toast({
+        title: "Grupo detenido",
+        description: "No podés iniciar una reserva hasta que los porcentajes del grupo sumen 100%.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!rangeStart || rangeEnd || key < rangeStart) {
       setRangeStart(key);
       setRangeEnd(null);
@@ -175,8 +177,8 @@ export function ReservationsGroupScreen() {
   const confirmReservation = async () => {
     if (groupStopped) {
       toast({
-        title: "Grupo con inconsistencia",
-        description: "El grupo está stoppeado por una inconsistencia de porcentajes a resolver.",
+        title: "Grupo detenido",
+        description: "El grupo no puede tomar reservas hasta que los porcentajes sumen 100%.",
         variant: "destructive",
       });
       return;
@@ -365,6 +367,7 @@ export function ReservationsGroupScreen() {
               <button
                 type="button"
                 onClick={confirmReservation}
+                disabled={groupStopped}
                 className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-brand-foreground hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 + Reservar
@@ -372,14 +375,7 @@ export function ReservationsGroupScreen() {
             </div>
           </div>
 
-          {groupStopped && (
-            <div
-              role="alert"
-              className="mb-4 rounded-xl border border-group-danger/20 bg-group-danger-soft px-4 py-3 text-sm text-group-danger"
-            >
-              El grupo está stoppeado por una inconsistencia de porcentajes. Resolvé los porcentajes antes de reservar.
-            </div>
-          )}
+          <GroupStoppedBanner className="mb-4" />
           {isLoading && <p className="mb-3 text-sm text-group-muted">Cargando reservas...</p>}
           {isError && (
             <p role="alert" className="mb-3 rounded-xl bg-group-danger-soft px-4 py-3 text-sm text-group-danger">
@@ -431,10 +427,10 @@ export function ReservationsGroupScreen() {
                   key={key}
                   type="button"
                   onClick={() => onChooseDate(key)}
-                  disabled={unavailable || groupStopped}
+                  disabled={unavailable || (groupStopped && !booking)}
                   aria-label={`${day} ${visibleMonth.toLocaleDateString("es-AR", { month: "long" })}${booking ? `, reservado por ${booking.memberName}, ${formatDate(booking.start)} al ${formatDate(booking.end)}` : ", disponible"}`}
                   aria-pressed={isStart || isEnd || Boolean(selected)}
-                  className={`relative flex min-h-12 flex-col items-center justify-center overflow-hidden rounded-xl px-1 py-2 text-xs transition sm:min-h-16 ${unavailable || groupStopped ? "cursor-not-allowed bg-background text-group-muted/50" : "hover:ring-2 hover:ring-brand/40"} ${booking ? `${color} text-white` : "bg-panel text-foreground shadow-sm"} ${inRange || isStart || isEnd ? "ring-2 ring-brand" : ""} ${selected ? "outline outline-2 outline-offset-2 outline-brand" : ""}`}
+                  className={`relative flex min-h-12 flex-col items-center justify-center overflow-hidden rounded-xl px-1 py-2 text-xs transition sm:min-h-16 ${unavailable || (groupStopped && !booking) ? "cursor-not-allowed bg-background text-group-muted/50" : "hover:ring-2 hover:ring-brand/40"} ${booking ? `${color} text-white` : "bg-panel text-foreground shadow-sm"} ${inRange || isStart || isEnd ? "ring-2 ring-brand" : ""} ${selected ? "outline outline-2 outline-offset-2 outline-brand" : ""}`}
                 >
                 {unavailable && (
                   <span

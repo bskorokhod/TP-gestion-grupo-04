@@ -42,7 +42,7 @@ class ConfigChangeVoteTest {
 
     private static GroupMember founderOf(Group group) {
         User user = new User("password", "USER", "Ana", "Perez", "ana@example.com", null, null);
-        return GroupMember.founder(group, user, "Ana", MemberColor.RED);
+        return GroupMember.founder(group, user, "Ana", MemberColor.RED, BigDecimal.valueOf(100));
     }
 
     @Test

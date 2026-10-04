@@ -12,5 +12,4 @@ public enum MembershipStatus {
     REMOVED;
 
     public static final Set<MembershipStatus> IDENTITY_OCCUPYING = EnumSet.of(PENDING, ACTIVE, DEACTIVATED);
-    public static final Set<MembershipStatus> OWNERSHIP_HOLDING = EnumSet.of(ACTIVE, DEACTIVATED);
 }

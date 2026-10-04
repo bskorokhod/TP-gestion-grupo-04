@@ -6,11 +6,14 @@ import EsNuestro.group.dtos.GroupCreateDTO;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.group.dtos.GroupPreviewDTO;
 import EsNuestro.group.dtos.JoinGroupDTO;
-import EsNuestro.member.*;
+import EsNuestro.member.GroupMember;
+import EsNuestro.member.GroupMemberRepository;
+import EsNuestro.member.MemberColor;
+import EsNuestro.member.MembershipStatus;
 import EsNuestro.member.dtos.FinalizeExitsDTO;
 import EsNuestro.member.dtos.JoinRequestDTO;
 import EsNuestro.member.dtos.MemberDTO;
-import EsNuestro.member.dtos.PercentagesUpdateDTO;
+import EsNuestro.member.dtos.PercentageUpdateDTO;
 import EsNuestro.user.User;
 import EsNuestro.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +61,10 @@ public class GroupService {
     GroupDTO createGroup(GroupCreateDTO data, String founderEmail) {
         User founder = requireUser(founderEmail);
 
+        BigDecimal founderPercentage = data.settings().distributionMode().hasOwnershipPercentages()
+                ? PercentageDistribution.requireValidPercentage(data.founderPercentage())
+                : Group.TOTAL_PERCENTAGE;
+
         Group group = new Group(
                 data.name(), data.description(), generateUniqueJoinCode(), data.settings().toEntity()
         );
@@ -68,7 +75,7 @@ public class GroupService {
                 : data.founderNickname().strip();
 
         GroupMember founderMembership = GroupMember.founder(
-                group, founder, nickname, pickColor(group.getId(), nickname, null)
+                group, founder, nickname, pickColor(group.getId(), nickname, null), founderPercentage
         );
         groupMemberRepository.save(founderMembership);
 
@@ -115,9 +122,10 @@ public class GroupService {
                 .orElseThrow(() -> new ItemNotFoundException("group", normalizedCode));
 
         String nickname = data.nickname().strip();
+        BigDecimal requestedPercentage = requestedPercentageFor(group, data.percentage());
         GroupMember membership = groupMemberRepository.findByGroup_IdAndUser_Email(group.getId(), email)
-                .map(existing -> requestAgain(existing, nickname))
-                .orElseGet(() -> createJoinRequest(group, user, nickname));
+                .map(existing -> requestAgain(existing, nickname, requestedPercentage))
+                .orElseGet(() -> createJoinRequest(group, user, nickname, requestedPercentage));
 
         return JoinRequestDTO.from(membership);
     }
@@ -140,8 +148,24 @@ public class GroupService {
     }
 
     MemberDTO approveJoinRequest(Long groupId, Long memberId, String actingEmail) throws ItemNotFoundException {
+        Group group = requireGroupForUpdate(groupId);
         GroupMember target = requirePendingRequestManagedBy(groupId, memberId, actingEmail);
+
+        // Entre el envío y la aprobación la suma pudo cambiar: se vuelve a validar con el mismo mensaje genérico.
+        if (group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
+            if (target.getPercentage() == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "The application does not include an ownership percentage, the applicant must send it again"
+                );
+            }
+            PercentageDistribution.requireRoomToJoin(group, target.getPercentage());
+        }
+
         target.approve();
+        group.refreshOwnership();
+        // Las votaciones de configuración abiertas suman al nuevo miembro como participante.
+        eventPublisher.publishEvent(new MemberJoinedEvent(groupId, target));
         return MemberDTO.from(target);
     }
 
@@ -152,11 +176,13 @@ public class GroupService {
     }
 
     void leaveGroup(Long groupId, String email) throws ItemNotFoundException {
-        requireGroupForUpdate(groupId);
+        Group group = requireGroupForUpdate(groupId);
         GroupMember membership = requireActiveMember(groupId, email);
 
         requireNoUnsettledDebts(membership);
         membership.deactivateForLeaving();
+        // Su porcentaje deja de computarse; si queda un único activo en modo porcentual, pasa a tener 100%.
+        group.refreshOwnership();
         // Las votaciones activas dejan de contar a este miembro y pueden quedar resueltas.
         eventPublisher.publishEvent(new MemberLeftEvent(groupId, membership.getId()));
     }
@@ -170,21 +196,22 @@ public class GroupService {
         return MemberDTO.from(membership);
     }
 
-    List<MemberDTO> updatePercentages(Long groupId, PercentagesUpdateDTO data, String actingEmail) throws ItemNotFoundException {
-        requireGroupForUpdate(groupId);
-        requireActiveMember(groupId, actingEmail);
+    MemberDTO updateMyPercentage(Long groupId, PercentageUpdateDTO data, String actingEmail) throws ItemNotFoundException {
+        Group group = requireGroupForUpdate(groupId);
+        GroupMember member = requireActiveMember(groupId, actingEmail);
 
-        List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
-        Map<Long, GroupMember> byId = indexById(members);
-        Map<Long, BigDecimal> changes = PercentageDistribution.toMap(data.percentages());
+        if (!group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "In equitable mode, the percentages are calculated automatically and cannot be modified"
+            );
+        }
 
-        requireChangesTargetActiveMembers(byId, changes);
-        PercentageDistribution.requireTotalOfOneHundred(
-                members.stream().filter(GroupMember::holdsOwnership).toList(), changes
-        );
+        BigDecimal percentage = PercentageDistribution.requireValidPercentage(data.percentage());
+        PercentageDistribution.requireWithinTotalAfterChange(group.activeMembers(), member, percentage);
 
-        changes.forEach((memberId, percentage) -> byId.get(memberId).updatePercentage(percentage));
-        return members.stream().map(MemberDTO::from).toList();
+        member.updatePercentage(percentage);
+        return MemberDTO.from(member);
     }
 
     List<MemberDTO> finalizeExits(Long groupId, FinalizeExitsDTO data, String actingEmail) throws ItemNotFoundException {
@@ -204,31 +231,36 @@ public class GroupService {
             toFinalize.add(member);
         }
 
-        Map<Long, BigDecimal> changes = PercentageDistribution.toMap(data.percentages());
-        requireChangesTargetActiveMembers(byId, changes);
-
-        Set<Long> finalizingIds = toFinalize.stream().map(GroupMember::getId).collect(Collectors.toSet());
-        List<GroupMember> remainingHolders = members.stream()
-                .filter(GroupMember::holdsOwnership)
-                .filter(member -> !finalizingIds.contains(member.getId()))
-                .toList();
-        PercentageDistribution.requireTotalOfOneHundred(remainingHolders, changes);
-
-        changes.forEach((memberId, percentage) -> byId.get(memberId).updatePercentage(percentage));
+        // Los porcentajes de los inactivos ya no se computan desde la baja: acá solo se cierra la salida.
         toFinalize.forEach(GroupMember::finalizeExit);
 
         return members.stream().map(MemberDTO::from).toList();
     }
 
-    private GroupMember createJoinRequest(Group group, User user, String nickname) {
-        GroupMember request = GroupMember.joinRequest(group, user, nickname, pickColor(group.getId(), nickname, null));
+    private GroupMember createJoinRequest(Group group, User user, String nickname, BigDecimal requestedPercentage) {
+        GroupMember request = GroupMember.joinRequest(
+                group, user, nickname, pickColor(group.getId(), nickname, null), requestedPercentage
+        );
         return groupMemberRepository.save(request);
     }
 
-    private GroupMember requestAgain(GroupMember member, String nickname) {
+    private GroupMember requestAgain(GroupMember member, String nickname, BigDecimal requestedPercentage) {
         requireCanRequestAgain(member);
-        member.requestAgain(nickname, pickColor(member.getGroup().getId(), nickname, member));
+        member.requestAgain(nickname, pickColor(member.getGroup().getId(), nickname, member), requestedPercentage);
         return member;
+    }
+
+    /**
+     * Porcentaje que se guarda en la solicitud: null en modo equitativo; en porcentual, el pedido ya validado.
+     * Si con él la suma superaría 100 se frena con un mensaje genérico, igual con el grupo detenido o funcionando.
+     */
+    private BigDecimal requestedPercentageFor(Group group, BigDecimal requested) {
+        if (!group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
+            return null;
+        }
+        BigDecimal percentage = PercentageDistribution.requireValidPercentage(requested);
+        PercentageDistribution.requireRoomToJoin(group, percentage);
+        return percentage;
     }
 
     private void requireCanRequestAgain(GroupMember member) {
@@ -249,13 +281,17 @@ public class GroupService {
         return target;
     }
 
-    private void requireChangesTargetActiveMembers(Map<Long, GroupMember> byId, Map<Long, BigDecimal> changes) throws ItemNotFoundException {
-        for (Long memberId : changes.keySet()) {
-            GroupMember member = byId.get(memberId);
-            if (member == null) {
-                throw new ItemNotFoundException("group member", memberId);
-            }
-            requireStatus(member, MembershipStatus.ACTIVE);
+    /**
+     * Con el grupo detenido no se agregan ni proponen gastos, no se proponen cambios de configuración y no se
+     * reserva. Siempre se llama después de verificar la membresía del caller, para no revelar el estado a ajenos.
+     */
+    public void requireRunning(Group group) {
+        if (group.isStopped()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The group is stopped. Another " + PercentageDistribution.format(group.missingPercentage()) +
+                            "% needs to be allocated to reach 100%"
+            );
         }
     }
 

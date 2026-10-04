@@ -24,6 +24,9 @@ class ConfigChangeVoteExecutor implements VoteExecutor {
             throw new IllegalStateException("Vote " + vote.getId() + " is not a config change vote");
         }
         Group group = configVote.getGroup();
+        if (group.isStopped()) {
+            return Optional.of("The group is stopped: the percentages of the active members must add up to exactly 100%");
+        }
         try {
             group.changeSettings(configVote.applyTo(group.getSettings()));
         } catch (IllegalArgumentException e) {

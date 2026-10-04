@@ -12,9 +12,13 @@ export interface SectionBannerProps {
     variant: SectionBannerVariant;
     action?: ReactNode;
     onAction?: () => void;
+    /** Deshabilita el botón de acción (p. ej. grupo detenido). */
+    actionDisabled?: boolean;
+    /** Tooltip del botón de acción; útil para explicar por qué está deshabilitado. */
+    actionTitle?: string;
 }
 
-export function SectionBanner({title, description, variant, action, onAction,}: SectionBannerProps) {
+export function SectionBanner({title, description, variant, action, onAction, actionDisabled = false, actionTitle,}: SectionBannerProps) {
     return (
         <div
             className={cn(
@@ -36,6 +40,8 @@ export function SectionBanner({title, description, variant, action, onAction,}: 
                 <Button
                     type="button"
                     onClick={onAction}
+                    disabled={actionDisabled}
+                    title={actionTitle}
                     className="shrink-0 rounded-full p-6 text-lg"
                 >
                     {action}

@@ -15,3 +15,11 @@ export function useCurrentGroup(): Group {
     }
     return group;
 }
+
+/**
+ * Con el grupo detenido (STOPPED) no se pueden crear gastos, votar ni reservar. Sí se pueden pagar deudas,
+ * cancelar reservas, aceptar miembros y modificar el propio porcentaje para volver a RUNNING.
+ */
+export function useIsGroupStopped(): boolean {
+    return useCurrentGroup().status === "STOPPED";
+}

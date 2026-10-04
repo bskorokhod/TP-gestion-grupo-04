@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "wouter";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
+import { GroupStoppedBanner } from "@/components/GroupStoppedBanner.tsx";
 import { PerPersonView } from "@/components/Expenses/PerPersonView.tsx";
 import { PerExpenseView } from "@/components/Expenses/PerExpenseView.tsx";
 import { useGetGroupByCode } from "@/services/GroupServices.ts";
@@ -45,6 +46,7 @@ export const ExpensesGroupScreen = () => {
           </div>
         </GroupNavbar>
 
+
         <div className=" flex justify-end">
           <button
               onClick={() => setPersonView((value) => !value)}
@@ -62,6 +64,8 @@ export const ExpensesGroupScreen = () => {
             Vista por persona
           </button>
         </div>
+
+        <GroupStoppedBanner className="mx-5 mt-6 sm:mx-8 lg:mx-30" />
 
         {group?.id != null
             ? personView
