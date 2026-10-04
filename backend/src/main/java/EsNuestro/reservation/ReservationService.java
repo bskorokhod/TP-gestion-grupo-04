@@ -51,8 +51,9 @@ class ReservationService {
             ReservationCreateDTO data,
             String email
     ) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember member = groupService.requireActiveMember(groupId, email);
+        groupService.requireRunning(group);
         validateDates(data.startDate(), data.endDate());
 
         boolean overlaps = reservationRepository.findByGroup_IdOrderByStartDateAsc(groupId).stream()

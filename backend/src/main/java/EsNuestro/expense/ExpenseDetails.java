@@ -64,6 +64,17 @@ public class ExpenseDetails {
         this.participants = new ArrayList<>(participants);
     }
 
+    /**
+     * Copia independiente (otra fila) con los mismos datos. Sirve para crear un gasto a partir de datos
+     * propuestos en una votación sin que ambos compartan la misma entidad.
+     */
+    public ExpenseDetails copy() {
+        List<ExpenseParticipant> participantCopies = participants.stream()
+                .map(participant -> new ExpenseParticipant(participant.getMember(), participant.getCustomPercentage()))
+                .toList();
+        return new ExpenseDetails(title, description, totalAmount, splitMethod, creditor, receiptUrl, participantCopies);
+    }
+
     public boolean involves(GroupMember member) {
         return creditor.getId().equals(member.getId())
                 || participants.stream().anyMatch(participant -> participant.getMember().getId().equals(member.getId()));

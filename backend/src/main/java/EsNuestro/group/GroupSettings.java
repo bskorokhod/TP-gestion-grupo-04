@@ -86,6 +86,47 @@ public class GroupSettings {
         this.extraordinaryExpenseThreshold = extraordinaryExpenseThreshold.setScale(2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * Un gasto es extraordinario si su monto alcanza el umbral (mayor o igual). Un gasto extraordinario no se
+     * crea directamente: se somete a votación.
+     */
+    public boolean isExtraordinary(BigDecimal totalAmount) {
+        return totalAmount.compareTo(extraordinaryExpenseThreshold) >= 0;
+    }
+
+    /**
+     * Copia con otro modo de repartición. Las cuatro variantes {@code with...} validan la combinación
+     * resultante con el constructor y lanzan {@link IllegalArgumentException} si es incoherente.
+     */
+    public GroupSettings withDistributionMode(DistributionMode newDistributionMode) {
+        return new GroupSettings(
+                newDistributionMode, votingModel, reservationLimitPolicy,
+                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold
+        );
+    }
+
+    /** Copia con otro modelo de aprobación de votaciones. */
+    public GroupSettings withVotingModel(VotingModel newVotingModel) {
+        return new GroupSettings(
+                distributionMode, newVotingModel, reservationLimitPolicy,
+                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold
+        );
+    }
+
+    /** Copia con otra restricción de reservas; los días fijos van si y solo si es FIXED_DAYS_PER_MONTH. */
+    public GroupSettings withReservationLimit(ReservationLimitPolicy newPolicy, Integer newFixedDaysPerMonth) {
+        return new GroupSettings(
+                distributionMode, votingModel, newPolicy, newFixedDaysPerMonth, extraordinaryExpenseThreshold
+        );
+    }
+
+    /** Copia con otro monto a partir del cual un gasto es extraordinario. */
+    public GroupSettings withExtraordinaryExpenseThreshold(BigDecimal newThreshold) {
+        return new GroupSettings(
+                distributionMode, votingModel, reservationLimitPolicy, reservationFixedDaysPerMonth, newThreshold
+        );
+    }
+
     /** Un modelo de votación que depende de la propiedad no tiene sentido si el bien se reparte en partes iguales. */
     public static boolean isVotingModelAllowed(DistributionMode distribution, VotingModel voting) {
         return distribution.hasOwnershipPercentages() || !voting.dependsOnOwnership();

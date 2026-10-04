@@ -2,10 +2,8 @@ import {useEffect, useRef, useState} from "react";
 import {Link, useRoute} from "wouter";
 
 import {ChevronDownIcon} from "@/components/Icons.tsx";
-import {groupExpensesPath} from "@/constants/routes.ts";
+import {GROUP_ROUTE_PATTERN, groupExpensesPath} from "@/constants/routes.ts";
 import {useGetGroups} from "@/services/GroupServices.ts";
-
-const GROUP_ROUTE_PATTERN = "/grupos/:code/*";
 
 const sameCode = (a: string, b: string) => a.toUpperCase() === b.toUpperCase();
 

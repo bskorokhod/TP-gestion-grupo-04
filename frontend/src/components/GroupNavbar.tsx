@@ -1,20 +1,14 @@
 import { Link, useLocation } from "wouter";
-
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
-
 import {GROUP_PAGES, GroupNavbarProps, PAGES_NAVBAR_DATA, Routes} from "@/constants/navigation.ts"
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 
 
 export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarProps) {
     const [location] = useLocation();
-    // Las pantallas de grupo viven bajo GroupGuard: el grupo (y su código de URL) sale del contexto.
     const group = useCurrentGroup();
-    // Un `groupName` explícito (incluso "") tiene prioridad; "" hace que se muestre el título de la página.
     const groupName = groupNameProp ?? group.name;
-
-    console.log(location.split("/").at(-1));
 
     const pageText = PAGES_NAVBAR_DATA[location.split("/").at(-1) as Routes]
     const handleGoBack = () => { window.history.back(); };
@@ -22,7 +16,7 @@ export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarPro
     return (
         <div>
             <nav
-                className="grid grid-cols-4 overflow-hidden bg-brand text-center text-brand-foreground"
+                className="grid grid-cols-5 overflow-hidden bg-brand text-center text-brand-foreground"
                 aria-label="Secciones"
             >
                 {GROUP_PAGES.map((page) => {

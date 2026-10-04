@@ -1,12 +1,16 @@
 import { useState, type ReactElement } from "react";
 
 import { ModalShell } from "@/components/modals/ModalShell";
+import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import type { BackendError } from "@/hooks/useToast.ts";
+import { formatCurrency } from "@/lib/format.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
+import { describeResolvedVote, reachesExtraordinaryThreshold } from "@/lib/votes.ts";
 import type { Member } from "@/models/Group.ts";
-import { useGetGroup, useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
+import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
+import { useCreateExtraordinaryExpenseVote } from "@/services/VoteServices.ts";
 
 import { Field } from "./Field";
 import { FileDropzone } from "./FileDropzone";
@@ -17,229 +21,250 @@ import { TextArea, TextInput } from "./TextInput";
 
 
 export interface NewExpenseModalProps {
-  readonly groupId: number;
-  readonly onClose?: () => void;
+    readonly groupId: number;
+    readonly onClose?: () => void;
 }
 
 export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): ReactElement {
-  const { data: members = [] } = useGetGroupMembers(groupId, "ACTIVE");
-  const me = useMyMember(groupId);
-  const { data: group } = useGetGroup(groupId);
-  const createExpense = useCreateExpense(groupId);
-  const { showSchemaError, showApiError, showSuccessToast } = useFormToasts();
+    const { data: members = [] } = useGetGroupMembers(groupId, "ACTIVE");
+    const me = useMyMember(groupId);
+    const createExpense = useCreateExpense(groupId);
+    const createExpenseVote = useCreateExtraordinaryExpenseVote(groupId);
+    const group = useCurrentGroup();
+    const { showSchemaError, showApiError, showSuccessToast, showErrorToast } = useFormToasts();
 
-  const [title, setTitle] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [amount, setAmount] = useState<string>("");
-  const [file, setFile] = useState<File | null>(null);
-  const [splitMethod, setSplitMethod] = useState<SplitMethod>("PROPORTIONAL");
+    const [title, setTitle] = useState<string>("");
+    const [description, setDescription] = useState<string>("");
+    const [amount, setAmount] = useState<string>("");
+    const [file, setFile] = useState<File | null>(null);
+    const [splitMethod, setSplitMethod] = useState<SplitMethod>("PROPORTIONAL");
 
-  const [participantIds, setParticipantIds] = useState<Set<number>>(new Set());
+    const [participantIds, setParticipantIds] = useState<Set<number>>(new Set());
 
-  const [isParticipantPickerOpen, setIsParticipantPickerOpen] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [isParticipantPickerOpen, setIsParticipantPickerOpen] = useState<boolean>(false);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const isEqualDistribution = group?.settings.distributionMode === "EQUAL";
-  // En un grupo EQUAL el reparto proporcional no existe: el método elegido en el estado se ignora.
-  const effectiveSplitMethod: SplitMethod = isEqualDistribution ? "EQUAL" : splitMethod;
+    const isEqualDistribution = group.settings.distributionMode === "EQUAL";
+    // En un grupo EQUAL el reparto proporcional no existe: el método elegido en el estado se ignora.
+    const effectiveSplitMethod: SplitMethod = isEqualDistribution ? "EQUAL" : splitMethod;
 
-  const assignableMembers = me ? members.filter((member) => member.id !== me.id) : [];
-  const participants = assignableMembers.filter((member) => participantIds.has(member.id));
-  const pickableParticipants = assignableMembers.filter(
-      (member) => !participantIds.has(member.id),
-  );
+    const threshold = group.settings.extraordinaryExpenseThreshold;
+    const previewAmount = Number(amount.replace(",", "."));
+    const requiresVote =
+        amount.trim() !== "" && Number.isFinite(previewAmount) && reachesExtraordinaryThreshold(previewAmount, threshold);
 
-  const addParticipant = (member: Member): void => {
-    setParticipantIds((current) => new Set(current).add(member.id));
-    setIsParticipantPickerOpen(false);
-  };
+    const assignableMembers = me ? members.filter((member) => member.id !== me.id) : [];
+    const participants = assignableMembers.filter((member) => participantIds.has(member.id));
+    const pickableParticipants = assignableMembers.filter(
+        (member) => !participantIds.has(member.id),
+    );
 
-  const removeParticipant = (memberId: number): void => {
-    setParticipantIds((current) => {
-      const next = new Set(current);
-      next.delete(memberId);
-      return next;
-    });
-  };
+    const addParticipant = (member: Member): void => {
+        setParticipantIds((current) => new Set(current).add(member.id));
+        setIsParticipantPickerOpen(false);
+    };
 
-  const addAllMembers = (): void => {
-    setParticipantIds(new Set(assignableMembers.map((member) => member.id)));
-  };
+    const removeParticipant = (memberId: number): void => {
+        setParticipantIds((current) => {
+            const next = new Set(current);
+            next.delete(memberId);
+            return next;
+        });
+    };
 
-  const handleSubmit = async (): Promise<void> => {
-    if (!title.trim()) {
-      showSchemaError("El título del gasto es obligatorio");
-      return;
-    }
+    const addAllMembers = (): void => {
+        setParticipantIds(new Set(assignableMembers.map((member) => member.id)));
+    };
 
-    const parsedAmount = Number(amount.replace(",", "."));
-    if (!amount.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      showSchemaError("Ingresá un monto válido, mayor a cero");
-      return;
-    }
+    const handleSubmit = async (): Promise<void> => {
+        if (!title.trim()) {
+            showSchemaError("El título del gasto es obligatorio");
+            return;
+        }
 
-    if (!file) {
-      showSchemaError("El comprobante (imagen o PDF) es obligatorio");
-      return;
-    }
+        const parsedAmount = Number(amount.replace(",", "."));
+        if (!amount.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+            showSchemaError("Ingresá un monto válido, mayor a cero");
+            return;
+        }
 
-    if (!me) {
-      showSchemaError("No pudimos identificar tu membresía en este grupo");
-      return;
-    }
+        if (!file) {
+            showSchemaError("El comprobante (imagen o PDF) es obligatorio");
+            return;
+        }
 
-    if (!group) {
-      showSchemaError("No pudimos cargar la configuración del grupo");
-      return;
-    }
+        if (!me) {
+            showSchemaError("No pudimos identificar tu membresía en este grupo");
+            return;
+        }
 
-    if (participants.length === 0) {
-      showSchemaError("Asigná al menos una persona al gasto");
-      return;
-    }
+        if (participants.length === 0) {
+            showSchemaError("Asigná al menos una persona al gasto");
+            return;
+        }
 
-    setIsSubmitting(true);
-    try {
-      const receiptUrl = await uploadExpenseReceipt(file);
+        setIsSubmitting(true);
+        try {
+            const receiptUrl = await uploadExpenseReceipt(file);
 
-      await createExpense.mutateAsync({
-        title: title.trim(),
-        description: description.trim(),
-        totalAmount: parsedAmount,
-        splitMethod: effectiveSplitMethod,
-        participants: participants.map((member) => ({ memberId: member.id })),
-        receiptUrl,
-      });
+            const payload = {
+                title: title.trim(),
+                description: description.trim(),
+                totalAmount: parsedAmount,
+                splitMethod: effectiveSplitMethod,
+                participants: participants.map((member) => ({ memberId: member.id })),
+                receiptUrl,
+            };
 
-      showSuccessToast("Gasto registrado");
-      onClose?.();
-    } catch (error) {
-      showApiError(error as BackendError, "No se pudo registrar el gasto");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+            if (reachesExtraordinaryThreshold(parsedAmount, threshold)) {
+                // Gasto extraordinario: no se crea; se propone y se registra solo si la votación se aprueba.
+                const vote = await createExpenseVote.mutateAsync(payload);
+                const resolution = describeResolvedVote(vote);
 
-  return (
-      <ModalShell
-          title="Nuevo gasto"
-          submitLabel={isSubmitting ? "Guardando..." : "Guardar gasto"}
-          onClose={onClose}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void handleSubmit();
-          }}
-          modalClassName="max-w-4xl"
-      >
-        <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
-          <div className="flex flex-col gap-5">
-            <Field label="Título del gasto" htmlFor="expense-title">
-              <TextInput
-                  id="expense-title"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="Ej. Reparación de techo"
-              />
-            </Field>
+                if (!resolution) {
+                    showSuccessToast("Gasto enviado a votación", "Se registrará si lo aprueban las personas involucradas.");
+                } else if (resolution.kind === "success") {
+                    showSuccessToast("Gasto registrado", resolution.description);
+                } else {
+                    showErrorToast(resolution.title, resolution.description);
+                }
+            } else {
+                await createExpense.mutateAsync(payload);
+                showSuccessToast("Gasto registrado");
+            }
 
-            <Field
-                label="Motivo del gasto"
-                htmlFor="expense-reason"
-                hint="Opcional"
-            >
-              <TextArea
-                  id="expense-reason"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Ej. Filtración detectada en el dormitorio principal"
-              />
-            </Field>
+            onClose?.();
+        } catch (error) {
+            showApiError(error as BackendError, "No se pudo registrar el gasto");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-            <Field label="Monto del gasto" htmlFor="expense-amount">
-              <TextInput
-                  id="expense-amount"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  inputMode="decimal"
-                  placeholder="$ 0"
-              />
-            </Field>
+    return (
+        <ModalShell
+            title="Nuevo gasto"
+            submitLabel={isSubmitting ? "Guardando..." : requiresVote ? "Enviar a votación" : "Guardar gasto"}
+            onClose={onClose}
+            onSubmit={(event) => {
+                event.preventDefault();
+                void handleSubmit();
+            }}
+            modalClassName="max-w-4xl"
+        >
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                <div className="flex flex-col gap-5">
+                    <Field label="Título del gasto" htmlFor="expense-title">
+                        <TextInput
+                            id="expense-title"
+                            value={title}
+                            onChange={(event) => setTitle(event.target.value)}
+                            placeholder="Ej. Reparación de techo"
+                        />
+                    </Field>
 
-            <Field
-                label="Ticket o factura"
-                hint="Arrastrá el archivo o elegilo desde tu dispositivo"
-            >
-              <FileDropzone file={file} onFileChange={setFile} />
-            </Field>
-          </div>
+                    <Field
+                        label="Motivo del gasto"
+                        htmlFor="expense-reason"
+                        hint="Opcional"
+                    >
+                        <TextArea
+                            id="expense-reason"
+                            value={description}
+                            onChange={(event) => setDescription(event.target.value)}
+                            placeholder="Ej. Filtración detectada en el dormitorio principal"
+                        />
+                    </Field>
 
-          <div className="flex flex-col gap-5">
-            <Field
-                label="Definir reparto"
-                hint="Cómo se divide el gasto entre las personas asignadas"
-            >
-              {isEqualDistribution ? (
-                  <p className="text-sm text-modal-ink">
-                    El gasto se divide en partes iguales entre vos y las personas asignadas.
-                  </p>
-              ) : null}
+                    <Field label="Monto del gasto" htmlFor="expense-amount">
+                        <TextInput
+                            id="expense-amount"
+                            value={amount}
+                            onChange={(event) => setAmount(event.target.value)}
+                            inputMode="decimal"
+                            placeholder="$ 0"
+                        />
+                        {requiresVote ? (
+                            <p className="mt-2 rounded-xl bg-modal-soft px-4 py-3 text-sm text-modal-ink">
+                                Este gasto alcanza el umbral de gasto extraordinario del grupo ({formatCurrency(threshold)}).
+                                No se registrará de inmediato: se enviará a votación entre las personas involucradas.
+                            </p>
+                        ) : null}
+                    </Field>
 
-              {group && !isEqualDistribution ? (
-                  <SplitMethodSelector value={splitMethod} onChange={setSplitMethod} />
-              ) : null}
-            </Field>
-
-            <Field
-                label="Personas a quienes se les asigna"
-                hint="Agregá al menos una persona; vos quedás como acreedor/a y no podés figurar acá"
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  {participants.map((member) => (
-                      <PersonChip
-                          key={member.id}
-                          name={member.nickname}
-                          color={member.color}
-                          photoUrl={member.photoUrl}
-                          onRemove={() => removeParticipant(member.id)}
-                      />
-                  ))}
-
-                  <ChipButton
-                      label="+ Agregar persona"
-                      onClick={() => setIsParticipantPickerOpen((open) => !open)}
-                  />
-
-                  {assignableMembers.length > 0 ? (
-                      <ChipButton label="Agregar todos" onClick={addAllMembers} />
-                  ) : null}
+                    <Field
+                        label="Ticket o factura"
+                        hint="Arrastrá el archivo o elegilo desde tu dispositivo"
+                    >
+                        <FileDropzone file={file} onFileChange={setFile} />
+                    </Field>
                 </div>
 
-                {isParticipantPickerOpen ? (
-                    <MemberPicker
-                        members={pickableParticipants}
-                        onSelect={addParticipant}
-                        onClose={() => setIsParticipantPickerOpen(false)}
-                        emptyLabel="No quedan miembros activos por agregar"
-                    />
-                ) : null}
-              </div>
-            </Field>
+                <div className="flex flex-col gap-5">
+                    <Field
+                        label="Definir reparto"
+                        hint="Cómo se divide el gasto entre las personas asignadas"
+                    >
+                        {isEqualDistribution ? (
+                            <p className="text-sm text-modal-ink">
+                                El gasto se divide en partes iguales entre vos y las personas asignadas.
+                            </p>
+                        ) : (
+                            <SplitMethodSelector value={splitMethod} onChange={setSplitMethod} />
+                        )}
+                    </Field>
 
-            <Field
-                label="Persona a cargo del gasto"
-                hint="El gasto queda a tu nombre: la plata se te debe a vos"
-            >
-              {me ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <PersonChip name={me.nickname} color={me.color} photoUrl={me.photoUrl} />
-                  </div>
-              ) : null}
-            </Field>
-          </div>
-        </div>
-      </ModalShell>
-  );
+                    <Field
+                        label="Personas a quienes se les asigna"
+                        hint="Agregá al menos una persona; vos quedás como acreedor/a y no podés figurar acá"
+                    >
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                {participants.map((member) => (
+                                    <PersonChip
+                                        key={member.id}
+                                        name={member.nickname}
+                                        color={member.color}
+                                        photoUrl={member.photoUrl}
+                                        onRemove={() => removeParticipant(member.id)}
+                                    />
+                                ))}
+
+                                <ChipButton
+                                    label="+ Agregar persona"
+                                    onClick={() => setIsParticipantPickerOpen((open) => !open)}
+                                />
+
+                                {assignableMembers.length > 0 ? (
+                                    <ChipButton label="Agregar todos" onClick={addAllMembers} />
+                                ) : null}
+                            </div>
+
+                            {isParticipantPickerOpen ? (
+                                <MemberPicker
+                                    members={pickableParticipants}
+                                    onSelect={addParticipant}
+                                    onClose={() => setIsParticipantPickerOpen(false)}
+                                    emptyLabel="No quedan miembros activos por agregar"
+                                />
+                            ) : null}
+                        </div>
+                    </Field>
+
+                    <Field
+                        label="Persona a cargo del gasto"
+                        hint="El gasto queda a tu nombre: la plata se te debe a vos"
+                    >
+                        {me ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <PersonChip name={me.nickname} color={me.color} photoUrl={me.photoUrl} />
+                            </div>
+                        ) : null}
+                    </Field>
+                </div>
+            </div>
+        </ModalShell>
+    );
 }
 
 export default NewExpenseModal;

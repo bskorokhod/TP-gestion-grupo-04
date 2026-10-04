@@ -80,19 +80,22 @@ public class GroupMember {
         group.addMember(this);
     }
 
-    public static GroupMember founder(Group group, User user, String nickname, MemberColor color) {
+    public static GroupMember founder(Group group, User user, String nickname, MemberColor color, BigDecimal percentage) {
         return new GroupMember(
-                group, user, nickname, color, MembershipStatus.ACTIVE, BigDecimal.valueOf(100)
+                group, user, nickname, color, MembershipStatus.ACTIVE, percentage
         );
     }
 
-    public static GroupMember joinRequest(Group group, User user, String nickname, MemberColor color) {
-        return new GroupMember(group, user, nickname, color, MembershipStatus.PENDING, null);
+    /** {@code requestedPercentage} es el porcentaje que pide el solicitante (null en modo equitativo). */
+    public static GroupMember joinRequest(
+            Group group, User user, String nickname, MemberColor color, BigDecimal requestedPercentage
+    ) {
+        return new GroupMember(group, user, nickname, color, MembershipStatus.PENDING, requestedPercentage);
     }
 
+    /** Conserva el porcentaje solicitado; en modo equitativo el grupo lo recalcula al aprobar. */
     public void approve() {
         this.status = MembershipStatus.ACTIVE;
-        this.percentage = BigDecimal.ZERO;
         this.joinedAt = Instant.now();
     }
 
@@ -100,11 +103,11 @@ public class GroupMember {
         this.status = MembershipStatus.REJECTED;
     }
 
-    public void requestAgain(String nickname, MemberColor color) {
+    public void requestAgain(String nickname, MemberColor color, BigDecimal requestedPercentage) {
         this.nickname = nickname;
         this.color = color;
         this.status = MembershipStatus.PENDING;
-        this.percentage = null;
+        this.percentage = requestedPercentage;
         this.exitReason = null;
         this.requestedAt = Instant.now();
         this.joinedAt = null;
@@ -142,10 +145,6 @@ public class GroupMember {
 
     public boolean isViewer() {
         return status == MembershipStatus.ACTIVE || status == MembershipStatus.DEACTIVATED;
-    }
-
-    public boolean holdsOwnership() {
-        return MembershipStatus.OWNERSHIP_HOLDING.contains(status);
     }
 
     public boolean canRequestAgain() {

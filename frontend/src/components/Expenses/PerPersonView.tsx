@@ -1,18 +1,16 @@
 import { useState, type ReactElement } from "react";
 
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
-import {
-    EmptyState,
-    PersonBalanceCard,
-    type BalanceStatus,
-    type PersonBalanceCardProps,
-} from "@/components/Expenses/ExpensesCard.tsx";
+import {EmptyState, PersonBalanceCard, type PersonBalanceCardProps,} from "@/components/Expenses/ExpensesCard.tsx";
 import { NewExpenseModal } from "@/components/modals";
 import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
-
 import { useGetBalancesByPerson } from "@/services/ExpenseServices.ts";
 import type { BalanceByPerson } from "@/models/Expense.ts";
+import type { BalanceStatus } from "@/constants/expenses.ts";
 import { currency } from "@/lib/format";
+import { useIsGroupStopped } from "@/contexts/GroupContext.tsx";
+import { GROUP_STOPPED_EXPENSE_TITLE } from "@/constants/group.ts";
+
 
 interface PayTarget {
     readonly expenseId: number;
@@ -27,6 +25,7 @@ export interface PerPersonViewProps {
 export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => {
     const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState<boolean>(false);
     const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
+    const isGroupStopped = useIsGroupStopped();
 
     const { data: balances = [], isLoading } = useGetBalancesByPerson(groupId);
 
@@ -37,7 +36,9 @@ export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => 
                 description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
                 variant="allDebt"
                 action="Agregar gasto"
-                onAction={() => groupId != null && setIsNewExpenseModalOpen(true)}
+                onAction={() => groupId != null && !isGroupStopped && setIsNewExpenseModalOpen(true)}
+                actionDisabled={isGroupStopped}
+                actionTitle={isGroupStopped ? GROUP_STOPPED_EXPENSE_TITLE : undefined}
             />
 
             {isLoading ? (

@@ -1,6 +1,7 @@
 import { jwtDecode } from "jwt-decode";
 
 import { AuthResponse, AuthResponseSchema } from "@/models/User.ts";
+import { DEFAULT_TOKEN_STORAGE_KEY } from "@/constants/services.ts";
 
 export interface DecodedToken {
     sub: string;
@@ -11,8 +12,6 @@ export interface DecodedToken {
 export interface UserFromToken {
     username: string;
 }
-
-const DEFAULT_STORAGE_KEY = "tokens";
 
 export class TokenService {
     static decodeToken(token: string): DecodedToken | null {
@@ -38,7 +37,7 @@ export class TokenService {
         return decoded !== null && !this.isTokenExpired(decoded);
     }
 
-    static getStoredTokens(storageKey: string = DEFAULT_STORAGE_KEY): AuthResponse | null {
+    static getStoredTokens(storageKey: string = DEFAULT_TOKEN_STORAGE_KEY): AuthResponse | null {
         try {
             const stored = localStorage.getItem(storageKey);
             if (!stored) return null;
@@ -48,7 +47,7 @@ export class TokenService {
         }
     }
 
-    static clearStoredTokens(storageKey: string = DEFAULT_STORAGE_KEY): void {
+    static clearStoredTokens(storageKey: string = DEFAULT_TOKEN_STORAGE_KEY): void {
         localStorage.removeItem(storageKey);
     }
 

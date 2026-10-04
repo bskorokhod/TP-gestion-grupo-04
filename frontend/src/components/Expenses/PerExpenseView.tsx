@@ -11,6 +11,8 @@ import {
 } from "@/services/ExpenseServices.ts";
 import type { Expense } from "@/models/Expense.ts";
 import {formatCurrency} from "@/lib/format.ts";
+import {useIsGroupStopped} from "@/contexts/GroupContext.tsx";
+import {GROUP_STOPPED_EXPENSE_TITLE} from "@/constants/group.ts";
 
 interface PerExpenseViewProps {
     groupId?: number;
@@ -33,6 +35,7 @@ function toMemberInfos(expense: Expense): MemberInfo[] {
 export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
     const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
+    const isGroupStopped = useIsGroupStopped();
 
     const { data: summary } = useGetGroupSummary(groupId);
     const { data: owedToMe = [], isLoading: isLoadingOwed } = useGetExpensesOwedToMe(groupId);
@@ -48,7 +51,9 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                     description="Estas son las deudas que otros tienen con vos. Revisá el estado del pago de cada uno y reclamá pagos cuando corresponda."
                     variant="othersDebt"
                     action="Agregar gasto"
-                    onAction={() => groupId && setIsNewExpenseModalOpen(true)}
+                    onAction={() => groupId && !isGroupStopped && setIsNewExpenseModalOpen(true)}
+                    actionDisabled={isGroupStopped}
+                    actionTitle={isGroupStopped ? GROUP_STOPPED_EXPENSE_TITLE : undefined}
                 />
 
                 {isLoadingOwed ? (
