@@ -18,4 +18,10 @@ interface VoteExecutor {
      * @return vacío si se ejecutó; el motivo si no se pudo.
      */
     Optional<String> execute(Vote vote);
+
+    /**
+     * Se invoca cuando la votación resulta negativa, justo antes de finalizarla. Por defecto no hace nada.
+     */
+    default void onRejected(Vote vote) {
+    }
 }

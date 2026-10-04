@@ -46,4 +46,20 @@ public class CancellationRequest {
     public static CancellationRequest create(Reservation reservation, GroupMember requester, String reason) {
         return new CancellationRequest(reservation, requester, reason);
     }
+
+    public void approve() {
+        requirePending();
+        this.status = CancellationRequestStatus.APPROVED;
+    }
+
+    public void reject() {
+        requirePending();
+        this.status = CancellationRequestStatus.REJECTED;
+    }
+
+    private void requirePending() {
+        if (status != CancellationRequestStatus.PENDING) {
+            throw new IllegalStateException("Only pending cancellation requests can be resolved");
+        }
+    }
 }
