@@ -103,7 +103,7 @@ function toExpenseMember(m: {
 
 function expenseLabel(details: Expense["details"]): string {
   const title = details.title?.trim();
-  return title && title.length > 0 ? title : details.description;
+  return title && title.length > 0 ? title : details.description?.trim() || "";
 }
 
 /** Los gastos aprobados y los cancelados tienen deudas vigentes: un gasto cancelado puede dejar devoluciones pendientes. */

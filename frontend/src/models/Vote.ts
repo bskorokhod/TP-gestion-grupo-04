@@ -62,10 +62,8 @@ export const VoteProgressSchema = z.object({
 });
 export type VoteProgress = z.infer<typeof VoteProgressSchema>;
 
-/** Igual que ExpenseDetails, pero la descripción es opcional: el backend la devuelve null si quedó vacía. */
-const ProposedExpenseSchema = ExpenseDetailsSchema.extend({
-  description: z.string().nullish(),
-});
+/** Datos propuestos de un gasto: mismo esquema que ExpenseDetails (la descripción ya es opcional ahí). */
+const ProposedExpenseSchema = ExpenseDetailsSchema;
 export type ProposedExpense = z.infer<typeof ProposedExpenseSchema>;
 
 export const ExpenseReportActionSchema = z.enum(["EDIT", "DELETE"]);

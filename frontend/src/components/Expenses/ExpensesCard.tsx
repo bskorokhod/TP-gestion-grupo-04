@@ -144,7 +144,9 @@ export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
     );
 }
 
-export function PersonRow({name, color, amount, paidAmount, totalAmount, status = "unpaid", action = "none", onAction, photoUrl, receiptUrls = []}: PersonRowProps): ReactNode {
+// TODO: Decidir qué hacer al reclamar un pago
+// export function PersonRow({name, color, amount, paidAmount, totalAmount, status = "unpaid", action = "none", onAction, photoUrl, receiptUrls = []}: PersonRowProps): ReactNode {
+export function PersonRow({name, color, amount, paidAmount, totalAmount, status = "unpaid", photoUrl, receiptUrls = []}: PersonRowProps): ReactNode {
     const config = PAYMENT_STATUS_CONFIG[status];
 
     return (
@@ -168,9 +170,8 @@ export function PersonRow({name, color, amount, paidAmount, totalAmount, status 
                 {receiptUrls.length > 0 && (
                     <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} />
                 )}
-                {action === "claim" && (
-                    <CardActionButton icon={faFlag} label="Reclamar pago" onClick={onAction} tone="danger" />
-                )}
+                {/* TODO: Decidir qué hacer al reclamar un pago */}
+                {/* {action === "claim" && (<CardActionButton icon={faFlag} label="Reclamar pago" onClick={onAction} tone="danger"/>)} */}
             </div>
         </div>
     );
@@ -220,38 +221,6 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
     );
 }
 
-// TODO !! Agregar proposal otra vez
-// export interface ProposalCardProps {
-//     readonly title: string;
-//     readonly amount: string;
-//     readonly description: string;
-//     readonly assigned: MemberInfo[];
-//     readonly owner: MemberInfo;
-//     readonly status?: keyof typeof PROPOSAL_VARIANTS;
-// }
-//
-// export function ProposalCard({title, amount, description, assigned, owner, status = "pending",}: ProposalCardProps): ReactNode {
-//     return (
-//         <ExpenseCard className="border-group-amber">
-//             <div className="space-y-2">
-//                 <AmountTitle title={title} amount={amount} />
-//                 <p className="text-sm text-group-muted">{description}</p>
-//                 <PeopleMeta assigned={assigned} owner={owner} />
-//             </div>
-//             <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-//                 <button className="inline-flex items-center gap-1 truncate text-left text-sm font-medium text-brand">
-//                     Ver votos ({config.votesLabel} votaron)
-//                     <FontAwesomeIcon icon={faChevronDown} className="h-3 w-3" aria-hidden />
-//                 </button>
-//                 <div className="flex shrink-0 gap-2">
-//                     <Button variant={config.primaryBtn.variant}>{config.primaryBtn.label}</Button>
-//                     <Button variant={config.secondaryBtn.variant}>{config.secondaryBtn.label}</Button>
-//                 </div>
-//             </div>
-//         </ExpenseCard>
-//     );
-// }
-
 type IconProp = ComponentProps<typeof FontAwesomeIcon>["icon"];
 
 interface CardActionButtonProps {
@@ -282,7 +251,7 @@ function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand"
             </button>
             <span
                 aria-hidden="true"
-                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md bg-brand px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
+                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
             >
                 {tooltip}
             </span>
@@ -350,7 +319,7 @@ export function OwedCard({title, amount, description, assigned, owner, tag, rece
                     <AmountTitle title={title} amount={amount} tag={tag} />
                     <div className="flex shrink-0 items-center gap-1">
                         <ReceiptAction title={title} receiptUrl={receiptUrl} />
-                        <CardActionButton icon={faFlag} label="Reportar" onClick={onReport} disabledReason={reportDisabledReason} />
+                        <CardActionButton icon={faFlag} label="Reportar" onClick={onReport} disabledReason={reportDisabledReason} tone={"danger"}/>
                     </div>
                 </div>
                 <p className="text-sm text-group-muted">{description}</p>

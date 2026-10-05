@@ -47,7 +47,8 @@ export type ExpenseParticipant = z.infer<typeof ExpenseParticipantSchema>;
 
 export const ExpenseDetailsSchema = z.object({
   title: z.string(),
-  description: z.string(),
+  /** Opcional: el backend la devuelve null si quedó vacía. */
+  description: z.string().nullish(),
   totalAmount: z.number(),
   splitMethod: SplitMethodSchema,
   creditor: ExpenseMemberSchema,
@@ -107,12 +108,12 @@ export type Expense = z.infer<typeof ExpenseSchema>;
 // ─── Payload de creación/edición ────────────────────────────────────────────
 
 export const ExpenseDataSchema = z.object({
-  title: z.string().trim().min(1).max(200),         // ← nuevo, obligatorio
-  description: z.string().trim().min(1).max(200),   // ← sigue obligatorio
+  title: z.string().trim().min(1).max(150),
+  description: z.string().trim().max(200),
   totalAmount: z.number().min(0.01),
   splitMethod: SplitMethodSchema,
   participants: z.array(z.object({ memberId: z.number() })).nonempty(),
-  receiptUrl: z.string().url().max(2048),
+  receiptUrl: z.url().max(2048),
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;
 
