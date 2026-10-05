@@ -67,7 +67,7 @@ class ExpenseRestController {
     }
 
     @GetMapping(value = "/owed-to-me", produces = "application/json")
-    @Operation(summary = "Gastos aprobados donde el caller es acreedor y todavía hay deudas sin saldar")
+    @Operation(summary = "Gastos donde el caller es acreedor de alguna deuda sin saldar: el acreedor de un gasto aprobado o quien tiene una devolución a favor de un gasto modificado o eliminado")
     List<ExpenseDTO> owedToMe(
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
@@ -76,7 +76,7 @@ class ExpenseRestController {
     }
 
     @GetMapping(value = "/i-owe", produces = "application/json")
-    @Operation(summary = "Gastos aprobados donde el caller tiene deudas sin saldar")
+    @Operation(summary = "Gastos aprobados (o eliminados con una devolución pendiente) donde el caller tiene deudas sin saldar")
     List<ExpenseDTO> iOwe(
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
@@ -118,6 +118,8 @@ class ExpenseRestController {
         return expenseService.updateExpense(groupId, expenseId, data, principal.email());
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar: createExpense aprueba directo, así que no hay gastos pendientes
+    //  de aprobación (ver ExpenseService.approveExpense). Si se llegara a alcanzar, modificar lo que haga falta.
     @PostMapping(value = "/{expenseId}/approve", produces = "application/json")
     @Operation(summary = "Aprobar un gasto pendiente (o su edición) y generar las deudas (solo admin)")
     @ApiResponse(responseCode = "403", description = "Solo un admin puede aprobar", content = @Content)
@@ -130,6 +132,7 @@ class ExpenseRestController {
         return expenseService.approveExpense(groupId, expenseId, principal.email());
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar (ver approve).
     @PostMapping(value = "/{expenseId}/reject", produces = "application/json")
     @Operation(summary = "Rechazar un gasto pendiente; si era una edición, se restaura el gasto y sus deudas originales (solo admin)")
     @ApiResponse(responseCode = "403", description = "Solo un admin puede rechazar", content = @Content)
@@ -142,6 +145,7 @@ class ExpenseRestController {
         return expenseService.rejectExpense(groupId, expenseId, principal.email());
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar (ver approve).
     @PostMapping(value = "/{expenseId}/resubmit", produces = "application/json")
     @Operation(summary = "Reenviar un gasto rechazado, con cambios (body) o sin ellos; si lo reenvía un admin queda aprobado directo")
     @ApiResponse(responseCode = "403", description = "Solo el creador o un admin pueden reenviar", content = @Content)

@@ -115,6 +115,15 @@ function isOpenDebt(debt: Debt): boolean {
   return debt.status === "ACTIVE" && debt.paidAmount < debt.amount;
 }
 
+/**
+ * Una deuda sigue a la vista de su acreedor mientras no se salde y, en un gasto aprobado, también después de que le
+ * declararon un pago: así puede revisar el comprobante y reclamarlo. Las deudas en cero no cuentan.
+ */
+export function isVisibleToCreditor(expense: Expense, debt: Debt): boolean {
+  if (isOpenDebt(debt)) return true;
+  return expense.status === "APPROVED" && debt.status === "ACTIVE" && debt.amount > 0 && debt.payments.length > 0;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Derivados client-side
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,7 +180,7 @@ export function useGetExpensesOwedToMe(groupId?: number): DerivedExpensesResult 
   const data = useMemo<Expense[]>(() => {
     if (!me || !query.data) return [];
     return query.data.filter(
-        (e) => hasLiveDebts(e) && e.debts.some((d) => d.creditor.id === me.id && isOpenDebt(d)),
+        (e) => hasLiveDebts(e) && e.debts.some((d) => d.creditor.id === me.id && isVisibleToCreditor(e, d)),
     );
   }, [query.data, me]);
 

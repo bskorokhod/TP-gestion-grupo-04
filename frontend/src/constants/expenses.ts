@@ -1,5 +1,5 @@
 export const PAYMENT_STATUS_CONFIG = {
-    paid: { badgeClasses: "bg-group-green/70 text-brand-foreground", label: "Pagó" },
+    paid: { badgeClasses: "bg-group-green/70 text-brand-foreground", label: "Pagado" },
     partial: { badgeClasses: "bg-group-amber/70 text-brand-foreground", label: "Parcial" },
     pending: { badgeClasses: "bg-field/70 text-group-muted", label: "Pendiente" },
     unpaid: { badgeClasses: "bg-field/70 text-group-muted", label: "No pagó" },

@@ -2,17 +2,23 @@ import { useState } from "react";
 
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
 import {DebtCard, OwedCard, PersonRow, EmptyState, MemberInfo} from "@/components/Expenses/ExpensesCard.tsx";
-import { NewExpenseModal } from "@/components/modals";
+import { NewExpenseModal, ReportExpenseModal } from "@/components/modals";
 import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
 import {
+    isVisibleToCreditor,
     useGetExpensesIOwe,
     useGetExpensesOwedToMe,
     useGetGroupSummary,
 } from "@/services/ExpenseServices.ts";
-import type { Expense } from "@/models/Expense.ts";
+import type { Debt, Expense } from "@/models/Expense.ts";
 import {formatCurrency} from "@/lib/format.ts";
 import {useIsGroupStopped} from "@/contexts/GroupContext.tsx";
 import {GROUP_STOPPED_EXPENSE_TITLE} from "@/constants/group.ts";
+import {
+    REFUND_OF_CANCELLED_EXPENSE_TAG,
+    REFUND_TAG,
+    REPORT_IN_PROGRESS_TITLE,
+} from "@/constants/expenses.ts";
 
 interface PerExpenseViewProps {
     groupId?: number;
@@ -32,9 +38,36 @@ function toMemberInfos(expense: Expense): MemberInfo[] {
     }));
 }
 
+function isOpenDebt(debt: Debt): boolean {
+    return debt.status === "ACTIVE" && debt.paidAmount < debt.amount;
+}
+
+/** Etiqueta de la tarjeta cuando las deudas que se muestran son devoluciones; undefined si son partes del gasto. */
+function refundTag(expense: Expense, debts: readonly Debt[]): string | undefined {
+    if (!debts.some((debt) => debt.kind === "REFUND")) return undefined;
+    return expense.status === "CANCELLED" ? REFUND_OF_CANCELLED_EXPENSE_TAG : REFUND_TAG;
+}
+
+/**
+ * Por qué el caller no puede reportar o editar el gasto ahora, o null si puede. Espeja las reglas del backend: el gasto
+ * tiene que estar aprobado y sin otra votación en curso, el grupo en marcha, y quien reporta tiene que participar del
+ * gasto (acreedor o participante). Quien solo tiene una devolución a favor ve el gasto pero no lo puede reportar.
+ */
+function findReportBlockedReason(expense: Expense, myMemberId: number | undefined, isGroupStopped: boolean): string | null {
+    if (expense.status === "CANCELLED") return "El gasto fue eliminado: ya no se puede modificar ni reportar";
+    if (expense.reportInProgress) return REPORT_IN_PROGRESS_TITLE;
+    if (isGroupStopped) return GROUP_STOPPED_EXPENSE_TITLE;
+
+    const { creditor, participants } = expense.details;
+    const participates = myMemberId != null
+        && (creditor.id === myMemberId || participants.some((participant) => participant.member.id === myMemberId));
+    return participates ? null : "Solo quienes participan del gasto pueden reportarlo";
+}
+
 export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
     const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
+    const [reportTarget, setReportTarget] = useState<Expense | null>(null);
     const isGroupStopped = useIsGroupStopped();
 
     const { data: summary } = useGetGroupSummary(groupId);
@@ -63,7 +96,13 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                 ) : (
                     <div className="grid gap-4 lg:grid-cols-2">
                         {owedToMe.map((expense) => (
-                            <ExpenseAsDebtCard key={expense.id} expense={expense} />
+                            <ExpenseAsDebtCard
+                                key={expense.id}
+                                expense={expense}
+                                myMemberId={myMemberId}
+                                editDisabledReason={findReportBlockedReason(expense, myMemberId, isGroupStopped)}
+                                onEdit={() => setReportTarget(expense)}
+                            />
                         ))}
                     </div>
                 )}
@@ -84,10 +123,12 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                 ) : (
                     <div className="grid gap-4 lg:grid-cols-2">
                         {iOwe.map((expense) => (
-                            <ExpenseAsOwedCard
+                            <ExpenseAsOwedCards
                                 key={expense.id}
                                 expense={expense}
                                 myMemberId={myMemberId}
+                                reportDisabledReason={findReportBlockedReason(expense, myMemberId, isGroupStopped)}
+                                onReport={() => setReportTarget(expense)}
                                 onPay={(debtId, amount) =>
                                     setPayTarget({ expenseId: expense.id, debtId, amount })
                                 }
@@ -101,6 +142,14 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                 <NewExpenseModal
                     groupId={groupId}
                     onClose={() => setIsNewExpenseModalOpen(false)}
+                />
+            )}
+
+            {reportTarget && groupId != null && (
+                <ReportExpenseModal
+                    groupId={groupId}
+                    expense={reportTarget}
+                    onClose={() => setReportTarget(null)}
                 />
             )}
 
@@ -118,29 +167,39 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     );
 };
 
-/** "Gastos que me deben": el caller es acreedor; mostramos cada deudor con su parte. */
-function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
+interface ExpenseAsDebtCardProps {
+    readonly expense: Expense;
+    readonly myMemberId?: number;
+    readonly editDisabledReason: string | null;
+    readonly onEdit: () => void;
+}
+
+function ExpenseAsDebtCard({ expense, myMemberId, editDisabledReason, onEdit }: ExpenseAsDebtCardProps) {
     const total = formatCurrency(expense.details.totalAmount);
-    const debtsToShow = expense.debts.filter(
-        (d) => d.status === "ACTIVE" && d.paidAmount < d.amount,
-    );
+    const debtsToShow = expense.debts.filter((d) => d.creditor.id === myMemberId && isVisibleToCreditor(expense, d));
+    // En una devolución no hay asignados ni persona a cargo que mostrar: solo título, monto y descripción.
+    const isRefund = debtsToShow.some((debt) => debt.kind === "REFUND");
 
     return (
         <DebtCard
             title={expense.details.title || ""}
             amount={`Total: ${total}`}
+            tag={refundTag(expense, debtsToShow)}
             receiptUrl={expense.details.receiptUrl}
             description={expense.details.description || "Sin descripción"}
-            assigned={toMemberInfos(expense)}
-            owner={{
+            assigned={isRefund ? undefined : toMemberInfos(expense)}
+            owner={isRefund ? undefined : {
                 nickname: expense.details.creditor.nickname,
                 color: expense.details.creditor.color,
                 photoUrl: expense.details.creditor.photoUrl
             }}
+            onEdit={onEdit}
+            editDisabledReason={editDisabledReason}
         >
             {debtsToShow.map((debt) => {
                 const remaining = debt.amount - debt.paidAmount;
-                const status = debt.paidAmount > 0 ? ("partial" as const) : ("pending" as const);
+                const isPaid = remaining <= 0;
+                const status = isPaid ? ("paid" as const) : debt.paidAmount > 0 ? ("partial" as const) : ("pending" as const);
 
                 return (
                     <PersonRow
@@ -148,9 +207,11 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
                         name={debt.debtor.nickname}
                         color={debt.debtor.color}
                         status={status}
-                        action="claim"
-                        amount={formatCurrency(remaining)}
+                        action={debt.payments.length > 0 ? "claim" : "none"}
+                        paidAmount={formatCurrency(debt.paidAmount)}
+                        totalAmount={formatCurrency(debt.amount)}
                         photoUrl={debt.debtor.photoUrl}
+                        receiptUrls={debt.payments.map((payment) => payment.receiptUrl)}
                     />
                 );
             })}
@@ -158,33 +219,58 @@ function ExpenseAsDebtCard({ expense }: { expense: Expense }) {
     );
 }
 
-/** "Gastos que debo": filtramos la deuda propia usando el id que nos dio el summary. */
-function ExpenseAsOwedCard({expense, myMemberId, onPay,}: { expense: Expense; myMemberId?: number; onPay: (debtId: number, amount: number) => void; }) {
+interface ExpenseAsOwedCardsProps {
+    readonly expense: Expense;
+    readonly myMemberId?: number;
+    readonly reportDisabledReason: string | null;
+    readonly onReport: () => void;
+    readonly onPay: (debtId: number, amount: number) => void;
+}
+
+/**
+ * "Gastos que debo": una tarjeta por cada deuda abierta propia. Normalmente es una sola (la parte del gasto), pero
+ * quien está a cargo de un gasto modificado o eliminado puede deber devoluciones a varias personas.
+ */
+function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onReport, onPay }: ExpenseAsOwedCardsProps) {
     if (myMemberId == null) return null;
 
-    const myDebt = expense.debts.find(
-        (d) => d.debtor.id === myMemberId && d.status === "ACTIVE" && d.paidAmount < d.amount,
-    );
-    if (!myDebt) return null;
-
-    const remaining = myDebt.amount - myDebt.paidAmount;
+    const myDebts = expense.debts.filter((d) => d.debtor.id === myMemberId && isOpenDebt(d));
 
     return (
-        <OwedCard
-            title={expense.details.title || ""}
-            amount={`Total: ${formatCurrency(expense.details.totalAmount)} - Tu parte: ${formatCurrency(remaining)}`}
-            receiptUrl={expense.details.receiptUrl}
-            description={expense.details.description || "Sin descripción"}
-            assigned={toMemberInfos(expense)}
-            owner={{
-                nickname: expense.details.creditor.nickname,
-                color: expense.details.creditor.color,
-                photoUrl: expense.details.creditor.photoUrl
-            }}
-            action={{
-                label: "Marcar como pagado",
-                onClick: () => onPay(myDebt.id, remaining),
-            }}
-        />
+        <>
+            {myDebts.map((myDebt) => {
+                const remaining = myDebt.amount - myDebt.paidAmount;
+                const isRefund = myDebt.kind === "REFUND";
+                const total = formatCurrency(expense.details.totalAmount);
+
+                return (
+                    <OwedCard
+                        key={myDebt.id}
+                        title={expense.details.title || ""}
+                        amount={
+                            isRefund
+                                ? `Total: ${total} - A devolver a ${myDebt.creditor.nickname}: ${formatCurrency(remaining)}`
+                                : `Total: ${total} - Tu parte: ${formatCurrency(remaining)}`
+                        }
+                        tag={refundTag(expense, [myDebt])}
+                        receiptUrl={expense.details.receiptUrl}
+                        description={expense.details.description || "Sin descripción"}
+                        assigned={isRefund ? undefined : toMemberInfos(expense)}
+                        owner={isRefund ? undefined : {
+                            nickname: expense.details.creditor.nickname,
+                            color: expense.details.creditor.color,
+                            photoUrl: expense.details.creditor.photoUrl
+                        }}
+                        onReport={onReport}
+                        reportDisabledReason={reportDisabledReason}
+                        action={{
+                            label: "Marcar como pagado",
+                            onClick: () => onPay(myDebt.id, remaining),
+                            disabledReason: expense.reportInProgress ? REPORT_IN_PROGRESS_TITLE : null,
+                        }}
+                    />
+                );
+            })}
+        </>
     );
 }

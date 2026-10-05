@@ -63,6 +63,15 @@ export const ResolutionSchema = z.object({
 });
 export type Resolution = z.infer<typeof ResolutionSchema>;
 
+/** Pago autodeclarado por el deudor, con su comprobante. */
+export const PaymentSchema = z.object({
+  id: z.number(),
+  amount: z.number(),
+  receiptUrl: z.string(),
+  paidAt: z.string(),
+});
+export type Payment = z.infer<typeof PaymentSchema>;
+
 export const DebtSchema = z.object({
   id: z.number(),
   debtor: ExpenseMemberSchema,
@@ -71,6 +80,8 @@ export const DebtSchema = z.object({
   paidAmount: z.number(),
   status: DebtStatusSchema,
   kind: DebtKindSchema,
+  /** Pagos declarados, del más antiguo al más nuevo. */
+  payments: z.array(PaymentSchema),
 });
 export type Debt = z.infer<typeof DebtSchema>;
 
