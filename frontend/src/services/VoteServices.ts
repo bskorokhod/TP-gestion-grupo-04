@@ -39,6 +39,49 @@ export function useCreateExtraordinaryExpenseVote(groupId: number) {
     });
 }
 
+export interface ProposeExpenseEditInput {
+    readonly expenseId: number;
+    readonly payload: ExpenseData;
+}
+
+/**
+ * Propone modificar un gasto aprobado (un reporte). Mientras la votación esté activa el gasto queda bloqueado
+ * (`reportInProgress`); si ya quedó resuelta (p. ej. el único involucrado es quien propone) `status` es FINALIZED.
+ */
+export function useProposeExpenseEditVote(groupId: number) {
+    const api = useApiClient();
+    const qc = useQueryClient();
+
+    return useMutation<Vote, Error, ProposeExpenseEditInput>({
+        mutationFn: async ({ expenseId, payload }): Promise<Vote> => {
+            const response = await api.post(`/groups/${groupId}/votes/expenses/${expenseId}/edit`, payload);
+            return VoteSchema.parse(response);
+        },
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups", groupId, "votes"] });
+            // El gasto se bloquea al abrirse la votación y, si se resolvió en el acto, ya se modificó.
+            void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
+        },
+    });
+}
+
+/** Propone eliminar (lógicamente) un gasto aprobado. Mismo comportamiento que {@link useProposeExpenseEditVote}. */
+export function useProposeExpenseDeletionVote(groupId: number) {
+    const api = useApiClient();
+    const qc = useQueryClient();
+
+    return useMutation<Vote, Error, number>({
+        mutationFn: async (expenseId): Promise<Vote> => {
+            const response = await api.post(`/groups/${groupId}/votes/expenses/${expenseId}/deletion`);
+            return VoteSchema.parse(response);
+        },
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups", groupId, "votes"] });
+            void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
+        },
+    });
+}
+
 /**
  * Propone cambiar una configuración del grupo (votación unánime). Devuelve la votación: si ya quedó resuelta
  * (p. ej. quien propone es el único miembro activo) `status` es FINALIZED y `outcome` dice qué pasó.

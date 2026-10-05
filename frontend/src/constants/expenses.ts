@@ -29,3 +29,10 @@ export const SECTION_BANNER_VARIANTS = {
 } as const;
 
 export type SectionBannerVariant = keyof typeof SECTION_BANNER_VARIANTS;
+
+/** Tooltip de las acciones bloqueadas mientras hay una votación de reporte en curso sobre el gasto. */
+export const REPORT_IN_PROGRESS_TITLE =
+    "Hay una votación en curso sobre este gasto: no se puede pagar, editar ni reportar hasta que termine";
+
+export const REFUND_TAG = "Devolución";
+export const REFUND_OF_CANCELLED_EXPENSE_TAG = "Devolución por gasto eliminado";

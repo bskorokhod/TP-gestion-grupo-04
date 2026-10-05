@@ -17,5 +17,8 @@ public class LegacySchemaMigration implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         jdbcTemplate.execute("ALTER TABLE group_members DROP COLUMN IF EXISTS role");
+        // ddl-auto=update no modifica los check de los enums ya creados: sin esto una base anterior a
+        // ExpenseStatus.CANCELLED rechaza la eliminación lógica de un gasto.
+        jdbcTemplate.execute("ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_status_check");
     }
 }

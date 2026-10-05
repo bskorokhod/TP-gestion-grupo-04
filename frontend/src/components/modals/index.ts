@@ -11,3 +11,5 @@ export { ConfigChangeModal } from "./ConfigChangeModal";
 export type { ConfigChangeModalProps } from "./ConfigChangeModal";
 export { NewExpenseModal } from "./NewExpenseModal/NewExpenseModal";
 export type { NewExpenseModalProps } from "./NewExpenseModal/NewExpenseModal";
+export { ReportExpenseModal } from "./ReportExpenseModal";
+export type { ReportExpenseModalProps } from "./ReportExpenseModal";

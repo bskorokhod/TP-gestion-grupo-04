@@ -1,7 +1,5 @@
 import { useState, type ReactElement } from "react";
 
-import { Field } from "@/components/Forms/Field";
-import { TextArea, TextInput } from "@/components/Forms/TextInput";
 import { ModalShell } from "@/components/modals/ModalShell";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
@@ -9,21 +7,27 @@ import type { BackendError } from "@/hooks/useToast.ts";
 import { formatCurrency } from "@/lib/format.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
 import { describeResolvedVote, reachesExtraordinaryThreshold } from "@/lib/votes.ts";
-import type { Member } from "@/models/Group.ts";
+import type { SplitMethod } from "@/models/Expense.ts";
 import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 import { useCreateExtraordinaryExpenseVote } from "@/services/VoteServices.ts";
 
-import { FileDropzone } from "./FileDropzone";
-import { MemberPicker } from "./MemberPicker";
-import { ChipButton, PersonChip } from "./PersonChip";
-import { SplitMethodSelector, type SplitMethod } from "./SplitMethodSelector";
+import { ExpenseFormFields, type ExpenseFormCopy } from "./ExpenseFormFields";
+import { parseExpenseAmount, validateExpenseFields } from "./expenseFormValidation";
+import { useExpenseForm } from "./useExpenseForm";
 
 
 export interface NewExpenseModalProps {
     readonly groupId: number;
     readonly onClose?: () => void;
 }
+
+const NEW_EXPENSE_COPY: ExpenseFormCopy = {
+    receiptHint: "Arrastrá el archivo o elegilo desde tu dispositivo",
+    participantsHint: "Agregá al menos una persona; vos quedás como acreedor/a y no podés figurar acá",
+    creditorHint: "El gasto queda a tu nombre: la plata se te debe a vos",
+    equalSplitNotice: "El gasto se divide en partes iguales entre vos y las personas asignadas.",
+};
 
 export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): ReactElement {
     const { data: members = [] } = useGetGroupMembers(groupId, "ACTIVE");
@@ -33,62 +37,38 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
     const group = useCurrentGroup();
     const { showSchemaError, showApiError, showSuccessToast, showErrorToast } = useFormToasts();
 
-    const [title, setTitle] = useState<string>("");
-    const [description, setDescription] = useState<string>("");
-    const [amount, setAmount] = useState<string>("");
-    const [file, setFile] = useState<File | null>(null);
-    const [splitMethod, setSplitMethod] = useState<SplitMethod>("PROPORTIONAL");
-
-    const [participantIds, setParticipantIds] = useState<Set<number>>(new Set());
-
-    const [isParticipantPickerOpen, setIsParticipantPickerOpen] = useState<boolean>(false);
+    const form = useExpenseForm({
+        title: "",
+        description: "",
+        amount: "",
+        splitMethod: "PROPORTIONAL",
+        participantIds: new Set<number>(),
+    });
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const isEqualDistribution = group.settings.distributionMode === "EQUAL";
     // En un grupo EQUAL el reparto proporcional no existe: el método elegido en el estado se ignora.
-    const effectiveSplitMethod: SplitMethod = isEqualDistribution ? "EQUAL" : splitMethod;
+    const effectiveSplitMethod: SplitMethod = isEqualDistribution ? "EQUAL" : form.splitMethod;
 
     const threshold = group.settings.extraordinaryExpenseThreshold;
-    const previewAmount = Number(amount.replace(",", "."));
-    const requiresVote =
-        amount.trim() !== "" && Number.isFinite(previewAmount) && reachesExtraordinaryThreshold(previewAmount, threshold);
+    const previewAmount = parseExpenseAmount(form.amount);
+    const requiresVote = previewAmount !== null && reachesExtraordinaryThreshold(previewAmount, threshold);
 
     const assignableMembers = me ? members.filter((member) => member.id !== me.id) : [];
-    const participants = assignableMembers.filter((member) => participantIds.has(member.id));
-    const pickableParticipants = assignableMembers.filter(
-        (member) => !participantIds.has(member.id),
-    );
-
-    const addParticipant = (member: Member): void => {
-        setParticipantIds((current) => new Set(current).add(member.id));
-        setIsParticipantPickerOpen(false);
-    };
-
-    const removeParticipant = (memberId: number): void => {
-        setParticipantIds((current) => {
-            const next = new Set(current);
-            next.delete(memberId);
-            return next;
-        });
-    };
-
-    const addAllMembers = (): void => {
-        setParticipantIds(new Set(assignableMembers.map((member) => member.id)));
-    };
+    const participants = assignableMembers.filter((member) => form.participantIds.has(member.id));
 
     const handleSubmit = async (): Promise<void> => {
-        if (!title.trim()) {
-            showSchemaError("El título del gasto es obligatorio");
+        const validation = validateExpenseFields({
+            title: form.title,
+            rawAmount: form.amount,
+            participantCount: participants.length,
+        });
+        if (!validation.isValid) {
+            showSchemaError(validation.message);
             return;
         }
 
-        const parsedAmount = Number(amount.replace(",", "."));
-        if (!amount.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-            showSchemaError("Ingresá un monto válido, mayor a cero");
-            return;
-        }
-
-        if (!file) {
+        if (!form.file) {
             showSchemaError("El comprobante (imagen o PDF) es obligatorio");
             return;
         }
@@ -98,25 +78,20 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
             return;
         }
 
-        if (participants.length === 0) {
-            showSchemaError("Asigná al menos una persona al gasto");
-            return;
-        }
-
         setIsSubmitting(true);
         try {
-            const receiptUrl = await uploadExpenseReceipt(file);
+            const receiptUrl = await uploadExpenseReceipt(form.file);
 
             const payload = {
-                title: title.trim(),
-                description: description.trim(),
-                totalAmount: parsedAmount,
+                title: form.title.trim(),
+                description: form.description.trim(),
+                totalAmount: validation.amount,
                 splitMethod: effectiveSplitMethod,
                 participants: participants.map((member) => ({ memberId: member.id })),
                 receiptUrl,
             };
 
-            if (reachesExtraordinaryThreshold(parsedAmount, threshold)) {
+            if (reachesExtraordinaryThreshold(validation.amount, threshold)) {
                 // Gasto extraordinario: no se crea; se propone y se registra solo si la votación se aprueba.
                 const vote = await createExpenseVote.mutateAsync(payload);
                 const resolution = describeResolvedVote(vote);
@@ -152,117 +127,19 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
             }}
             modalClassName="max-w-4xl"
         >
-            <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
-                <div className="flex flex-col gap-5">
-                    <Field label="Título del gasto" htmlFor="expense-title">
-                        <TextInput
-                            id="expense-title"
-                            value={title}
-                            onChange={(event) => setTitle(event.target.value)}
-                            placeholder="Ej. Reparación de techo"
-                        />
-                    </Field>
-
-                    <Field
-                        label="Motivo del gasto"
-                        htmlFor="expense-reason"
-                        hint="Opcional"
-                    >
-                        <TextArea
-                            id="expense-reason"
-                            value={description}
-                            onChange={(event) => setDescription(event.target.value)}
-                            placeholder="Ej. Filtración detectada en el dormitorio principal"
-                        />
-                    </Field>
-
-                    <Field label="Monto del gasto" htmlFor="expense-amount">
-                        <TextInput
-                            id="expense-amount"
-                            value={amount}
-                            onChange={(event) => setAmount(event.target.value)}
-                            inputMode="decimal"
-                            placeholder="$ 0"
-                        />
-                        {requiresVote ? (
-                            <p className="mt-2 rounded-xl bg-modal-soft px-4 py-3 text-sm text-modal-ink">
-                                Este gasto alcanza el umbral de gasto extraordinario del grupo ({formatCurrency(threshold)}).
-                                No se registrará de inmediato: se enviará a votación entre las personas involucradas.
-                            </p>
-                        ) : null}
-                    </Field>
-
-                    <Field
-                        label="Ticket o factura"
-                        hint="Arrastrá el archivo o elegilo desde tu dispositivo"
-                    >
-                        <FileDropzone file={file} onFileChange={setFile} />
-                    </Field>
-                </div>
-
-                <div className="flex flex-col gap-5">
-                    <Field
-                        label="Definir reparto"
-                        hint="Cómo se divide el gasto entre las personas asignadas"
-                    >
-                        {isEqualDistribution ? (
-                            <p className="text-sm text-modal-ink">
-                                El gasto se divide en partes iguales entre vos y las personas asignadas.
-                            </p>
-                        ) : (
-                            <SplitMethodSelector value={splitMethod} onChange={setSplitMethod} />
-                        )}
-                    </Field>
-
-                    <Field
-                        label="Personas a quienes se les asigna"
-                        hint="Agregá al menos una persona; vos quedás como acreedor/a y no podés figurar acá"
-                    >
-                        <div className="flex flex-col gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                                {participants.map((member) => (
-                                    <PersonChip
-                                        key={member.id}
-                                        name={member.nickname}
-                                        color={member.color}
-                                        photoUrl={member.photoUrl}
-                                        onRemove={() => removeParticipant(member.id)}
-                                    />
-                                ))}
-
-                                <ChipButton
-                                    label="+ Agregar persona"
-                                    onClick={() => setIsParticipantPickerOpen((open) => !open)}
-                                />
-
-                                {assignableMembers.length > 0 ? (
-                                    <ChipButton label="Agregar todos" onClick={addAllMembers} />
-                                ) : null}
-                            </div>
-
-                            {isParticipantPickerOpen ? (
-                                <MemberPicker
-                                    members={pickableParticipants}
-                                    onSelect={addParticipant}
-                                    onClose={() => setIsParticipantPickerOpen(false)}
-                                    emptyLabel="No quedan miembros activos por agregar"
-                                />
-                            ) : null}
-                        </div>
-                    </Field>
-
-                    <Field
-                        label="Persona a cargo del gasto"
-                        hint="El gasto queda a tu nombre: la plata se te debe a vos"
-                    >
-                        {me ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <PersonChip name={me.nickname} color={me.color} photoUrl={me.photoUrl} />
-                            </div>
-                        ) : null}
-                    </Field>
-                </div>
-            </div>
+            <ExpenseFormFields
+                form={form}
+                assignableMembers={assignableMembers}
+                creditor={me}
+                isEqualDistribution={isEqualDistribution}
+                copy={NEW_EXPENSE_COPY}
+                amountNotice={requiresVote ? (
+                    <p className="mt-2 rounded-xl bg-modal-soft px-4 py-3 text-sm text-modal-ink">
+                        Este gasto alcanza el umbral de gasto extraordinario del grupo ({formatCurrency(threshold)}).
+                        No se registrará de inmediato: se enviará a votación entre las personas involucradas.
+                    </p>
+                ) : null}
+            />
         </ModalShell>
     );
 }

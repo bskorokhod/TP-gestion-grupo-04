@@ -8,6 +8,7 @@ export const ExpenseStatusSchema = z.enum([
   "PENDING_APPROVAL",
   "APPROVED",
   "REJECTED",
+  "CANCELLED",
 ]);
 export type ExpenseStatus = z.infer<typeof ExpenseStatusSchema>;
 
@@ -19,6 +20,10 @@ export type ReviewOutcome = z.infer<typeof ReviewOutcomeSchema>;
 
 export const DebtStatusSchema = z.enum(["ACTIVE", "SUSPENDED"]);
 export type DebtStatus = z.infer<typeof DebtStatusSchema>;
+
+/** SHARE: la parte de un participante. REFUND: lo que el acreedor del gasto le debe a quien pagó de más. */
+export const DebtKindSchema = z.enum(["SHARE", "REFUND"]);
+export type DebtKind = z.infer<typeof DebtKindSchema>;
 
 export const BalanceItemTypeSchema = z.enum(["CREDIT", "DEBT"]);
 export type BalanceItemType = z.infer<typeof BalanceItemTypeSchema>;
@@ -65,6 +70,7 @@ export const DebtSchema = z.object({
   amount: z.number(),
   paidAmount: z.number(),
   status: DebtStatusSchema,
+  kind: DebtKindSchema,
 });
 export type Debt = z.infer<typeof DebtSchema>;
 
@@ -79,6 +85,10 @@ export const ExpenseSchema = z.object({
   pendingDetails: ExpenseDetailsSchema.nullable().optional(),
   lastResolution: ResolutionSchema.nullable().optional(),
   debts: z.array(DebtSchema),
+  /** Alguien ya pagó algo: modificar o eliminar el gasto exige una votación. */
+  hasPayments: z.boolean(),
+  /** Hay una votación para modificar o eliminar el gasto: no se puede pagar, editar ni reportar hasta que termine. */
+  reportInProgress: z.boolean(),
   createdAt: z.string(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
