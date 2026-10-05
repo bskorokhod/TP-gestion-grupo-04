@@ -76,6 +76,33 @@ class VoteRestController {
         return voteService.createConfigChangeVote(groupId, data, principal.email());
     }
 
+    @PostMapping(value = "/expenses/{expenseId}/edit", produces = "application/json")
+    @Operation(summary = "Proponer la modificación de un gasto aprobado (reporte); se aplica solo si la votación es positiva. Bloquea el gasto mientras dure")
+    @ResponseStatus(HttpStatus.CREATED)
+    @ApiResponse(responseCode = "404", description = "Grupo o gasto no encontrado, o el caller no participa del gasto", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado, ya tiene un reporte en curso, la propuesta no cambia nada, o un participante está inactivo / el reparto es imposible", content = @Content)
+    VoteDTO proposeExpenseEdit(
+            @PathVariable Long groupId,
+            @PathVariable Long expenseId,
+            @Valid @NonNull @RequestBody ExpenseDataDTO data,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException, MethodArgumentNotValidException {
+        return voteService.createExpenseEditVote(groupId, expenseId, data, principal.email());
+    }
+
+    @PostMapping(value = "/expenses/{expenseId}/deletion", produces = "application/json")
+    @Operation(summary = "Proponer la eliminación de un gasto aprobado (reporte); se elimina lógicamente solo si la votación es positiva. Bloquea el gasto mientras dure")
+    @ResponseStatus(HttpStatus.CREATED)
+    @ApiResponse(responseCode = "404", description = "Grupo o gasto no encontrado, o el caller no participa del gasto", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado o ya tiene un reporte en curso", content = @Content)
+    VoteDTO proposeExpenseDeletion(
+            @PathVariable Long groupId,
+            @PathVariable Long expenseId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return voteService.createExpenseDeletionVote(groupId, expenseId, principal.email());
+    }
+
     @PutMapping(value = "/{voteId}/ballot", produces = "application/json")
     @Operation(summary = "Emitir o cambiar el voto del caller; si el resultado queda determinado, la votación se finaliza y se ejecuta")
     @ApiResponse(responseCode = "403", description = "El caller no es uno de los miembros involucrados", content = @Content)

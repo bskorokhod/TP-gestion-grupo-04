@@ -1,6 +1,7 @@
 package EsNuestro.vote;
 
 import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.expense.Expense;
 import EsNuestro.expense.ExpenseDetails;
 import EsNuestro.expense.ExpenseService;
 import EsNuestro.expense.dtos.ExpenseDataDTO;
@@ -119,6 +120,63 @@ class VoteService {
                 .filter(GroupMember::isActive)
                 .forEach(member -> vote.addBallot(member, BigDecimal.ONE));
         vote.ballotOf(proposer).ifPresent(ballot -> ballot.cast(VoteChoice.YES));
+        voteRepository.save(vote);
+
+        evaluate(vote);
+        return VoteDTO.from(vote, proposer);
+    }
+
+    /**
+     * Abre la votación para modificar un gasto aprobado (un reporte). Votan el acreedor, los participantes actuales y
+     * los propuestos (quien se suma al gasto también vota); el voto "sí" de quien propone es automático si está
+     * entre ellos. El gasto queda bloqueado hasta que la votación finalice. Se rechaza una propuesta que no cambiaría
+     * nada. El acreedor del gasto no cambia.
+     */
+    VoteDTO createExpenseEditVote(Long groupId, Long expenseId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
+        Group group = groupService.requireGroupForUpdate(groupId);
+        GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
+
+        Expense expense = expenseService.requireExpenseForReport(groupId, expenseId, proposer);
+        ExpenseDetails proposed = expenseService.buildDetailsForReport(groupId, expense, data);
+        if (proposed.sameContentAs(expense.getDetails())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The proposed data are the same as the expense's current data"
+            );
+        }
+
+        VotingModel votingModel = group.getSettings().getVotingModel();
+        ExpenseReportVote vote = ExpenseReportVote.ofEdit(group, proposer, votingModel, expense, proposed);
+        return openExpenseReport(vote, expense, proposer, votingModel, involvedMembers(expense.getDetails(), proposed));
+    }
+
+    /**
+     * Abre la votación para eliminar un gasto aprobado (un reporte). Votan el acreedor y los participantes; el voto
+     * "sí" de quien propone es automático. El gasto queda bloqueado hasta que la votación finalice. Si se aprueba, el
+     * gasto se elimina lógicamente y quien ya había pagado queda con una devolución a favor.
+     */
+    VoteDTO createExpenseDeletionVote(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
+        Group group = groupService.requireGroupForUpdate(groupId);
+        GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
+
+        Expense expense = expenseService.requireExpenseForReport(groupId, expenseId, proposer);
+
+        VotingModel votingModel = group.getSettings().getVotingModel();
+        ExpenseReportVote vote = ExpenseReportVote.ofDeletion(group, proposer, votingModel, expense);
+        return openExpenseReport(vote, expense, proposer, votingModel, involvedMembers(expense.getDetails()));
+    }
+
+    /**
+     * El gasto se bloquea antes de evaluar: si la votación se resuelve en el acto (p. ej. el acreedor es el único
+     * involucrado), el ejecutor lo desbloquea al terminar.
+     */
+    private VoteDTO openExpenseReport(
+            ExpenseReportVote vote, Expense expense, GroupMember proposer, VotingModel votingModel, List<GroupMember> involved
+    ) {
+        involved.forEach(member -> vote.addBallot(member, weightOf(votingModel, member)));
+        vote.ballotOf(proposer).ifPresent(ballot -> ballot.cast(VoteChoice.YES));
+        expense.lockForReport();
         voteRepository.save(vote);
 
         evaluate(vote);
@@ -278,12 +336,14 @@ class VoteService {
         }
     }
 
-    /** Acreedor y participantes, sin repetidos y en orden. */
-    private List<GroupMember> involvedMembers(ExpenseDetails details) {
+    /** Acreedor y participantes de cada uno de los datos recibidos, sin repetidos y en orden. */
+    private List<GroupMember> involvedMembers(ExpenseDetails... detailsList) {
         Map<Long, GroupMember> byId = new LinkedHashMap<>();
-        byId.put(details.getCreditor().getId(), details.getCreditor());
-        details.getParticipants().forEach(participant ->
-                byId.putIfAbsent(participant.getMember().getId(), participant.getMember()));
+        for (ExpenseDetails details : detailsList) {
+            byId.putIfAbsent(details.getCreditor().getId(), details.getCreditor());
+            details.getParticipants().forEach(participant ->
+                    byId.putIfAbsent(participant.getMember().getId(), participant.getMember()));
+        }
         return List.copyOf(byId.values());
     }
 

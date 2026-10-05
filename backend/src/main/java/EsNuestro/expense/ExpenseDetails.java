@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Datos editables de un gasto. Un {@link Expense} tiene siempre unos datos vigentes y, mientras
@@ -73,6 +76,24 @@ public class ExpenseDetails {
                 .map(participant -> new ExpenseParticipant(participant.getMember()))
                 .toList();
         return new ExpenseDetails(title, description, totalAmount, splitMethod, creditor, receiptUrl, participantCopies);
+    }
+
+    /**
+     * Si tiene el mismo contenido que {@code other} (no compara ids ni el orden de los participantes). Sirve para
+     * rechazar una propuesta de modificación que no cambiaría nada.
+     */
+    public boolean sameContentAs(ExpenseDetails other) {
+        return title.equals(other.title)
+                && Objects.equals(description, other.description)
+                && totalAmount.compareTo(other.totalAmount) == 0
+                && splitMethod == other.splitMethod
+                && creditor.getId().equals(other.creditor.getId())
+                && receiptUrl.equals(other.receiptUrl)
+                && participantIds().equals(other.participantIds());
+    }
+
+    private Set<Long> participantIds() {
+        return participants.stream().map(participant -> participant.getMember().getId()).collect(Collectors.toSet());
     }
 
     public boolean involves(GroupMember member) {

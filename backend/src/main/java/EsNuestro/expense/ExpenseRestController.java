@@ -106,9 +106,9 @@ class ExpenseRestController {
     }
 
     @PutMapping(value = "/{expenseId}", produces = "application/json")
-    @Operation(summary = "Editar un gasto aprobado sin pagos (creador o admin); si edita un admin se aplica directo, si no queda pendiente de aprobación")
-    @ApiResponse(responseCode = "403", description = "Solo el creador o un admin pueden editar", content = @Content)
-    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado o tiene pagos", content = @Content)
+    @Operation(summary = "Editar directamente un gasto aprobado (solo su creador): sin pagos, sin un reporte en curso y por debajo del umbral extraordinario; si no, hay que proponer la modificación por votación (POST /groups/{id}/votes/expenses/{expenseId}/edit)")
+    @ApiResponse(responseCode = "403", description = "Solo el creador puede editar", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado, tiene pagos, tiene un reporte en curso o alcanza el umbral extraordinario", content = @Content)
     ExpenseDTO update(
             @PathVariable Long groupId,
             @PathVariable Long expenseId,
@@ -156,10 +156,10 @@ class ExpenseRestController {
     }
 
     @DeleteMapping("/{expenseId}")
-    @Operation(summary = "Eliminar un gasto y sus deudas (creador o admin); bloqueado si alguna deuda tiene pagos")
+    @Operation(summary = "Eliminar directamente un gasto (solo su creador), de forma lógica: sin pagos y sin un reporte en curso; si no, hay que proponer la eliminación por votación (POST /groups/{id}/votes/expenses/{expenseId}/deletion)")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiResponse(responseCode = "403", description = "Solo el creador o un admin pueden eliminar", content = @Content)
-    @ApiResponse(responseCode = "409", description = "Alguna deuda del gasto tiene pagos", content = @Content)
+    @ApiResponse(responseCode = "403", description = "Solo el creador puede eliminar", content = @Content)
+    @ApiResponse(responseCode = "409", description = "Alguna deuda del gasto tiene pagos, tiene un reporte en curso o ya fue eliminado", content = @Content)
     void delete(
             @PathVariable Long groupId,
             @PathVariable Long expenseId,
@@ -173,7 +173,7 @@ class ExpenseRestController {
     @ResponseStatus(HttpStatus.CREATED)
     @ApiResponse(responseCode = "403", description = "Solo el deudor puede declarar el pago de su propia deuda", content = @Content)
     @ApiResponse(responseCode = "404", description = "Grupo, gasto o deuda no encontrados", content = @Content)
-    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado, la deuda está suspendida, o el monto supera el saldo pendiente", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado (salvo una devolución de un gasto eliminado), tiene un reporte en curso, la deuda está suspendida, o el monto supera el saldo pendiente", content = @Content)
     DebtDTO payDebt(
             @PathVariable Long groupId,
             @PathVariable Long expenseId,
