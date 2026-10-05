@@ -15,9 +15,8 @@ import lombok.NoArgsConstructor;
 /**
  * Se vota si cancelar la reserva de otro miembro, a partir de una solicitud de cancelación (el reclamo).
  * Quien reclama es el proponente y su voto "sí" es automático. Votan los miembros activos al momento del
- * reclamo salvo el dueño de la reserva, y el modelo de votación es el del grupo. La ven todos los miembros,
- * incluido el dueño, aunque no vote. Si resulta positiva se cancela la reserva; si no, no se hace nada y se
- * puede volver a reclamar.
+ * reclamo, y el modelo de votación es el del grupo. La ven todos los miembros, incluido el dueño.
+ * Si resulta positiva se cancela la reserva; si no, no se hace nada y se puede volver a reclamar.
  */
 @Entity
 @Table(name = "reservation_claim_votes")

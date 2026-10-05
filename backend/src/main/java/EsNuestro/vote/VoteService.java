@@ -243,23 +243,20 @@ class VoteService {
     }
 
     /**
-     * Un reclamo sobre una reserva abre su votación. Votan los miembros activos salvo el dueño de la reserva
-     * (el padrón queda fijo) con el modelo de votación del grupo, y el voto "sí" de quien reclama es automático: si
-     * es el único que vota, la reserva se cancela en el acto. Corre en la transacción de
-     * {@code ReservationService.requestCancellation}, que ya tiene el lock del grupo.
+     * Un reclamo sobre una reserva abre su votación. Votan los miembros activos (el padrón queda fijo)
+     * con el modelo de votación del grupo, y el voto "sí" de quien reclama es automático.
+     * Corre en la transacción de {@code ReservationService.requestCancellation}, que ya tiene el lock del grupo.
      */
     @EventListener
     public void onCancellationRequested(CancellationRequestedEvent event) {
         CancellationRequest request = event.request();
         Group group = request.getReservation().getGroup();
         GroupMember claimant = request.getRequester();
-        Long ownerId = request.getReservation().getMember().getId();
 
         VotingModel votingModel = group.getSettings().getVotingModel();
         ReservationClaimVote vote = new ReservationClaimVote(group, claimant, votingModel, request);
         group.getMembers().stream()
                 .filter(GroupMember::isActive)
-                .filter(member -> !member.getId().equals(ownerId))
                 .forEach(member -> vote.addBallot(member, weightOf(votingModel, member)));
         vote.ballotOf(claimant).ifPresent(ballot -> ballot.cast(VoteChoice.YES));
         voteRepository.save(vote);
