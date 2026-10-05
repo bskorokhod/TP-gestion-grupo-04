@@ -8,10 +8,11 @@ export const ExpenseStatusSchema = z.enum([
   "PENDING_APPROVAL",
   "APPROVED",
   "REJECTED",
+  "CANCELLED",
 ]);
 export type ExpenseStatus = z.infer<typeof ExpenseStatusSchema>;
 
-export const SplitMethodSchema = z.enum(["EQUAL", "PROPORTIONAL", "CUSTOM"]);
+export const SplitMethodSchema = z.enum(["EQUAL", "PROPORTIONAL"]);
 export type SplitMethod = z.infer<typeof SplitMethodSchema>;
 
 export const ReviewOutcomeSchema = z.enum(["APPROVED", "REJECTED"]);
@@ -19,6 +20,10 @@ export type ReviewOutcome = z.infer<typeof ReviewOutcomeSchema>;
 
 export const DebtStatusSchema = z.enum(["ACTIVE", "SUSPENDED"]);
 export type DebtStatus = z.infer<typeof DebtStatusSchema>;
+
+/** SHARE: la parte de un participante. REFUND: lo que el acreedor del gasto le debe a quien pagó de más. */
+export const DebtKindSchema = z.enum(["SHARE", "REFUND"]);
+export type DebtKind = z.infer<typeof DebtKindSchema>;
 
 export const BalanceItemTypeSchema = z.enum(["CREDIT", "DEBT"]);
 export type BalanceItemType = z.infer<typeof BalanceItemTypeSchema>;
@@ -37,13 +42,13 @@ export type ExpenseMember = z.infer<typeof ExpenseMemberSchema>;
 
 export const ExpenseParticipantSchema = z.object({
   member: ExpenseMemberSchema,
-  customPercentage: z.number().nullable().optional(),
 });
 export type ExpenseParticipant = z.infer<typeof ExpenseParticipantSchema>;
 
 export const ExpenseDetailsSchema = z.object({
   title: z.string(),
-  description: z.string(),
+  /** Opcional: el backend la devuelve null si quedó vacía. */
+  description: z.string().nullish(),
   totalAmount: z.number(),
   splitMethod: SplitMethodSchema,
   creditor: ExpenseMemberSchema,
@@ -59,6 +64,15 @@ export const ResolutionSchema = z.object({
 });
 export type Resolution = z.infer<typeof ResolutionSchema>;
 
+/** Pago autodeclarado por el deudor, con su comprobante. */
+export const PaymentSchema = z.object({
+  id: z.number(),
+  amount: z.number(),
+  receiptUrl: z.string(),
+  paidAt: z.string(),
+});
+export type Payment = z.infer<typeof PaymentSchema>;
+
 export const DebtSchema = z.object({
   id: z.number(),
   debtor: ExpenseMemberSchema,
@@ -66,6 +80,9 @@ export const DebtSchema = z.object({
   amount: z.number(),
   paidAmount: z.number(),
   status: DebtStatusSchema,
+  kind: DebtKindSchema,
+  /** Pagos declarados, del más antiguo al más nuevo. */
+  payments: z.array(PaymentSchema),
 });
 export type Debt = z.infer<typeof DebtSchema>;
 
@@ -80,6 +97,10 @@ export const ExpenseSchema = z.object({
   pendingDetails: ExpenseDetailsSchema.nullable().optional(),
   lastResolution: ResolutionSchema.nullable().optional(),
   debts: z.array(DebtSchema),
+  /** Alguien ya pagó algo: modificar o eliminar el gasto exige una votación. */
+  hasPayments: z.boolean(),
+  /** Hay una votación para modificar o eliminar el gasto: no se puede pagar, editar ni reportar hasta que termine. */
+  reportInProgress: z.boolean(),
   createdAt: z.string(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
@@ -87,20 +108,12 @@ export type Expense = z.infer<typeof ExpenseSchema>;
 // ─── Payload de creación/edición ────────────────────────────────────────────
 
 export const ExpenseDataSchema = z.object({
-  title: z.string().trim().min(1).max(200),         // ← nuevo, obligatorio
-  description: z.string().trim().min(1).max(200),   // ← sigue obligatorio
+  title: z.string().trim().min(1).max(150),
+  description: z.string().trim().max(200),
   totalAmount: z.number().min(0.01),
-  creditorId: z.number(),
   splitMethod: SplitMethodSchema,
-  participants: z
-      .array(
-          z.object({
-            memberId: z.number(),
-            percentage: z.number().min(0).max(100).nullable().optional(),
-          }),
-      )
-      .nonempty(),
-  receiptUrl: z.string().url().max(2048),
+  participants: z.array(z.object({ memberId: z.number() })).nonempty(),
+  receiptUrl: z.url().max(2048),
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;
 

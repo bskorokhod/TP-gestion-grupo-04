@@ -1,0 +1,5 @@
+export const DEFAULT_TOKEN_STORAGE_KEY = "tokens";
+
+export const MAX_QUERY_RETRIES = 3;
+export const GROUP_PREVIEW_STALE_TIME_MS = 30_000;
+export const RESERVATIONS_REFETCH_INTERVAL_MS = 5_000;

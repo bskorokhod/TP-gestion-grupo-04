@@ -1,12 +1,11 @@
-import type { ReactNode } from "react";
-
+import { useState, type ComponentProps, type ReactNode } from "react";
 import Button from "@/components/Button.tsx";
+import { ReceiptModal } from "@/components/modals/ReceiptModal.tsx";
 import { Avatar } from "@/components/ui/Avatar";
 import type { MemberColor } from "@/models/Group";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
-
-// ─── Tipos de datos públicos ────────────────────────────────────────────────
+import { faFlag, faPenToSquare, faReceipt } from "@fortawesome/free-solid-svg-icons";
+import {BALANCE_COLORS, PAYMENT_STATUS_CONFIG, TRANSACTION_VARIANTS, type BalanceStatus, type PaymentStatus, type TransactionVariant,} from "@/constants/expenses.ts";
 
 export interface MemberInfo {
     readonly nickname: string;
@@ -18,10 +17,15 @@ export interface PersonRowProps {
     readonly name: string;
     readonly color?: MemberColor;
     readonly amount?: string;
+    /** Si vienen ambos, se muestra "pagado / total" con el total más tenue; tienen prioridad sobre {@link amount}. */
+    readonly paidAmount?: string;
+    readonly totalAmount?: string;
     readonly status?: PaymentStatus;
     readonly action?: "claim" | "none";
     readonly onAction?: () => void;
     readonly photoUrl?: string | null;
+    /** Comprobantes de los pagos declarados por esta persona: un solo botón que abre el modal, con un slider si son varios. */
+    readonly receiptUrls?: readonly string[];
 }
 
 export interface TransactionRowProps {
@@ -47,18 +51,31 @@ export interface DebtCardProps {
     readonly description: string;
     readonly assigned?: MemberInfo[];
     readonly owner?: MemberInfo;
+    readonly receiptUrl?: string | null;
+    readonly tag?: string;
+    readonly onEdit?: () => void;
+    /** Si está, "Editar" queda deshabilitado y este texto explica por qué. */
+    readonly editDisabledReason?: string | null;
     readonly children: ReactNode;
 }
-
 
 export interface OwedCardProps {
     readonly title: string;
     readonly amount: string;
     readonly description: string;
-    readonly assigned: MemberInfo[];
-    readonly owner: MemberInfo;
+    readonly assigned?: MemberInfo[];
+    readonly owner?: MemberInfo;
     readonly tag?: string;
-    readonly action?: { readonly label: string; readonly onClick: () => void };
+    readonly receiptUrl?: string | null;
+    readonly onReport?: () => void;
+    /** Si está, "Reportar" queda deshabilitado y este texto explica por qué. */
+    readonly reportDisabledReason?: string | null;
+    readonly action?: {
+        readonly label: string;
+        readonly onClick: () => void;
+        /** Si está, el botón queda deshabilitado y este texto explica por qué. */
+        readonly disabledReason?: string | null;
+    };
 }
 
 export interface AmountTitleProps {
@@ -75,8 +92,6 @@ export interface PeopleMetaProps {
 export interface EmptyStateProps {
     readonly message: string;
 }
-
-// ─── Card base ──────────────────────────────────────────────────────────────
 
 export interface ExpenseCardProps {
     readonly children: ReactNode;
@@ -105,8 +120,6 @@ export function AmountTitle({ title, amount, tag }: AmountTitleProps): ReactNode
     );
 }
 
-// ─── Meta de personas ───────────────────────────────────────────────────────
-
 export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
     return (
         <div className="flex flex-wrap items-center gap-4 text-sm text-group-muted">
@@ -131,18 +144,9 @@ export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
     );
 }
 
-// ─── PersonRow ──────────────────────────────────────────────────────────────
-
-const PAYMENT_STATUS_CONFIG = {
-    paid: { badgeClasses: "bg-group-green/70 text-brand-foreground", label: "Pagó" },
-    partial: { badgeClasses: "bg-group-amber/70 text-brand-foreground", label: "Parcial" },
-    pending: { badgeClasses: "bg-field/70 text-group-muted", label: "Pendiente" },
-    unpaid: { badgeClasses: "bg-field/70 text-group-muted", label: "No pagó" },
-} as const;
-
-export type PaymentStatus = keyof typeof PAYMENT_STATUS_CONFIG;
-
-export function PersonRow({name, color, amount, status = "unpaid", action = "none", onAction, photoUrl}: PersonRowProps): ReactNode {
+// TODO: Decidir qué hacer al reclamar un pago
+// export function PersonRow({name, color, amount, paidAmount, totalAmount, status = "unpaid", action = "none", onAction, photoUrl, receiptUrls = []}: PersonRowProps): ReactNode {
+export function PersonRow({name, color, amount, paidAmount, totalAmount, status = "unpaid", photoUrl, receiptUrls = []}: PersonRowProps): ReactNode {
     const config = PAYMENT_STATUS_CONFIG[status];
 
     return (
@@ -152,30 +156,26 @@ export function PersonRow({name, color, amount, status = "unpaid", action = "non
                 <span className="truncate text-sm font-medium">{name}</span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-                {amount && (
+                {paidAmount !== undefined && totalAmount !== undefined ? (
+                    <span className="text-sm font-semibold">
+                        <span className="text-brand">{paidAmount}</span>
+                        <span className="text-group-muted"> / {totalAmount}</span>
+                    </span>
+                ) : amount && (
                     <span className="text-sm font-semibold text-brand">{amount}</span>
                 )}
                 <span className={`rounded-full px-3 py-1 text-sm font-medium ${config.badgeClasses}`}>
                     {config.label}
                 </span>
-                {action === "claim" && (
-                    <Button variant="danger" className="hidden sm:block" onClick={onAction}>
-                        Reclamar pago
-                    </Button>
+                {receiptUrls.length > 0 && (
+                    <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} />
                 )}
+                {/* TODO: Decidir qué hacer al reclamar un pago */}
+                {/* {action === "claim" && (<CardActionButton icon={faFlag} label="Reclamar pago" onClick={onAction} tone="danger"/>)} */}
             </div>
         </div>
     );
 }
-
-// ─── TransactionRow ─────────────────────────────────────────────────────────
-
-const TRANSACTION_VARIANTS = {
-    debt: "text-group-danger",
-    credit: "text-brand",
-} as const;
-
-export type TransactionVariant = keyof typeof TRANSACTION_VARIANTS;
 
 export function TransactionRow({name, amount, variant = "credit", action = "readonly", onAction,}: TransactionRowProps): ReactNode {
     const amountColor = TRANSACTION_VARIANTS[variant];
@@ -196,16 +196,6 @@ export function TransactionRow({name, amount, variant = "credit", action = "read
         </div>
     );
 }
-
-// ─── PersonBalanceCard ──────────────────────────────────────────────────────
-
-const BALANCE_COLORS = {
-    positive: "text-group-green",
-    negative: "text-group-danger",
-    neutral: "text-group-muted",
-} as const;
-
-export type BalanceStatus = keyof typeof BALANCE_COLORS;
 
 export function PersonBalanceCard({name, color, balance, balanceStatus, items, }: PersonBalanceCardProps): ReactNode {
     const balanceColor = BALANCE_COLORS[balanceStatus];
@@ -231,61 +221,82 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
     );
 }
 
-// ─── ProposalCard ───────────────────────────────────────────────────────────
+type IconProp = ComponentProps<typeof FontAwesomeIcon>["icon"];
 
-const PROPOSAL_VARIANTS = {
-    accepted: {
-        votesLabel: "3 de 4",
-        primaryBtn: { variant: "muted" as const, label: "Aceptado" },
-        secondaryBtn: { variant: "muted" as const, label: "Cancelar" },
-    },
-    pending: {
-        votesLabel: "1 de 3",
-        primaryBtn: { variant: "success" as const, label: "Aceptar" },
-        secondaryBtn: { variant: "danger" as const, label: "Rechazar" },
-    },
-} as const;
-
-export interface ProposalCardProps {
-    readonly title: string;
-    readonly amount: string;
-    readonly description: string;
-    readonly assigned: MemberInfo[];
-    readonly owner: MemberInfo;
-    readonly status?: keyof typeof PROPOSAL_VARIANTS;
+interface CardActionButtonProps {
+    readonly icon: IconProp;
+    readonly label: string;
+    readonly onClick?: () => void;
+    /** Si está, el botón queda deshabilitado y este texto reemplaza al tooltip para explicar por qué. */
+    readonly disabledReason?: string | null;
+    /** "danger" pinta el ícono de rojo (p. ej. reclamar un pago). */
+    readonly tone?: "brand" | "danger";
 }
 
-export function ProposalCard({title, amount, description, assigned, owner, status = "pending",}: ProposalCardProps): ReactNode {
-    const config = PROPOSAL_VARIANTS[status];
+/** Botón de ícono para la esquina superior derecha de la tarjeta, con tooltip en hover y foco. */
+function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand" }: CardActionButtonProps): ReactNode {
+    const isDisabled = disabledReason != null;
+    const tooltip = disabledReason ?? label;
 
     return (
-        <ExpenseCard className="border-group-amber">
-            <div className="space-y-2">
-                <AmountTitle title={title} amount={amount} />
-                <p className="text-sm text-group-muted">{description}</p>
-                <PeopleMeta assigned={assigned} owner={owner} />
-            </div>
-            <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <button className="inline-flex items-center gap-1 truncate text-left text-sm font-medium text-brand">
-                    Ver votos ({config.votesLabel} votaron)
-                    <FontAwesomeIcon icon={faChevronDown} className="h-3 w-3" aria-hidden />
-                </button>
-                <div className="flex shrink-0 gap-2">
-                    <Button variant={config.primaryBtn.variant}>{config.primaryBtn.label}</Button>
-                    <Button variant={config.secondaryBtn.variant}>{config.secondaryBtn.label}</Button>
-                </div>
-            </div>
-        </ExpenseCard>
+        <span className="group relative inline-flex">
+            <button
+                type="button"
+                onClick={onClick}
+                disabled={isDisabled}
+                aria-label={tooltip}
+                className={`inline-flex size-8 cursor-pointer items-center justify-center rounded-full ${tone === "danger" ? "text-group-danger" : "text-brand"} transition-colors hover:bg-group-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+            >
+                <FontAwesomeIcon icon={icon} className="h-4 w-4" aria-hidden />
+            </button>
+            <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
+            >
+                {tooltip}
+            </span>
+        </span>
     );
 }
 
-// ─── DebtCard / OwedCard ────────────────────────────────────────────────────
+interface ReceiptActionProps {
+    readonly title: string;
+    readonly receiptUrl?: string | null;
+    /** Varios comprobantes: el modal los muestra con un slider. Tiene prioridad sobre {@link receiptUrl}. */
+    readonly receiptUrls?: readonly string[];
+}
 
-export function DebtCard({title, amount, description, assigned, owner, children,}: DebtCardProps): ReactNode {
+function ReceiptAction({ title, receiptUrl, receiptUrls }: ReceiptActionProps): ReactNode {
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+    return (
+        <>
+            <CardActionButton
+                icon={faReceipt}
+                label={receiptUrls && receiptUrls.length > 1 ? "Ver comprobantes adjuntos" : "Ver comprobante adjunto"}
+                onClick={() => setIsModalOpen(true)}
+            />
+            {isModalOpen && (
+                <ReceiptModal
+                    title={title}
+                    receiptUrl={receiptUrl}
+                    receiptUrls={receiptUrls}
+                    onClose={() => setIsModalOpen(false)}
+                />
+            )}
+        </>
+    );
+}
+
+export function DebtCard({title, amount, description, assigned, owner, receiptUrl, tag, onEdit, editDisabledReason, children,}: DebtCardProps): ReactNode {
     return (
         <ExpenseCard>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <AmountTitle title={title} amount={amount} />
+            <div className="flex items-start justify-between gap-2">
+                <AmountTitle title={title} amount={amount} tag={tag} />
+                <div className="flex shrink-0 items-center gap-1">
+                    <ReceiptAction title={title} receiptUrl={receiptUrl} />
+                    <CardActionButton icon={faPenToSquare} label="Editar" onClick={onEdit} disabledReason={editDisabledReason} />
+                </div>
             </div>
             <p className="mt-3 text-sm text-group-muted">{description}</p>
 
@@ -300,17 +311,28 @@ export function DebtCard({title, amount, description, assigned, owner, children,
     );
 }
 
-export function OwedCard({title, amount, description, assigned, owner, tag, action,}: OwedCardProps): ReactNode {
+export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, reportDisabledReason, action,}: OwedCardProps): ReactNode {
     return (
         <ExpenseCard className="flex min-h-48 flex-col justify-between">
             <div className="space-y-2">
-                <AmountTitle title={title} amount={amount} tag={tag} />
+                <div className="flex items-start justify-between gap-2">
+                    <AmountTitle title={title} amount={amount} tag={tag} />
+                    <div className="flex shrink-0 items-center gap-1">
+                        <ReceiptAction title={title} receiptUrl={receiptUrl} />
+                        <CardActionButton icon={faFlag} label="Reportar" onClick={onReport} disabledReason={reportDisabledReason} tone={"danger"}/>
+                    </div>
+                </div>
                 <p className="text-sm text-group-muted">{description}</p>
-                <PeopleMeta assigned={assigned} owner={owner} />
+                {assigned && owner && <PeopleMeta assigned={assigned} owner={owner} />}
             </div>
             {action && (
                 <div className="mt-4 flex justify-end">
-                    <Button variant="success" onClick={action.onClick}>
+                    <Button
+                        variant="success"
+                        onClick={action.onClick}
+                        disabled={action.disabledReason != null}
+                        title={action.disabledReason ?? undefined}
+                    >
                         {action.label}
                     </Button>
                 </div>
@@ -318,8 +340,6 @@ export function OwedCard({title, amount, description, assigned, owner, tag, acti
         </ExpenseCard>
     );
 }
-
-// ─── EmptyState ─────────────────────────────────────────────────────────────
 
 export function EmptyState({ message }: EmptyStateProps): ReactNode {
     return (

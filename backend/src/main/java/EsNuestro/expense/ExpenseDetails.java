@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Datos editables de un gasto. Un {@link Expense} tiene siempre unos datos vigentes y, mientras
@@ -64,23 +67,47 @@ public class ExpenseDetails {
         this.participants = new ArrayList<>(participants);
     }
 
+    /**
+     * Copia independiente (otra fila) con los mismos datos. Sirve para crear un gasto a partir de datos
+     * propuestos en una votación sin que ambos compartan la misma entidad.
+     */
+    public ExpenseDetails copy() {
+        List<ExpenseParticipant> participantCopies = participants.stream()
+                .map(participant -> new ExpenseParticipant(participant.getMember()))
+                .toList();
+        return new ExpenseDetails(title, description, totalAmount, splitMethod, creditor, receiptUrl, participantCopies);
+    }
+
+    /**
+     * Si tiene el mismo contenido que {@code other} (no compara ids ni el orden de los participantes). Sirve para
+     * rechazar una propuesta de modificación que no cambiaría nada.
+     */
+    public boolean sameContentAs(ExpenseDetails other) {
+        return title.equals(other.title)
+                && Objects.equals(description, other.description)
+                && totalAmount.compareTo(other.totalAmount) == 0
+                && splitMethod == other.splitMethod
+                && creditor.getId().equals(other.creditor.getId())
+                && receiptUrl.equals(other.receiptUrl)
+                && participantIds().equals(other.participantIds());
+    }
+
+    private Set<Long> participantIds() {
+        return participants.stream().map(participant -> participant.getMember().getId()).collect(Collectors.toSet());
+    }
+
     public boolean involves(GroupMember member) {
         return creditor.getId().equals(member.getId())
                 || participants.stream().anyMatch(participant -> participant.getMember().getId().equals(member.getId()));
     }
 
     /**
-     * Participantes sobre los que se calcula el reparto: en EQUAL y PROPORTIONAL se suma el
-     * acreedor (su parte se descarta después, al generar las deudas, pero primero tiene que entrar
-     * en el denominador). En CUSTOM se devuelven los participantes tal cual: los porcentajes ya son
-     * explícitos y suman 100 entre ellos, sin una porción implícita para el acreedor.
+     * Participantes sobre los que se calcula el reparto: se suma el acreedor (su parte se descarta
+     * después, al generar las deudas, pero primero tiene que entrar en el denominador).
      */
     List<ExpenseParticipant> splitParticipants() {
-        if (splitMethod == SplitMethod.CUSTOM) {
-            return participants;
-        }
         List<ExpenseParticipant> withCreditor = new ArrayList<>(participants);
-        withCreditor.add(new ExpenseParticipant(creditor, null));
+        withCreditor.add(new ExpenseParticipant(creditor));
         return withCreditor;
     }
 }

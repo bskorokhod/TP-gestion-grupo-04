@@ -17,7 +17,7 @@ import {
 import type { Group, GroupCreate, JoinGroup } from "@/models/Group.ts";
 import { useFormToasts } from "@/hooks/useFormToasts";
 import type { BackendError } from "@/hooks/useToast";
-import {groupExpensesPath} from "@/constants/routes.ts";
+import {groupReservationsPath} from "@/constants/routes.ts";
 
 type ModalType = "crear" | "unirme" | null;
 
@@ -130,7 +130,7 @@ export const GroupSelectionScreen = () => {
                             return (
                                 <Link
                                     key={group.id}
-                                    href={groupExpensesPath(group.joinCode)}
+                                    href={groupReservationsPath(group.joinCode)}
                                     className="block"
                                 >
                                     <GroupCard {...cardProps} />

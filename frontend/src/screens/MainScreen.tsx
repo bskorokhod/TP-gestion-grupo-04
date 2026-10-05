@@ -1,71 +1,10 @@
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout";
 import homeIllustration from "@/assets/home.svg";
 import Button from "@/components/Button.jsx";
-import {FeatureCard, SectionHeading, StatsBar, StepCard, TestimonialCard, type Stat} from "@/components/Cards.jsx";
+import {FeatureCard, SectionHeading, StatsBar, StepCard, TestimonialCard} from "@/components/Cards.jsx";
 import {Link} from "wouter";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCalendarDays, faMoneyBillWave, faClipboardList } from "@fortawesome/free-solid-svg-icons";
-
-const features = [
-    {
-        icon: <FontAwesomeIcon icon={faCalendarDays} className="h-5 w-5 text-ink" aria-hidden />,
-        title: "Calendario compartido",
-        copy: "Cada miembro ve y reserva sus días sin pisarse. Colores por persona, sin ambigüedades.",
-        tone: "bg-custom-green"
-    },
-    {
-        icon: <FontAwesomeIcon icon={faMoneyBillWave} className="h-5 w-5 text-ink" aria-hidden />,
-        title: "Gestión de gastos",
-        copy: "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore.",
-        tone: "bg-custom-orange"
-    },
-    {
-        icon: <FontAwesomeIcon icon={faClipboardList} className="h-5 w-5 text-ink" aria-hidden />,
-        title: "Historial y decisiones",
-        copy: "Consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim.",
-        tone: "bg-custom-lilac"
-    },
-];
-
-const steps = [
-    ["Creá tu grupo", "Dale un nombre que lo represente."],
-    ["Agregá tu bien", "Consectetur adipiscing elit sed do eiusmod tempor. Ut enim ad minim veniam quis nostrud exercitation ullamco."],
-    ["Invitá a tu grupo", "Compartiles el código de invitación para que se unan."],
-];
-
-const testimonials = [
-    {
-        initial: "M",
-        name: "María G.",
-        role: "Propietaria, casa de playa",
-        quote: "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        tone: "bg-olive/30",
-        avatar: "bg-olive/55 text-foreground"
-    },
-    {
-        initial: "R",
-        name: "Roberto P.",
-        role: "Miembro, cabaña familiar",
-        quote: "Consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore. Ut enim ad minim veniam quis nostrud exercitation.",
-        tone: "bg-custom-lilac/30",
-        avatar: "bg-custom-lilac/55 text-foreground"
-    },
-    {
-        initial: "C",
-        name: "Carla M.",
-        role: "Administradora del grupo",
-        quote: "Sed do eiusmod tempor incididunt ut labore et dolore. Ut enim ad minim veniam quis nostrud ullamco laboris nisi aliquip.",
-        tone: "bg-amber/30",
-        avatar: "bg-amber/55 text-foreground"
-    },
-];
-
-const stats: Stat[] = [
-    ["2.400+ grupos", "activos"],
-    ["18.000+ reservas", "coordinadas"],
-    ["$12M+ gastos", "gestionados"],
-    ["4.9 ★", "promedio"],
-];
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {LANDING_FEATURES, LANDING_STATS, LANDING_STEPS, LANDING_TESTIMONIALS,} from "@/constants/landing.ts";
 
 export const MainScreen = () => {
     return (
@@ -102,7 +41,7 @@ export const MainScreen = () => {
                 </div>
             </section>
 
-            <StatsBar stats={stats}/>
+            <StatsBar stats={LANDING_STATS}/>
 
             <section className="px-6 pb-20 pt-8 bg-background">
                 <div className="mx-auto max-w-6xl space-y-9">
@@ -111,8 +50,14 @@ export const MainScreen = () => {
                         copy="Tres pilares para gestionar cualquier bien compartido entre personas."
                     />
                     <div className="grid gap-5 md:grid-cols-3">
-                        {features.map((item) => (
-                            <FeatureCard key={item.title} {...item} />
+                        {LANDING_FEATURES.map((item) => (
+                            <FeatureCard
+                                key={item.title}
+                                icon={<FontAwesomeIcon icon={item.icon} className="h-5 w-5 text-ink" aria-hidden />}
+                                title={item.title}
+                                copy={item.copy}
+                                tone={item.tone}
+                            />
                         ))}
                     </div>
                 </div>
@@ -125,8 +70,13 @@ export const MainScreen = () => {
                         copy="¡Sumarte con tu grupo es así de fácil!"
                     />
                     <div className="grid gap-5 md:grid-cols-3">
-                        {steps.map(([title, copy], index) => (
-                            <StepCard key={title} index={index + 1} title={title} copy={copy}/>
+                        {LANDING_STEPS.map((step, index) => (
+                            <StepCard
+                                key={step.title}
+                                index={index + 1}
+                                title={step.title}
+                                copy={step.copy}
+                            />
                         ))}
                     </div>
                 </div>
@@ -139,7 +89,7 @@ export const MainScreen = () => {
                         copy="Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt."
                     />
                     <div className="grid gap-5 md:grid-cols-3">
-                        {testimonials.map((item) => (
+                        {LANDING_TESTIMONIALS.map((item) => (
                             <TestimonialCard key={item.name} {...item} />
                         ))}
                     </div>
@@ -157,7 +107,6 @@ export const MainScreen = () => {
                     </Link>
                 </Button>
             </section>
-
         </CommonLayout>
     );
 };

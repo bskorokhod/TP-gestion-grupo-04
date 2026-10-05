@@ -3,7 +3,6 @@ import type {SplitMethod} from "@/models/Expense.ts";
 
 export type {SplitMethod};
 
-// CUSTOM ("Manualmente") queda oculto hasta que exista una UI para cargar los porcentajes.
 const options: ReadonlyArray<{
   value: SplitMethod;
   label: string;

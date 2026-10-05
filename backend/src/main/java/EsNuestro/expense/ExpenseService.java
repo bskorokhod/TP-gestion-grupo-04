@@ -6,10 +6,12 @@ import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.expense.dtos.ExpenseParticipantDTO;
 import EsNuestro.expense.dtos.DebtDTO;
 import EsNuestro.expense.dtos.PaymentDataDTO;
+import EsNuestro.group.DistributionMode;
+import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
+import EsNuestro.group.GroupSettings;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
-import EsNuestro.member.GroupRole;
 import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.ExpenseMemberDTO;
@@ -34,7 +36,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @Transactional
-class ExpenseService {
+public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final GroupMemberRepository groupMemberRepository;
@@ -51,15 +53,22 @@ class ExpenseService {
         this.groupService = groupService;
     }
 
-    /** Un admin lo crea aprobado (con deudas); un miembro regular lo crea pendiente, sin deudas. */
+    /**
+     * Un admin lo crea aprobado (con deudas); un miembro regular lo crea pendiente, sin deudas.
+     * Un gasto que alcanza el umbral extraordinario del grupo no se crea por acá: se propone como votación
+     * (ver {@code VoteService.createExtraordinaryExpenseVote}).
+     */
     ExpenseDTO createExpense(Long groupId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember creator = groupService.requireActiveMember(groupId, username);
+        groupService.requireRunning(group);
 
-        Expense expense = Expense.register(creator, buildDetails(groupId, data));
-        if (creator.isAdmin()) {
-            expense.approve(creator);
-        }
+        ExpenseDetails details = buildDetails(groupId, creator, data);
+        requireBelowExtraordinaryThreshold(group, details);
+
+        Expense expense = Expense.register(creator, details);
+        // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
+        expense.approve(creator);
         return ExpenseDTO.from(expenseRepository.save(expense));
     }
 
@@ -69,7 +78,7 @@ class ExpenseService {
 
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
                 .filter(expense -> status == null || expense.getStatus() == status)
-                .filter(expense -> canView(expense, caller))
+                .filter(expense -> expense.isInvolved(caller))
                 .map(ExpenseDTO::from)
                 .toList();
     }
@@ -77,36 +86,45 @@ class ExpenseService {
     ExpenseDTO getExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         Expense expense = requireExpense(groupId, expenseId);
-        if (!canView(expense, caller)) {
+        if (!expense.isInvolved(caller)) {
             throw new AccessDeniedException("You don't have access to this expense");
         }
         return ExpenseDTO.from(expense);
     }
 
     /**
-     * Edita un gasto aprobado y sin pagos. Si edita un admin se aplica directo; si edita el creador
-     * (no admin) queda pendiente de aprobación y sus deudas se suspenden hasta la resolución.
+     * Edición directa de un gasto aprobado: solo su creador, solo si nadie pagó nada y no hay un reporte en curso, y
+     * solo si ni el monto actual ni el nuevo alcanzan el umbral extraordinario (en ese caso hay que proponerlo como
+     * votación de reporte). Con pagos, o por encima del umbral, la modificación pasa por
+     * {@code VoteService.createExpenseEditVote}.
      */
     ExpenseDTO updateExpense(Long groupId, Long expenseId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
+        // Editar vuelve a repartir el gasto con los porcentajes vigentes: no con el grupo detenido, que está en flujo.
+        groupService.requireRunning(group);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requireCanManage(expense, acting);
         requireEditable(expense);
+        requireNoReportInProgress(expense);
         requireNoPayments(expense);
 
-        expense.proposeEdit(buildDetails(groupId, data));
-        if (acting.isAdmin()) {
-            expense.approve(acting);
-        }
+        ExpenseDetails newDetails = buildDetails(groupId, acting, data);
+        requireDirectChangeBelowThreshold(group, expense, newDetails);
+        expense.applyEdit(newDetails);
+        // Se vuelca a la base antes de armar la respuesta: las deudas nuevas (partes o devoluciones) todavía no tienen id.
+        expenseRepository.saveAndFlush(expense);
         return ExpenseDTO.from(expense);
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar: createExpense aprueba directo, así que no hay gastos
+    //  pendientes de aprobación y ya no hay admins que los resuelvan. Candidato a eliminarse con approve/reject/resubmit.
     ExpenseDTO approveExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
-        groupService.requireAtLeast(acting, GroupRole.ADMIN);
+        // Aprobar genera las deudas con los porcentajes vigentes: no con el grupo detenido.
+        groupService.requireRunning(group);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requirePendingApproval(expense);
@@ -117,10 +135,10 @@ class ExpenseService {
         return ExpenseDTO.from(expense);
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar (ver approveExpense).
     ExpenseDTO rejectExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
-        groupService.requireAtLeast(acting, GroupRole.ADMIN);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requirePendingApproval(expense);
@@ -134,8 +152,10 @@ class ExpenseService {
      * admin queda aprobado directo; si no, vuelve a pendiente de aprobación.
      */
     ExpenseDTO resubmitExpense(Long groupId, Long expenseId, ExpenseDataDTO changes, String username) throws ItemNotFoundException {
-        groupService.requireGroupForUpdate(groupId);
+        Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
+        // Reenviar vuelve a generar las deudas con los porcentajes vigentes: no con el grupo detenido.
+        groupService.requireRunning(group);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requireCanManage(expense, acting);
@@ -145,15 +165,16 @@ class ExpenseService {
             );
         }
 
-        ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, changes);
+        // TODO(admin): revisar que hoy no se puede alcanzar (ver approveExpense): nunca hay gastos REJECTED. Si se
+        //  llegara a alcanzar, reenviar con cambios puede superar el umbral extraordinario sin votación.
+        ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, acting, changes);
         if (newDetails == null) {
             requireMembersActive(expense.getDetails());
         }
 
         expense.resubmit(newDetails);
-        if (acting.isAdmin()) {
-            expense.approve(acting);
-        }
+        // TODO evaluar si hay q cambiar el flujo de submit -> approve
+        expense.approve(acting);
         return ExpenseDTO.from(expense);
     }
 
@@ -168,25 +189,34 @@ class ExpenseService {
         Debt debt = requireDebtInExpense(expense, debtId);
 
         requireDebtor(debt, caller);
-        requireApproved(expense);
+        requireNoReportInProgress(expense);
+        requirePayable(expense, debt);
         requireDebtActive(debt);
         BigDecimal amount = requireValidPaymentAmount(debt, data.amount());
         String receiptUrl = requireReceiptUrl(data.receiptUrl());
 
         debt.registerPayment(amount, receiptUrl);
+        // Se vuelca a la base antes de armar la respuesta: si no, el pago nuevo todavía no tiene id y el DTO lo devuelve null.
+        expenseRepository.saveAndFlush(expense);
         return DebtDTO.from(debt);
     }
 
-    /** Solo el creador o un admin, y solo si ninguna deuda tiene pagos. Elimina también sus deudas. */
+    /**
+     * Eliminación directa (lógica): solo el creador, solo si nadie pagó nada y no hay un reporte en curso. El gasto queda
+     * cancelado y conserva sus datos para el historial. Con pagos, la eliminación pasa por
+     * {@code VoteService.createExpenseDeletionVote}.
+     */
     void deleteExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requireCanManage(expense, acting);
+        requireNotCancelled(expense);
+        requireNoReportInProgress(expense);
         requireNoPayments(expense);
 
-        expenseRepository.delete(expense);
+        expense.cancel();
     }
 
     /** Resumen del caller en el grupo: cuánto debe, cuánto le deben y pendientes visibles. */
@@ -199,14 +229,14 @@ class ExpenseService {
         long pending = 0;
 
         for (Expense expense : expenses) {
-            if (!canView(expense, caller)) {
+            if (!expense.isInvolved(caller)) {
                 continue;
             }
             if (expense.getStatus() == ExpenseStatus.PENDING_APPROVAL) {
                 pending++;
                 continue;
             }
-            if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            if (!hasLiveDebts(expense)) {
                 continue;
             }
 
@@ -226,22 +256,25 @@ class ExpenseService {
         return new GroupSummaryDTO(ExpenseMemberDTO.from(caller), owes, owed, pending);
     }
 
-    /** Gastos aprobados donde el caller es el acreedor y todavía tiene deudas sin saldar. */
+    /**
+     * Gastos donde el caller es acreedor de alguna deuda a la vista: sin saldar o, en un gasto aprobado, con un pago
+     * declarado que puede revisar. Es el acreedor de un gasto aprobado o quien tiene una devolución a favor.
+     */
     List<ExpenseDTO> owedToMe(Long groupId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
-                .filter(expense -> expense.getStatus() == ExpenseStatus.APPROVED)
-                .filter(expense -> expense.getDetails().getCreditor().getId().equals(caller.getId()))
-                .filter(expense -> expense.getDebts().stream().anyMatch(Debt::isUnsettled))
+                .filter(this::hasLiveDebts)
+                .filter(expense -> expense.getDebts().stream().anyMatch(debt ->
+                        debt.getCreditor().getId().equals(caller.getId()) && isOwedToCreditor(expense, debt)))
                 .map(ExpenseDTO::from)
                 .toList();
     }
 
-    /** Gastos aprobados donde el caller tiene deudas sin saldar. */
+    /** Gastos aprobados (o cancelados con devolución pendiente) donde el caller tiene deudas sin saldar. */
     List<ExpenseDTO> iOwe(Long groupId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
-                .filter(expense -> expense.getStatus() == ExpenseStatus.APPROVED)
+                .filter(this::hasLiveDebts)
                 .filter(expense -> expense.getDebts().stream()
                         .anyMatch(debt -> debt.getDebtor().getId().equals(caller.getId()) && debt.isUnsettled()))
                 .map(ExpenseDTO::from)
@@ -263,7 +296,7 @@ class ExpenseService {
                 .forEach(member -> accumulators.put(member.getId(), new PersonAccumulator(member)));
 
         for (Expense expense : expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId)) {
-            if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            if (!hasLiveDebts(expense)) {
                 continue;
             }
             for (Debt debt : expense.getDebts()) {
@@ -327,7 +360,144 @@ class ExpenseService {
         }
     }
 
-    private ExpenseDetails buildDetails(Long groupId, ExpenseDataDTO data) throws ItemNotFoundException {
+    /**
+     * Motivo por el que un gasto propuesto ya no puede registrarse (un involucrado dejó de estar activo o el
+     * reparto se volvió imposible), o vacío si puede. Nunca lanza: lo usa una votación aprobada para decidir si
+     * ejecutarse, y una excepción que cruza este límite transaccional marcaría para rollback a la votación.
+     */
+    public Optional<String> findRegistrationBlocker(ExpenseDetails details) {
+        if (details.getCreditor().getGroup().isStopped()) {
+            return Optional.of("The group is stopped: the percentages of the active members must add up to exactly 100%");
+        }
+        if (!details.getCreditor().isActive()) {
+            return Optional.of("Member '" + details.getCreditor().getNickname() + "' is no longer an active member of this group");
+        }
+        for (ExpenseParticipant participant : details.getParticipants()) {
+            if (!participant.getMember().isActive()) {
+                return Optional.of("Member '" + participant.getMember().getNickname() + "' is no longer an active member of this group");
+            }
+        }
+        if (!details.getParticipants().isEmpty()) {
+            try {
+                ExpenseSplitCalculator.split(details.getTotalAmount(), details.getSplitMethod(), details.splitParticipants());
+            } catch (ResponseStatusException e) {
+                return Optional.of(e.getReason() == null ? "The expense can no longer be split" : e.getReason());
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Crea un gasto ya aprobado, con sus deudas, a partir de datos propuestos y validados (una copia: no
+     * comparte fila con la propuesta). No chequea el umbral extraordinario: lo usa la votación que lo aprobó.
+     * Quien lo registra es el proponente; no tiene resolutor individual porque lo resolvió el grupo.
+     * Antes hay que consultar {@link #findRegistrationBlocker}.
+     */
+    public Expense registerApprovedExpense(GroupMember proposer, ExpenseDetails proposed) {
+        Expense expense = Expense.register(proposer, proposed.copy());
+        expense.approve(null);
+        return expenseRepository.save(expense);
+    }
+
+    /**
+     * Toma (con lock) el gasto sobre el que se abre un reporte, o sea una votación para modificarlo o eliminarlo.
+     * Solo quien participa del gasto (acreedor o participante) puede reportarlo; para el resto el gasto no existe.
+     * Tiene que estar aprobado y sin otro reporte en curso. Lo usa {@code VoteService}.
+     */
+    public Expense requireExpenseForReport(Long groupId, Long expenseId, GroupMember proposer) throws ItemNotFoundException {
+        Expense expense = requireExpenseForUpdate(groupId, expenseId);
+        if (!expense.getDetails().involves(proposer)) {
+            throw new ItemNotFoundException("expense", expenseId);
+        }
+        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Only approved expenses can be reported, but it was " + expense.getStatus()
+            );
+        }
+        requireNoReportInProgress(expense);
+        return expense;
+    }
+
+    /**
+     * Valida y arma los datos propuestos para modificar un gasto. El acreedor es siempre el del gasto, no quien propone
+     * el cambio. Lo usa {@code VoteService}.
+     */
+    public ExpenseDetails buildDetailsForReport(Long groupId, Expense expense, ExpenseDataDTO data) throws ItemNotFoundException {
+        return buildDetails(groupId, expense.getDetails().getCreditor(), data);
+    }
+
+    /**
+     * Motivo por el que un reporte aprobado ya no puede ejecutarse (el gasto dejó de estar vigente, o la modificación
+     * propuesta ya no puede registrarse), o vacío si puede. {@code proposed} es null en una eliminación. Nunca lanza,
+     * por la misma razón que {@link #findRegistrationBlocker}.
+     */
+    public Optional<String> findReportBlocker(Expense expense, ExpenseDetails proposed) {
+        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            return Optional.of("The expense is no longer active, it is " + expense.getStatus());
+        }
+        return proposed == null ? Optional.empty() : findRegistrationBlocker(proposed);
+    }
+
+    /**
+     * Una deuda sigue a la vista de su acreedor mientras no se salde y, en un gasto aprobado, también después de que le
+     * declararon un pago: así puede revisar el comprobante y reclamarlo. Las deudas en cero no cuentan.
+     */
+    private boolean isOwedToCreditor(Expense expense, Debt debt) {
+        if (debt.isUnsettled()) {
+            return true;
+        }
+        return expense.getStatus() == ExpenseStatus.APPROVED && debt.getAmount().signum() > 0 && debt.hasPayments();
+    }
+
+    /** Gastos con deudas vigentes: los aprobados y los cancelados (que pueden tener devoluciones pendientes). */
+    private boolean hasLiveDebts(Expense expense) {
+        return expense.getStatus() == ExpenseStatus.APPROVED || expense.getStatus() == ExpenseStatus.CANCELLED;
+    }
+
+    private void requireNoReportInProgress(Expense expense) {
+        if (expense.isReportInProgress()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "There is a vote in progress to modify or delete this expense: it cannot be paid, edited, deleted or reported until it ends"
+            );
+        }
+    }
+
+    private void requireNotCancelled(Expense expense) {
+        if (expense.getStatus() == ExpenseStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The expense was already deleted");
+        }
+    }
+
+    /**
+     * Un gasto extraordinario (el actual o el resultante) no se cambia directamente aunque nadie haya pagado: de lo
+     * contrario una votación de gasto extraordinario se esquivaría achicando el gasto, o uno chico se inflaría sin votación.
+     */
+    private void requireDirectChangeBelowThreshold(Group group, Expense expense, ExpenseDetails newDetails) {
+        GroupSettings settings = group.getSettings();
+        if (settings.isExtraordinary(expense.getDetails().getTotalAmount()) || settings.isExtraordinary(newDetails.getTotalAmount())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The expense reaches the group's extraordinary threshold: changes to it must be proposed as a vote"
+            );
+        }
+    }
+
+    private void requireBelowExtraordinaryThreshold(Group group, ExpenseDetails details) {
+        if (group.getSettings().isExtraordinary(details.getTotalAmount())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The expense reaches the group's extraordinary threshold and must be submitted for a vote"
+            );
+        }
+    }
+
+    /**
+     * El acreedor es siempre quien registra (o edita, o reenvía) el gasto: solo el creador puede
+     * gestionarlo, así que {@code creator} es también quien pagó. Por eso no puede ser deudor del suyo.
+     * Público porque también lo usa la votación de gastos extraordinarios al proponerlos.
+     */
+    public ExpenseDetails buildDetails(Long groupId, GroupMember creator, ExpenseDataDTO data) throws ItemNotFoundException {
         if (data.receiptUrl() == null || data.receiptUrl().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A receipt is required to register an expense");
         }
@@ -335,30 +505,23 @@ class ExpenseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The expense needs a title");
         }
         BigDecimal total = requireValidAmount(data.totalAmount());
+        requireSplitMethodAllowed(creator.getGroup(), data.splitMethod());
 
         Map<Long, GroupMember> membersById = groupMemberRepository.findByGroup_Id(groupId).stream()
                 .collect(Collectors.toMap(GroupMember::getId, Function.identity()));
-        GroupMember creditor = requireActiveGroupMember(membersById, data.creditorId());
 
-        boolean custom = data.splitMethod() == SplitMethod.CUSTOM;
         Set<Long> seenMemberIds = new HashSet<>();
         List<ExpenseParticipant> participants = new ArrayList<>();
         for (ExpenseParticipantDTO entry : data.participants()) {
             if (!seenMemberIds.add(entry.memberId())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate participant " + entry.memberId());
             }
-            if (entry.memberId().equals(creditor.getId())) {
+            if (entry.memberId().equals(creator.getId())) {
                 throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "The creditor is already implicitly part of the split and cannot be listed as a participant"
+                        HttpStatus.BAD_REQUEST, "The creator is the creditor of the expense and cannot be listed as a participant"
                 );
             }
-            if (!custom && entry.percentage() != null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Percentages are only allowed when the split method is CUSTOM"
-                );
-            }
-            GroupMember member = requireActiveGroupMember(membersById, entry.memberId());
-            participants.add(new ExpenseParticipant(member, custom ? entry.percentage() : null));
+            participants.add(new ExpenseParticipant(requireActiveGroupMember(membersById, entry.memberId())));
         }
 
         String title = data.title().strip();
@@ -367,21 +530,29 @@ class ExpenseService {
                 : data.description().strip();
 
         ExpenseDetails details = new ExpenseDetails(
-                title, description, total, data.splitMethod(), creditor, data.receiptUrl().strip(), participants
+                title, description, total, data.splitMethod(), creator, data.receiptUrl().strip(), participants
         );
 
         // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.
         if (!participants.isEmpty()) {
-            if (custom) {
-                ExpenseSplitCalculator.requireValidCustomPercentages(participants);
-            }
             // Simulacro: falla ya (y no recién al aprobar) si el reparto es imposible, p. ej. proporcional
             // entre participantes (+ acreedor) que tienen todos 0% de posesión. Se recalcula al aprobar,
-            // sobre el mismo set (participantes + acreedor en EQUAL/PROPORTIONAL) que usa regenerateDebts().
+            // sobre el mismo set (participantes + acreedor) que usa regenerateDebts().
             ExpenseSplitCalculator.split(total, data.splitMethod(), details.splitParticipants());
         }
 
         return details;
+    }
+
+    /** En un grupo EQUAL no existe el porcentaje de propiedad, así que no hay con qué repartir proporcionalmente. */
+    private void requireSplitMethodAllowed(Group group, SplitMethod method) {
+        DistributionMode distribution = group.getSettings().getDistributionMode();
+        if (!distribution.hasOwnershipPercentages() && method.dependsOnOwnership()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Split method " + method + " is not allowed in groups with " + distribution + " distribution"
+            );
+        }
     }
 
     private BigDecimal requireValidAmount(BigDecimal amount) {
@@ -415,17 +586,14 @@ class ExpenseService {
         }
     }
 
-    private boolean canView(Expense expense, GroupMember caller) {
-        return caller.isAdmin() || expense.isInvolved(caller);
-    }
-
     private void requireCanManage(Expense expense, GroupMember acting) {
-        if (!acting.isAdmin() && !expense.isCreatedBy(acting)) {
+        if (!expense.isCreatedBy(acting)) {
             throw new AccessDeniedException("Only the expense creator or an admin can perform this action");
         }
     }
 
     private void requireEditable(Expense expense) {
+        requireNotCancelled(expense);
         if (expense.getStatus() == ExpenseStatus.PENDING_APPROVAL) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "The expense is pending approval and cannot be edited until it is resolved"
@@ -451,8 +619,10 @@ class ExpenseService {
         }
     }
 
-    private void requireApproved(Expense expense) {
-        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+    /** Se paga una deuda de un gasto aprobado, o la devolución pendiente de uno cancelado. */
+    private void requirePayable(Expense expense, Debt debt) {
+        boolean refundOfCancelledExpense = expense.getStatus() == ExpenseStatus.CANCELLED && debt.isRefund();
+        if (expense.getStatus() != ExpenseStatus.APPROVED && !refundOfCancelledExpense) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "The expense is not approved, it is " + expense.getStatus()
             );

@@ -9,6 +9,7 @@ export const GROUP_PAGES = [
     { key: "reservas", label: "Reservas", pathSuffix: "/reservas" },
     { key: "gastos", label: "Gestión de gastos", pathSuffix: "/gastos" },
     { key: "balance", label: "Balance", pathSuffix: "/balance" },
+    { key: "votaciones", label: "Votaciones", pathSuffix: "/votaciones" },
     { key: "configuracion", label: "Configuración", pathSuffix: "/configuracion" },
 ];
 
@@ -16,14 +17,14 @@ export const GROUP_PAGES = [
 export interface SubrouteConfig {
     title: string;
     description: string;
-    activeTabKey: "reservas" | "gastos" | "balance" | "configuracion";
+    activeTabKey: "reservas" | "gastos" | "balance" | "votaciones" | "configuracion";
     goBackBtn: boolean
 }
 
 export const PAGES_NAVBAR_DATA: Record<string, SubrouteConfig> = {
     "reservas": {
-        title: "...",
-        description: "Disponibilidad de días y gestión de reservas.",
+        title: "Calendario de reservas",
+        description: "Consultá la disponibilidad y reservá fechas para usar el bien.",
         activeTabKey: "reservas",
         goBackBtn: false
     },
@@ -39,6 +40,12 @@ export const PAGES_NAVBAR_DATA: Record<string, SubrouteConfig> = {
         activeTabKey: "balance",
         goBackBtn: false
     },
+    "votaciones": {
+        title: "Votaciones",
+        description: "Votaciones activas del grupo: revisá cada propuesta y emití tu voto.",
+        activeTabKey: "votaciones",
+        goBackBtn: false
+    },
     "configuracion": {
         title: "...",
         description: "Ajustes y miembros del grupo.",
@@ -48,7 +55,7 @@ export const PAGES_NAVBAR_DATA: Record<string, SubrouteConfig> = {
     // Sub-rutas de configuración
     "porcentajes": {
         title: "Porcentajes de propiedad",
-        description: "Definí qué porcentaje del bien le corresponde a cada integrante del grupo. Podés bloquear porcentajes para que ajustar los demás automáticamente de forma equitativa.",
+        description: "Solo podés modificar tu propio porcentaje. Si el total no llega a 100%, varias funcionalidad del grupo quedan detenidas hasta completarlo.",
         activeTabKey: "configuracion",
         goBackBtn: true
     },

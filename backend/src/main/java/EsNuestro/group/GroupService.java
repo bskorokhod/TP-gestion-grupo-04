@@ -6,14 +6,18 @@ import EsNuestro.group.dtos.GroupCreateDTO;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.group.dtos.GroupPreviewDTO;
 import EsNuestro.group.dtos.JoinGroupDTO;
-import EsNuestro.member.*;
+import EsNuestro.member.GroupMember;
+import EsNuestro.member.GroupMemberRepository;
+import EsNuestro.member.MemberColor;
+import EsNuestro.member.MembershipStatus;
 import EsNuestro.member.dtos.FinalizeExitsDTO;
 import EsNuestro.member.dtos.JoinRequestDTO;
 import EsNuestro.member.dtos.MemberDTO;
-import EsNuestro.member.dtos.PercentagesUpdateDTO;
+import EsNuestro.member.dtos.PercentageUpdateDTO;
 import EsNuestro.user.User;
 import EsNuestro.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -34,6 +38,8 @@ public class GroupService {
     private final UserRepository userRepository;
     private final JoinCodeGenerator joinCodeGenerator;
     private final DebtRepository debtRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final Random colorRandom = new Random();
 
     @Autowired
     GroupService(
@@ -41,19 +47,27 @@ public class GroupService {
             GroupMemberRepository groupMemberRepository,
             UserRepository userRepository,
             JoinCodeGenerator joinCodeGenerator,
-            DebtRepository debtRepository
+            DebtRepository debtRepository,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.userRepository = userRepository;
         this.joinCodeGenerator = joinCodeGenerator;
         this.debtRepository = debtRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     GroupDTO createGroup(GroupCreateDTO data, String founderEmail) {
         User founder = requireUser(founderEmail);
 
-        Group group = new Group(data.name(), data.description(), generateUniqueJoinCode());
+        BigDecimal founderPercentage = data.settings().distributionMode().hasOwnershipPercentages()
+                ? PercentageDistribution.requireValidPercentage(data.founderPercentage())
+                : Group.TOTAL_PERCENTAGE;
+
+        Group group = new Group(
+                data.name(), data.description(), generateUniqueJoinCode(), data.settings().toEntity()
+        );
         groupRepository.save(group);
 
         String nickname = (data.founderNickname() == null || data.founderNickname().isBlank())
@@ -61,7 +75,7 @@ public class GroupService {
                 : data.founderNickname().strip();
 
         GroupMember founderMembership = GroupMember.founder(
-                group, founder, nickname, pickColor(group.getId(), nickname, null)
+                group, founder, nickname, pickColor(group.getId(), nickname, null), founderPercentage
         );
         groupMemberRepository.save(founderMembership);
 
@@ -108,9 +122,10 @@ public class GroupService {
                 .orElseThrow(() -> new ItemNotFoundException("group", normalizedCode));
 
         String nickname = data.nickname().strip();
+        BigDecimal requestedPercentage = requestedPercentageFor(group, data.percentage());
         GroupMember membership = groupMemberRepository.findByGroup_IdAndUser_Email(group.getId(), email)
-                .map(existing -> requestAgain(existing, nickname))
-                .orElseGet(() -> createJoinRequest(group, user, nickname));
+                .map(existing -> requestAgain(existing, nickname, requestedPercentage))
+                .orElseGet(() -> createJoinRequest(group, user, nickname, requestedPercentage));
 
         return JoinRequestDTO.from(membership);
     }
@@ -125,18 +140,32 @@ public class GroupService {
 
     List<MemberDTO> listMembers(Long groupId, String callerEmail, MembershipStatus status) throws ItemNotFoundException {
         GroupMember caller = requireViewer(groupId, callerEmail);
-        boolean canSeeAll = caller.getRole().isAtLeast(GroupRole.ADMIN);
 
         return groupMemberRepository.findByGroup_Id(groupId).stream()
                 .filter(member -> status == null || member.getStatus() == status)
-                .filter(member -> canSeeAll || member.isViewer())
                 .map(MemberDTO::from)
                 .toList();
     }
 
     MemberDTO approveJoinRequest(Long groupId, Long memberId, String actingEmail) throws ItemNotFoundException {
+        Group group = requireGroupForUpdate(groupId);
         GroupMember target = requirePendingRequestManagedBy(groupId, memberId, actingEmail);
+
+        // Entre el envío y la aprobación la suma pudo cambiar: se vuelve a validar con el mismo mensaje genérico.
+        if (group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
+            if (target.getPercentage() == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "The application does not include an ownership percentage, the applicant must send it again"
+                );
+            }
+            PercentageDistribution.requireRoomToJoin(group, target.getPercentage());
+        }
+
         target.approve();
+        group.refreshOwnership();
+        // Las votaciones de configuración abiertas suman al nuevo miembro como participante.
+        eventPublisher.publishEvent(new MemberJoinedEvent(groupId, target));
         return MemberDTO.from(target);
     }
 
@@ -147,57 +176,15 @@ public class GroupService {
     }
 
     void leaveGroup(Long groupId, String email) throws ItemNotFoundException {
-        requireGroupForUpdate(groupId);
+        Group group = requireGroupForUpdate(groupId);
         GroupMember membership = requireActiveMember(groupId, email);
-        if (membership.isFounder()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "The founder cannot leave the group; transfer ownership or delete the group instead"
-            );
-        }
 
         requireNoUnsettledDebts(membership);
         membership.deactivateForLeaving();
-    }
-
-    void removeMember(Long groupId, Long memberId, String actingEmail) throws ItemNotFoundException {
-        requireGroupForUpdate(groupId);
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
-
-        GroupMember target = requireMemberById(groupId, memberId);
-        if (target.isFounder()) {
-            throw new AccessDeniedException("The founder cannot be removed from the group");
-        }
-        if (target.getRole() == GroupRole.ADMIN && !acting.isFounder()) {
-            throw new AccessDeniedException("Only the founder can remove an admin");
-        }
-        if (!target.isActive()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Member is not active");
-        }
-
-        requireNoUnsettledDebts(target);
-        target.deactivateForRemoval();
-    }
-
-    MemberDTO changeRole(Long groupId, Long memberId, GroupRole newRole, String actingEmail) throws ItemNotFoundException {
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        if (!acting.isFounder()) {
-            throw new AccessDeniedException("Only the founder can change member roles");
-        }
-        if (newRole == GroupRole.FOUNDER) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Ownership transfer is not supported through this operation"
-            );
-        }
-
-        GroupMember target = requireMemberById(groupId, memberId);
-        if (target.isFounder()) {
-            throw new AccessDeniedException("The founder's role cannot be changed");
-        }
-        target.changeRole(newRole);
-        return MemberDTO.from(target);
+        // Su porcentaje deja de computarse; si queda un único activo en modo porcentual, pasa a tener 100%.
+        group.refreshOwnership();
+        // Las votaciones activas dejan de contar a este miembro y pueden quedar resueltas.
+        eventPublisher.publishEvent(new MemberLeftEvent(groupId, membership.getId()));
     }
 
     MemberDTO changeNickname(Long groupId, String email, String newNickname) throws ItemNotFoundException {
@@ -209,28 +196,27 @@ public class GroupService {
         return MemberDTO.from(membership);
     }
 
-    List<MemberDTO> updatePercentages(Long groupId, PercentagesUpdateDTO data, String actingEmail) throws ItemNotFoundException {
-        requireGroupForUpdate(groupId);
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
+    MemberDTO updateMyPercentage(Long groupId, PercentageUpdateDTO data, String actingEmail) throws ItemNotFoundException {
+        Group group = requireGroupForUpdate(groupId);
+        GroupMember member = requireActiveMember(groupId, actingEmail);
 
-        List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
-        Map<Long, GroupMember> byId = indexById(members);
-        Map<Long, BigDecimal> changes = PercentageDistribution.toMap(data.percentages());
+        if (!group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "In equitable mode, the percentages are calculated automatically and cannot be modified"
+            );
+        }
 
-        requireChangesTargetActiveMembers(byId, changes);
-        PercentageDistribution.requireTotalOfOneHundred(
-                members.stream().filter(GroupMember::holdsOwnership).toList(), changes
-        );
+        BigDecimal percentage = PercentageDistribution.requireValidPercentage(data.percentage());
+        PercentageDistribution.requireWithinTotalAfterChange(group.activeMembers(), member, percentage);
 
-        changes.forEach((memberId, percentage) -> byId.get(memberId).updatePercentage(percentage));
-        return members.stream().map(MemberDTO::from).toList();
+        member.updatePercentage(percentage);
+        return MemberDTO.from(member);
     }
 
     List<MemberDTO> finalizeExits(Long groupId, FinalizeExitsDTO data, String actingEmail) throws ItemNotFoundException {
         requireGroupForUpdate(groupId);
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
+        requireActiveMember(groupId, actingEmail);
 
         List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
         Map<Long, GroupMember> byId = indexById(members);
@@ -245,31 +231,36 @@ public class GroupService {
             toFinalize.add(member);
         }
 
-        Map<Long, BigDecimal> changes = PercentageDistribution.toMap(data.percentages());
-        requireChangesTargetActiveMembers(byId, changes);
-
-        Set<Long> finalizingIds = toFinalize.stream().map(GroupMember::getId).collect(Collectors.toSet());
-        List<GroupMember> remainingHolders = members.stream()
-                .filter(GroupMember::holdsOwnership)
-                .filter(member -> !finalizingIds.contains(member.getId()))
-                .toList();
-        PercentageDistribution.requireTotalOfOneHundred(remainingHolders, changes);
-
-        changes.forEach((memberId, percentage) -> byId.get(memberId).updatePercentage(percentage));
+        // Los porcentajes de los inactivos ya no se computan desde la baja: acá solo se cierra la salida.
         toFinalize.forEach(GroupMember::finalizeExit);
 
         return members.stream().map(MemberDTO::from).toList();
     }
 
-    private GroupMember createJoinRequest(Group group, User user, String nickname) {
-        GroupMember request = GroupMember.joinRequest(group, user, nickname, pickColor(group.getId(), nickname, null));
+    private GroupMember createJoinRequest(Group group, User user, String nickname, BigDecimal requestedPercentage) {
+        GroupMember request = GroupMember.joinRequest(
+                group, user, nickname, pickColor(group.getId(), nickname, null), requestedPercentage
+        );
         return groupMemberRepository.save(request);
     }
 
-    private GroupMember requestAgain(GroupMember member, String nickname) {
+    private GroupMember requestAgain(GroupMember member, String nickname, BigDecimal requestedPercentage) {
         requireCanRequestAgain(member);
-        member.requestAgain(nickname, pickColor(member.getGroup().getId(), nickname, member));
+        member.requestAgain(nickname, pickColor(member.getGroup().getId(), nickname, member), requestedPercentage);
         return member;
+    }
+
+    /**
+     * Porcentaje que se guarda en la solicitud: null en modo equitativo; en porcentual, el pedido ya validado.
+     * Si con él la suma superaría 100 se frena con un mensaje genérico, igual con el grupo detenido o funcionando.
+     */
+    private BigDecimal requestedPercentageFor(Group group, BigDecimal requested) {
+        if (!group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
+            return null;
+        }
+        BigDecimal percentage = PercentageDistribution.requireValidPercentage(requested);
+        PercentageDistribution.requireRoomToJoin(group, percentage);
+        return percentage;
     }
 
     private void requireCanRequestAgain(GroupMember member) {
@@ -283,41 +274,75 @@ public class GroupService {
     }
 
     private GroupMember requirePendingRequestManagedBy(Long groupId, Long memberId, String actingEmail) throws ItemNotFoundException {
-        GroupMember acting = requireActiveMember(groupId, actingEmail);
-        requireAtLeast(acting, GroupRole.ADMIN);
+        requireActiveMember(groupId, actingEmail);
 
         GroupMember target = requireMemberById(groupId, memberId);
         requireStatus(target, MembershipStatus.PENDING);
         return target;
     }
 
-    private void requireChangesTargetActiveMembers(Map<Long, GroupMember> byId, Map<Long, BigDecimal> changes) throws ItemNotFoundException {
-        for (Long memberId : changes.keySet()) {
-            GroupMember member = byId.get(memberId);
-            if (member == null) {
-                throw new ItemNotFoundException("group member", memberId);
-            }
-            requireStatus(member, MembershipStatus.ACTIVE);
+    /**
+     * Con el grupo detenido no se agregan ni proponen gastos, no se proponen cambios de configuración y no se
+     * reserva. Siempre se llama después de verificar la membresía del caller, para no revelar el estado a ajenos.
+     */
+    public void requireRunning(Group group) {
+        if (group.isStopped()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The group is stopped. Another " + PercentageDistribution.format(group.missingPercentage()) +
+                            "% needs to be allocated to reach 100%"
+            );
         }
     }
 
     private MemberColor pickColor(Long groupId, String nickname, GroupMember current) {
-        Set<MemberColor> takenColors = groupMemberRepository
-                .findByGroup_IdAndNicknameIgnoreCaseAndStatusIn(groupId, nickname, MembershipStatus.IDENTITY_OCCUPYING)
+        List<GroupMember> groupMembers = groupMemberRepository
+                .findByGroup_IdAndStatusIn(groupId, MembershipStatus.IDENTITY_OCCUPYING)
                 .stream()
                 .filter(member -> current == null || !member.getId().equals(current.getId()))
-                .map(GroupMember::getColor)
-                .collect(Collectors.toSet());
+                .toList();
 
-        if (current != null && !takenColors.contains(current.getColor())) {
-            return current.getColor();
+        // Invariante duro: dos miembros con el MISMO apodo nunca comparten color.
+        // Estos colores quedan prohibidos para este nickname.
+        Set<MemberColor> sameNickTaken = groupMembers.stream()
+                .filter(member -> member.getNickname().equalsIgnoreCase(nickname))
+                .map(GroupMember::getColor)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(MemberColor.class)));
+
+        // Si ya tenia color y no choca con su mismo apodo, se lo conservamos (estabilidad al renombrarse).
+        MemberColor currentColor = current == null ? null : current.getColor();
+        if (currentColor != null && !sameNickTaken.contains(currentColor)) {
+            return currentColor;
         }
-        return Arrays.stream(MemberColor.values())
-                .filter(color -> !takenColors.contains(color))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT, "Nickname is already used by too many members in this group"
-                ));
+
+        // Cuantos miembros del grupo usan cada color (para priorizar libres y, si no, el menos usado).
+        Map<MemberColor, Long> usage = new EnumMap<>(MemberColor.class);
+        for (MemberColor color : MemberColor.values()) {
+            usage.put(color, 0L);
+        }
+        groupMembers.stream()
+                .map(GroupMember::getColor)
+                .filter(Objects::nonNull)
+                .forEach(color -> usage.merge(color, 1L, Long::sum));
+
+        // Candidatos: cualquier color que no colisione con el mismo apodo.
+        List<MemberColor> allowed = Arrays.stream(MemberColor.values())
+                .filter(color -> !sameNickTaken.contains(color))
+                .toList();
+        if (allowed.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Nickname is already used by too many members in this group"
+            );
+        }
+
+        // Preferimos el menos usado del grupo (0 = libre mientras haya) y desempatamos al azar.
+        long minUsage = allowed.stream().mapToLong(color -> usage.get(color)).min().orElse(0L);
+        List<MemberColor> pool = allowed.stream()
+                .filter(color -> usage.get(color) == minUsage)
+                .toList();
+
+        return pool.get(colorRandom.nextInt(pool.size()));
     }
 
     private String generateUniqueJoinCode() {
@@ -388,12 +413,6 @@ public class GroupService {
                     HttpStatus.CONFLICT,
                     "Expected membership status " + expected + " but was " + member.getStatus()
             );
-        }
-    }
-
-    public void requireAtLeast(GroupMember member, GroupRole minRole) {
-        if (!member.getRole().isAtLeast(minRole)) {
-            throw new AccessDeniedException("You don't have permission to perform this action");
         }
     }
 

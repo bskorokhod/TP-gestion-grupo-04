@@ -21,6 +21,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
 @RestController
 @RequestMapping("/groups")
 @Tag(name = "3 - Groups")
@@ -107,9 +108,9 @@ class GroupRestController {
     }
 
     @PostMapping(value = "/{groupId}/members/{memberId}/approve", produces = "application/json")
-    @Operation(summary = "Aprobar una solicitud de ingreso; el miembro queda ACTIVE con 0% (solo fundador/admin)")
+    @Operation(summary = "Aprobar una solicitud de ingreso; el miembro queda ACTIVE con el porcentaje que pidió")
     @ApiResponse(responseCode = "403", description = "Sin permiso para aprobar solicitudes", content = @Content)
-    @ApiResponse(responseCode = "409", description = "La solicitud no está en estado PENDING", content = @Content)
+    @ApiResponse(responseCode = "409", description = "La solicitud no está en estado PENDING o su porcentaje ya no entra en el 100%", content = @Content)
     MemberDTO approveJoinRequest(
             @PathVariable Long groupId,
             @PathVariable Long memberId,
@@ -119,7 +120,7 @@ class GroupRestController {
     }
 
     @PostMapping(value = "/{groupId}/members/{memberId}/reject", produces = "application/json")
-    @Operation(summary = "Rechazar una solicitud de ingreso; el miembro queda REJECTED (solo fundador/admin)")
+    @Operation(summary = "Rechazar una solicitud de ingreso; el miembro queda REJECTED")
     @ApiResponse(responseCode = "403", description = "Sin permiso para rechazar solicitudes", content = @Content)
     @ApiResponse(responseCode = "409", description = "La solicitud no está en estado PENDING", content = @Content)
     MemberDTO rejectJoinRequest(
@@ -152,51 +153,27 @@ class GroupRestController {
         return groupService.changeNickname(groupId, principal.email(), data.nickname());
     }
 
-    @DeleteMapping("/{groupId}/members/{memberId}")
-    @Operation(summary = "Remove a member from the group (founder/admin only)")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiResponse(responseCode = "403", description = "Caller lacks permission to remove this member", content = @Content)
-    void removeMember(
+    @PatchMapping(value = "/{groupId}/members/me/percentage", produces = "application/json")
+    @Operation(summary = "Cambiar el porcentaje de propiedad propio (solo modo porcentual); sin aprobación y sin tocar a los demás")
+    @ApiResponse(responseCode = "400", description = "Porcentaje nulo, negativo, mayor a 100 o con más de 2 decimales", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El grupo es equitativo o la suma de los activos superaría 100%", content = @Content)
+    MemberDTO updateMyPercentage(
             @PathVariable Long groupId,
-            @PathVariable Long memberId,
+            @NonNull @RequestBody PercentageUpdateDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
-        groupService.removeMember(groupId, memberId, principal.email());
-    }
-
-    @PatchMapping(value = "/{groupId}/members/{memberId}/role", produces = "application/json")
-    @Operation(summary = "Change a member's role (founder only)")
-    @ApiResponse(responseCode = "403", description = "Only the founder can change roles", content = @Content)
-    MemberDTO changeRole(
-            @PathVariable Long groupId,
-            @PathVariable Long memberId,
-            @Valid @NonNull @RequestBody MemberRoleUpdateDTO data,
-            @AuthenticationPrincipal JwtUserDetails principal
-    ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.changeRole(groupId, memberId, data.role(), principal.email());
-    }
-
-    @PutMapping(value = "/{groupId}/members/percentages", produces = "application/json")
-    @Operation(summary = "Ajustar porcentajes de miembros ACTIVE; el total del grupo debe quedar en exactamente 100 (solo fundador/admin)")
-    @ApiResponse(responseCode = "403", description = "Caller lacks permission", content = @Content)
-    @ApiResponse(responseCode = "409", description = "El total no suma 100 o hay miembros no activos", content = @Content)
-    List<MemberDTO> updatePercentages(
-            @PathVariable Long groupId,
-            @Valid @NonNull @RequestBody PercentagesUpdateDTO data,
-            @AuthenticationPrincipal JwtUserDetails principal
-    ) throws ItemNotFoundException, MethodArgumentNotValidException {
-        return groupService.updatePercentages(groupId, data, principal.email());
+        return groupService.updateMyPercentage(groupId, data, principal.email());
     }
 
     @DeleteMapping(value = "/{groupId}/members/percentages", produces = "application/json")
-    @Operation(summary = "Confirmar la salida de miembros DEACTIVATED y reajustar porcentajes para que el total sea 100 (solo fundador/admin)")
+    @Operation(summary = "Confirmar la salida de miembros DEACTIVATED; su porcentaje ya no se computaba desde la baja")
     @ApiResponse(responseCode = "403", description = "Caller lacks permission", content = @Content)
-    @ApiResponse(responseCode = "409", description = "Un miembro no está DEACTIVATED o el total no suma 100", content = @Content)
+    @ApiResponse(responseCode = "409", description = "Un miembro no está DEACTIVATED", content = @Content)
     List<MemberDTO> finalizeExits(
             @PathVariable Long groupId,
             @Valid @NonNull @RequestBody FinalizeExitsDTO data,
             @AuthenticationPrincipal JwtUserDetails principal
-    ) throws ItemNotFoundException, MethodArgumentNotValidException {
+    ) throws ItemNotFoundException {
         return groupService.finalizeExits(groupId, data, principal.email());
     }
 }

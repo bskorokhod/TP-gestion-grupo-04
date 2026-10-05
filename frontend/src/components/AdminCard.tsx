@@ -1,22 +1,9 @@
-import type { ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faLock, faLockOpen } from "@fortawesome/free-solid-svg-icons";
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import type {Member, MemberColor} from "@/models/Group.ts";
+import type {Member} from "@/models/Group.ts";
 import { cn } from "@/lib/cn.ts";
 import { memberColorClass } from "@/lib/colors"
 import {Avatar} from "@/components/ui/Avatar.tsx";
-
-const ROLE_LABEL: Record<string, string> = {
-    FOUNDER: "Fundador/a",
-    ADMIN: "Administrador/a",
-    MEMBER: "Miembro",
-};
-
-function roleLabel(role: string): string {
-    return ROLE_LABEL[role] ?? role;
-}
 
 export interface MemberInfoCardProps {
     readonly member: Member;
@@ -29,8 +16,8 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
 
     return (
         <div className="flex flex-col gap-3 items-start flex-1 bg-panel rounded-2xl border border-field/50 py-6 px-7 overflow-hidden">
-            <div className="flex flex-row justify-between items-center self-stretch">
-                <div className="flex flex-row gap-2.5 items-center">
+            <div className="flex flex-row justify-between items-center gap-3 self-stretch">
+                <div className="flex min-w-0 flex-1 flex-row gap-2.5 items-center">
                     {hasPhoto ? (
                         <img
                             src={member.photoUrl!}
@@ -47,21 +34,18 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
                         <p className="text-lg font-medium text-panel">{initial}</p>
                     </div>
                     )}
-                    <div className="flex flex-col items-start">
-                        <p className="text-xl font-semibold text-ink leading-6.5">
+                    <div className="flex min-w-0 flex-col items-start">
+                        <p className="max-w-full truncate text-xl font-semibold text-ink leading-6.5">
                             {member.nickname}
                         </p>
-                        <p className="text-base font-normal text-warm-muted whitespace-nowrap">
+                        <p className="max-w-full truncate text-base font-normal text-warm-muted">
                             {member.username}
                         </p>
                     </div>
                 </div>
-                <p className="text-2xl font-semibold text-olive">{percentage}%</p>
+                <p className="shrink-0 whitespace-nowrap text-2xl font-semibold text-olive">{percentage}%</p>
             </div>
 
-            <p className="text-base text-ink self-stretch">
-                <span className="font-semibold">Rol:</span> {roleLabel(member.role)}
-            </p>
             {member.joinedAt && (
                 <p className="text-base text-ink self-stretch">
                     <span className="font-semibold">Miembro desde:</span>{" "}
@@ -77,116 +61,111 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
 }
 
 
-export type LockState = "locked" | "unlocked";
-
-export interface PercentageCardMember {
-    readonly memberId: string;
-    readonly initial: string;
-    readonly name: string;
-    readonly fullName: string;
-    readonly color?: MemberColor;
-    readonly photoUrl?: string | null;
-}
-
 export interface PercentageCardProps {
-    readonly member: PercentageCardMember;
+    readonly member: Member;
+    /** Porcentaje que se muestra en solo lectura (el guardado en el backend). */
     readonly percentage: number;
-    readonly locked: boolean;
+    /** Solo la tarjeta del propio miembro es editable: cada uno modifica únicamente su porcentaje. */
+    readonly editable: boolean;
+    /** Valor del input (string, para poder dejarlo vacío). Solo se usa si `editable`. */
+    readonly inputValue?: string;
     readonly disabled?: boolean;
-    readonly errorMessage?: string;
-    readonly onPercentageChange: (memberId: string, value: number) => void;
-    readonly onToggleLock: (memberId: string) => void;
+    readonly onInputChange?: (value: string) => void;
 }
 
-const LOCK_ICON: Record<LockState, IconDefinition> = {
-    locked: faLock,
-    unlocked: faLockOpen,
-};
+export function PercentageCard({member, percentage, editable, inputValue = "", disabled = false, onInputChange}: PercentageCardProps) {
+    const [profileOpen, setProfileOpen] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
 
-const LOCK_LABEL: Record<LockState, string> = {
-    locked: "Desbloquear porcentaje",
-    unlocked: "Bloquear porcentaje",
-};
+    // Cerrar el popup de perfil al clickear afuera o presionar Escape.
+    useEffect(() => {
+        if (!profileOpen) return;
+        const onPointerDown = (event: MouseEvent) => {
+            if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+                setProfileOpen(false);
+            }
+        };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setProfileOpen(false);
+        };
+        document.addEventListener("mousedown", onPointerDown);
+        document.addEventListener("keydown", onKeyDown);
+        return () => {
+            document.removeEventListener("mousedown", onPointerDown);
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [profileOpen]);
 
-const INPUT_CLASSES: Record<LockState, string> = {
-    locked:
-        "flex flex-row justify-center items-center w-[200px] h-[52px] bg-input-surface rounded-xl border border-field px-3.5 overflow-hidden opacity-70",
-    unlocked:
-        "flex flex-row justify-center items-center w-[200px] h-[52px] bg-input-surface rounded-xl border border-brand px-3.5 overflow-hidden",
-};
-
-export function PercentageCard({member, percentage, locked, disabled = false, errorMessage, onPercentageChange, onToggleLock }: PercentageCardProps) {
-    const lockState: LockState = locked ? "locked" : "unlocked";
-    const hasError = Boolean(errorMessage);
-    const isInputDisabled = locked || disabled;
-
-    const handlePercentageInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-        const rawValue = event.target.value;
-        if (rawValue === "") {
-            onPercentageChange(member.memberId, 0);
-            return;
-        }
-
-        const parsedValue = Number(rawValue);
-        if (!Number.isNaN(parsedValue)) {
-            onPercentageChange(member.memberId, parsedValue);
-        }
+    const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+        onInputChange?.(event.target.value);
     };
 
     return (
-        <div className="flex flex-col gap-2 items-start self-stretch">
-            <div className="flex flex-row justify-between items-center self-stretch bg-background rounded-xl border border-field/50 py-6 px-7 overflow-hidden">
-                <div className="flex flex-row gap-2.5 items-center">
-                    <div className="flex flex-row gap-2.5 items-center">
-                        <Avatar
-                            size="lg"
-                            name={member.name}
-                            color={member.color}
-                            photoUrl={member.photoUrl}
-                        />
-                        <div className="flex flex-col items-start">
-                            <p className="text-[22px] font-semibold text-ink leading-6.5">
-                                {member.name}
-                            </p>
-                            <p className="text-base font-normal text-warm-muted whitespace-nowrap">
-                                {member.fullName}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex flex-row gap-6 items-center">
-                    <div className={cn(INPUT_CLASSES[lockState], hasError && "border-group-danger")}>
-                        <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step="any"
-                            value={percentage}
-                            disabled={isInputDisabled}
-                            aria-invalid={hasError}
-                            aria-label={`Porcentaje de ${member.name}`}
-                            onChange={handlePercentageInputChange}
-                            className="w-full bg-brand-foreground text-base font-normal text-center text-ink outline-none"
-                        />
-                        <span className="text-base font-normal text-placeholder">%</span>
-                    </div>
+        <div className="flex flex-col gap-1 items-start self-stretch">
+            <div
+                ref={cardRef}
+                className="relative flex flex-row justify-between items-center gap-3 self-stretch bg-background rounded-xl border border-field/50 py-2 px-4"
+            >
+                <div className="flex flex-row gap-2.5 items-center min-w-0 flex-1">
                     <button
                         type="button"
-                        disabled={disabled}
-                        onClick={() => onToggleLock(member.memberId)}
-                        aria-label={LOCK_LABEL[lockState]}
-                        aria-pressed={locked}
-                        className="flex flex-row justify-center items-center w-8 h-8 text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => setProfileOpen((open) => !open)}
+                        aria-label={`Ver perfil de ${member.nickname}`}
+                        aria-expanded={profileOpen}
+                        className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand cursor-pointer transition-transform hover:scale-105"
                     >
-                        <FontAwesomeIcon icon={LOCK_ICON[lockState]} className="h-5 w-5 text-primary" />
+                        <Avatar size="md" name={member.nickname} color={member.color} photoUrl={member.photoUrl} />
                     </button>
+                    <p className="text-base font-semibold text-ink leading-6 truncate max-w-full">
+                        {member.nickname}
+                        {editable && <span className="ml-2 text-sm font-medium text-brand">(vos)</span>}
+                    </p>
                 </div>
+                <div className="flex flex-row gap-2 items-center shrink-0">
+                    {editable ? (
+                        <div
+                            className="flex flex-row justify-center items-center w-40 h-9 bg-input-surface rounded-xl border border-brand px-3 overflow-hidden"
+                        >
+                            <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                max={100}
+                                step="any"
+                                value={inputValue}
+                                placeholder="0"
+                                disabled={disabled}
+                                aria-label={`Tu porcentaje de propiedad`}
+                                onChange={handleInputChange}
+                                onWheel={(event) => event.currentTarget.blur()}
+                                className="w-full bg-brand-foreground text-base font-normal text-center text-ink outline-none"
+                            />
+                            <span className="text-base font-normal text-placeholder">%</span>
+                        </div>
+                    ) : (
+                        <p
+                            aria-label={`Porcentaje de ${member.nickname}`}
+                            className="text-base font-semibold text-olive whitespace-nowrap"
+                        >
+                            {percentage}%
+                        </p>
+                    )}
+                </div>
+
+                {profileOpen && (
+                    <div
+                        role="dialog"
+                        aria-label={`Perfil de ${member.nickname}`}
+                        className="absolute left-3 top-full z-30 mt-2 flex flex-row items-center gap-3 rounded-xl border border-field/60 bg-panel px-4 py-3 shadow-soft"
+                    >
+                        <Avatar size="lg" name={member.nickname} color={member.color} photoUrl={member.photoUrl} />
+                        <div className="flex flex-col items-start min-w-0">
+                            <p className="text-base font-semibold text-ink">{member.nickname}</p>
+                            <p className="text-sm font-normal text-warm-muted break-all">{member.username}</p>
+                        </div>
+                    </div>
+                )}
             </div>
-            {hasError && (
-                <p role="alert" className="text-sm font-medium text-group-danger px-2">
-                    {errorMessage}
-                </p>
-            )}
         </div>
     );
 }

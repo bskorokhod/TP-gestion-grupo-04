@@ -19,8 +19,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Membresía de un usuario en un grupo. Una única entidad cubre los roles de fundador,
- * admin y miembro (según {@link #role}) y el ciclo de vida de la solicitud de ingreso
+ * Membresía de un usuario en un grupo. Una única entidad cubre el ciclo de vida de la solicitud de ingreso
  * (según {@link #status}). El par (apodo, color) no puede repetirse entre los miembros
  * que ocupan identidad en el grupo; esa regla la valida el servicio.
  */
@@ -51,10 +50,6 @@ public class GroupMember {
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private GroupRole role;
-
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
     private MembershipStatus status;
 
     @Column(nullable = false)
@@ -70,13 +65,12 @@ public class GroupMember {
 
     private GroupMember(
             Group group, User user, String nickname, MemberColor color,
-            GroupRole role, MembershipStatus status, BigDecimal percentage
+            MembershipStatus status, BigDecimal percentage
     ) {
         this.group = group;
         this.user = user;
         this.nickname = nickname;
         this.color = color;
-        this.role = role;
         this.status = status;
         this.percentage = percentage;
         this.requestedAt = Instant.now();
@@ -86,20 +80,22 @@ public class GroupMember {
         group.addMember(this);
     }
 
-    public static GroupMember founder(Group group, User user, String nickname, MemberColor color) {
+    public static GroupMember founder(Group group, User user, String nickname, MemberColor color, BigDecimal percentage) {
         return new GroupMember(
-                group, user, nickname, color, GroupRole.FOUNDER, MembershipStatus.ACTIVE, BigDecimal.valueOf(100)
+                group, user, nickname, color, MembershipStatus.ACTIVE, percentage
         );
     }
 
-    public static GroupMember joinRequest(Group group, User user, String nickname, MemberColor color) {
-        return new GroupMember(group, user, nickname, color, GroupRole.MEMBER, MembershipStatus.PENDING, null);
+    /** {@code requestedPercentage} es el porcentaje que pide el solicitante (null en modo equitativo). */
+    public static GroupMember joinRequest(
+            Group group, User user, String nickname, MemberColor color, BigDecimal requestedPercentage
+    ) {
+        return new GroupMember(group, user, nickname, color, MembershipStatus.PENDING, requestedPercentage);
     }
 
+    /** Conserva el porcentaje solicitado; en modo equitativo el grupo lo recalcula al aprobar. */
     public void approve() {
         this.status = MembershipStatus.ACTIVE;
-        this.role = GroupRole.ADMIN;
-        this.percentage = BigDecimal.ZERO;
         this.joinedAt = Instant.now();
     }
 
@@ -107,12 +103,11 @@ public class GroupMember {
         this.status = MembershipStatus.REJECTED;
     }
 
-    public void requestAgain(String nickname, MemberColor color) {
+    public void requestAgain(String nickname, MemberColor color, BigDecimal requestedPercentage) {
         this.nickname = nickname;
         this.color = color;
-        this.role = GroupRole.MEMBER;
         this.status = MembershipStatus.PENDING;
-        this.percentage = null;
+        this.percentage = requestedPercentage;
         this.exitReason = null;
         this.requestedAt = Instant.now();
         this.joinedAt = null;
@@ -139,10 +134,6 @@ public class GroupMember {
         this.percentage = null;
     }
 
-    public void changeRole(GroupRole newRole) {
-        this.role = newRole;
-    }
-
     public void changeIdentity(String newNickname, MemberColor newColor) {
         this.nickname = newNickname;
         this.color = newColor;
@@ -154,19 +145,6 @@ public class GroupMember {
 
     public boolean isViewer() {
         return status == MembershipStatus.ACTIVE || status == MembershipStatus.DEACTIVATED;
-    }
-
-    public boolean isFounder() {
-        return role == GroupRole.FOUNDER;
-    }
-
-    /** true si el rol es ADMIN o FOUNDER. */
-    public boolean isAdmin() {
-        return role.isAtLeast(GroupRole.ADMIN);
-    }
-
-    public boolean holdsOwnership() {
-        return MembershipStatus.OWNERSHIP_HOLDING.contains(status);
     }
 
     public boolean canRequestAgain() {

@@ -9,6 +9,8 @@ import java.util.List;
 /**
  * {@code details} son los datos vigentes; {@code pendingDetails} es la edición en revisión de un
  * gasto aprobado (null si no hay). {@code lastResolution} es la última aprobación o rechazo.
+ * {@code hasPayments} es si alguien ya pagó algo (con pagos, modificar o eliminar el gasto exige una votación) y
+ * {@code reportInProgress} si hay una votación de reporte en curso sobre este gasto (bloquea pagos, ediciones y reportes).
  */
 public record ExpenseDTO(
         Long id,
@@ -19,6 +21,8 @@ public record ExpenseDTO(
         Details pendingDetails,
         Resolution lastResolution,
         List<DebtDTO> debts,
+        boolean hasPayments,
+        boolean reportInProgress,
         Instant createdAt
 ) {
 
@@ -31,7 +35,7 @@ public record ExpenseDTO(
             String receiptUrl,
             List<Participant> participants
     ) {
-        static Details from(ExpenseDetails details) {
+        public static Details from(ExpenseDetails details) {
             if (details == null) {
                 return null;
             }
@@ -47,9 +51,9 @@ public record ExpenseDTO(
         }
     }
 
-    public record Participant(ExpenseMemberDTO member, BigDecimal customPercentage) {
+    public record Participant(ExpenseMemberDTO member) {
         static Participant from(ExpenseParticipant participant) {
-            return new Participant(ExpenseMemberDTO.from(participant.getMember()), participant.getCustomPercentage());
+            return new Participant(ExpenseMemberDTO.from(participant.getMember()));
         }
     }
 
@@ -76,6 +80,8 @@ public record ExpenseDTO(
                 Details.from(expense.getPendingDetails()),
                 Resolution.from(expense),
                 expense.getDebts().stream().map(DebtDTO::from).toList(),
+                expense.hasPayments(),
+                expense.isReportInProgress(),
                 expense.getCreatedAt()
         );
     }

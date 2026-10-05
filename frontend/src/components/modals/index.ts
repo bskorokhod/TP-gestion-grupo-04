@@ -3,9 +3,13 @@ export { CreateGroupModal } from "./CreateGroupModal";
 export type { CreateGroupModalProps } from "./CreateGroupModal";
 export { PayDebtModal } from "./PayDebtModal";
 export type { PayDebtModalProps } from "./PayDebtModal";
+export { ReceiptModal } from "./ReceiptModal";
+export type { ReceiptModalProps } from "./ReceiptModal";
 export { JoinGroupModal } from "./JoinGroupModal";
 export type { JoinGroupModalProps } from "./JoinGroupModal";
-export {NewExpenseModal} from "./NewExpenseModal/NewExpenseModal";
-export type {
-  NewExpenseModalProps,
-} from "./NewExpenseModal/NewExpenseModal";
+export { ConfigChangeModal } from "./ConfigChangeModal";
+export type { ConfigChangeModalProps } from "./ConfigChangeModal";
+export { NewExpenseModal } from "./NewExpenseModal/NewExpenseModal";
+export type { NewExpenseModalProps } from "./NewExpenseModal/NewExpenseModal";
+export { ReportExpenseModal } from "./ReportExpenseModal";
+export type { ReportExpenseModalProps } from "./ReportExpenseModal";

@@ -52,6 +52,42 @@ export function useCreateExpense(groupId: number) {
   });
 }
 
+export interface UpdateExpenseInput {
+  readonly expenseId: number;
+  readonly payload: ExpenseData;
+}
+
+/** Edición directa del creador (sin pagos y por debajo del umbral extraordinario); si no, hay que proponerla por votación. */
+export function useUpdateExpense(groupId: number) {
+  const api = useApiClient();
+  const qc = useQueryClient();
+
+  return useMutation<Expense, Error, UpdateExpenseInput>({
+      mutationFn: async ({ expenseId, payload }): Promise<Expense> => {
+          const response = await api.put(`/groups/${groupId}/expenses/${expenseId}`, payload);
+          return ExpenseSchema.parse(response);
+      },
+      onSuccess: (): void => {
+          void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
+      },
+  });
+}
+
+/** Eliminación directa del creador, siempre lógica: el gasto queda cancelado y conserva su historial. */
+export function useDeleteExpense(groupId: number) {
+  const api = useApiClient();
+  const qc = useQueryClient();
+
+  return useMutation<void, Error, number>({
+      mutationFn: async (expenseId): Promise<void> => {
+          await api.del(`/groups/${groupId}/expenses/${expenseId}`);
+      },
+      onSuccess: (): void => {
+          void qc.invalidateQueries({ queryKey: ["groups", groupId, "expenses"] });
+      },
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,7 +103,25 @@ function toExpenseMember(m: {
 
 function expenseLabel(details: Expense["details"]): string {
   const title = details.title?.trim();
-  return title && title.length > 0 ? title : details.description;
+  return title && title.length > 0 ? title : details.description?.trim() || "";
+}
+
+/** Los gastos aprobados y los cancelados tienen deudas vigentes: un gasto cancelado puede dejar devoluciones pendientes. */
+function hasLiveDebts(expense: Expense): boolean {
+  return expense.status === "APPROVED" || expense.status === "CANCELLED";
+}
+
+function isOpenDebt(debt: Debt): boolean {
+  return debt.status === "ACTIVE" && debt.paidAmount < debt.amount;
+}
+
+/**
+ * Una deuda sigue a la vista de su acreedor mientras no se salde y, en un gasto aprobado, también después de que le
+ * declararon un pago: así puede revisar el comprobante y reclamarlo. Las deudas en cero no cuentan.
+ */
+export function isVisibleToCreditor(expense: Expense, debt: Debt): boolean {
+  if (isOpenDebt(debt)) return true;
+  return expense.status === "APPROVED" && debt.status === "ACTIVE" && debt.amount > 0 && debt.payments.length > 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,7 +146,7 @@ export function useGetGroupSummary(groupId?: number): GroupSummaryResult {
 
     for (const e of expenses) {
       if (e.status === "PENDING_APPROVAL") pendingExpenses++;
-      if (e.status !== "APPROVED") continue;
+      if (!hasLiveDebts(e)) continue;
 
       for (const d of e.debts) {
         if (d.status !== "ACTIVE") continue;
@@ -120,18 +174,13 @@ export interface DerivedExpensesResult {
 
 
 export function useGetExpensesOwedToMe(groupId?: number): DerivedExpensesResult {
-  const query = useGetExpenses(groupId, "APPROVED");
+  const query = useGetExpenses(groupId);
   const me = useMyMember(groupId);
 
   const data = useMemo<Expense[]>(() => {
     if (!me || !query.data) return [];
-    return query.data.filter((e) =>
-        e.debts.some(
-            (d) =>
-                d.creditor.id === me.id &&
-                d.status === "ACTIVE" &&
-                d.paidAmount < d.amount,
-        ),
+    return query.data.filter(
+        (e) => hasLiveDebts(e) && e.debts.some((d) => d.creditor.id === me.id && isVisibleToCreditor(e, d)),
     );
   }, [query.data, me]);
 
@@ -146,18 +195,13 @@ export function useGetExpensesOwedToMe(groupId?: number): DerivedExpensesResult 
 
 /** Reemplazable por GET /groups/:id/expenses/i-owe cuando exista. */
 export function useGetExpensesIOwe(groupId?: number): DerivedExpensesResult {
-  const query = useGetExpenses(groupId, "APPROVED");
+  const query = useGetExpenses(groupId);
   const me = useMyMember(groupId);
 
   const data = useMemo<Expense[]>(() => {
     if (!me || !query.data) return [];
-    return query.data.filter((e) =>
-        e.debts.some(
-            (d) =>
-                d.debtor.id === me.id &&
-                d.status === "ACTIVE" &&
-                d.paidAmount < d.amount,
-        ),
+    return query.data.filter(
+        (e) => hasLiveDebts(e) && e.debts.some((d) => d.debtor.id === me.id && isOpenDebt(d)),
     );
   }, [query.data, me]);
 
@@ -180,7 +224,7 @@ export interface DerivedBalancesResult {
 
 /** Reemplazable por GET /groups/:id/expenses/by-person cuando exista. */
 export function useGetBalancesByPerson(groupId?: number): DerivedBalancesResult {
-  const query = useGetExpenses(groupId, "APPROVED");
+  const query = useGetExpenses(groupId);
   const me = useMyMember(groupId);
 
   const data = useMemo<BalanceByPerson[]>(() => {
@@ -198,8 +242,10 @@ export function useGetBalancesByPerson(groupId?: number): DerivedBalancesResult 
     };
 
     for (const e of query.data) {
+      if (!hasLiveDebts(e)) continue;
+
       for (const d of e.debts) {
-        if (d.status !== "ACTIVE" || d.paidAmount >= d.amount) continue;
+        if (!isOpenDebt(d)) continue;
 
         const remaining = d.amount - d.paidAmount;
         const iAmCreditor = d.creditor.id === me.id;
@@ -208,11 +254,12 @@ export function useGetBalancesByPerson(groupId?: number): DerivedBalancesResult 
 
         const counterpart = iAmCreditor ? d.debtor : d.creditor;
         const bucket = ensure(counterpart);
+        const label = expenseLabel(e.details);
 
         bucket.items.push({
           expenseId: e.id,
           debtId: d.id,
-          description: expenseLabel(e.details), // ← fix: antes era e.details.title
+          description: d.kind === "REFUND" ? `${label} (devolución)` : label,
           amount: remaining,
           type: iAmCreditor ? "CREDIT" : "DEBT",
         });

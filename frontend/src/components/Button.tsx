@@ -18,6 +18,7 @@ const variants = {
     modalIcon: "rounded-lg bg-modal-soft text-modal-primary shadow-none hover:bg-modal-soft/80",
     proposal: "rounded-full bg-group-amber text-panel shadow-none hover:bg-group-amber-soft",
     danger: "rounded-full bg-group-danger text-panel shadow-none hover:bg-group-danger-soft hover:text-group-danger",
+    dangerOutline: "rounded-full border border-group-danger/30 text-group-danger shadow-none hover:bg-group-danger-soft",
     success: "rounded-full bg-group-green text-panel shadow-none hover:bg-group-green-soft",
     muted: "rounded-full bg-group-paper text-group-muted shadow-none hover:bg-field",
 } as const;

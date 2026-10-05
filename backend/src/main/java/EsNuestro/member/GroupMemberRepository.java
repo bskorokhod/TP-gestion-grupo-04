@@ -15,7 +15,5 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 
     List<GroupMember> findByUser_EmailAndStatusIn(String email, Collection<MembershipStatus> statuses);
 
-    List<GroupMember> findByGroup_IdAndNicknameIgnoreCaseAndStatusIn(
-            Long groupId, String nickname, Collection<MembershipStatus> statuses
-    );
+    List<GroupMember> findByGroup_IdAndStatusIn(Long groupId, Collection<MembershipStatus> statuses);
 }

@@ -1,9 +1,18 @@
-import { useEffect, type FormEvent, type ReactNode } from "react";
+import { type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { Button } from "@/components/Button.tsx";
+import { Button, type ButtonVariant } from "@/components/Button.tsx";
 import { CloseIcon } from "@/components/Icons.tsx";
 import {cn} from "@/lib/cn.ts";
+import { useDismissibleModal } from "./useDismissibleModal";
+
+/** Segundo botón de acción del pie (p. ej. "Eliminar gasto"), entre "Cancelar" y el botón principal. */
+export interface ModalSecondaryAction {
+    readonly label: string;
+    readonly onClick: () => void;
+    readonly variant?: ButtonVariant;
+    readonly disabled?: boolean;
+}
 
 interface ModalShellProps {
     title: string;
@@ -13,26 +22,11 @@ interface ModalShellProps {
     onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
     submitClassName?: string;
     modalClassName?: string;
+    secondaryAction?: ModalSecondaryAction;
 }
 
-export function ModalShell({title, children, submitLabel, onClose, onSubmit, submitClassName, modalClassName}: ModalShellProps) {
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape" && onClose) {
-                onClose();
-            }
-        };
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [onClose]);
-
-    useEffect(() => {
-        const originalOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => {
-            document.body.style.overflow = originalOverflow;
-        };
-    }, []);
+export function ModalShell({title, children, submitLabel, onClose, onSubmit, submitClassName, modalClassName, secondaryAction}: ModalShellProps) {
+    useDismissibleModal(onClose);
 
     return createPortal(
         <div
@@ -67,6 +61,17 @@ export function ModalShell({title, children, submitLabel, onClose, onSubmit, sub
                     <Button type="button" variant="modalSecondary" size="modal" onClick={onClose}>
                         Cancelar
                     </Button>
+                    {secondaryAction && (
+                        <Button
+                            type="button"
+                            variant={secondaryAction.variant ?? "modalSecondary"}
+                            size="modal"
+                            disabled={secondaryAction.disabled}
+                            onClick={secondaryAction.onClick}
+                        >
+                            {secondaryAction.label}
+                        </Button>
+                    )}
                     <Button type="submit" variant="modalPrimary" size="modal" className={submitClassName}>
                         {submitLabel}
                     </Button>

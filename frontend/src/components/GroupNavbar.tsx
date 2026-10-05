@@ -1,20 +1,14 @@
 import { Link, useLocation } from "wouter";
-
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
-
 import {GROUP_PAGES, GroupNavbarProps, PAGES_NAVBAR_DATA, Routes} from "@/constants/navigation.ts"
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 
 
 export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarProps) {
     const [location] = useLocation();
-    // Las pantallas de grupo viven bajo GroupGuard: el grupo (y su código de URL) sale del contexto.
     const group = useCurrentGroup();
-    // Un `groupName` explícito (incluso "") tiene prioridad; "" hace que se muestre el título de la página.
     const groupName = groupNameProp ?? group.name;
-
-    console.log(location.split("/").at(-1));
 
     const pageText = PAGES_NAVBAR_DATA[location.split("/").at(-1) as Routes]
     const handleGoBack = () => { window.history.back(); };
@@ -22,7 +16,7 @@ export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarPro
     return (
         <div>
             <nav
-                className="grid grid-cols-4 overflow-hidden bg-brand text-center text-brand-foreground"
+                className="grid grid-cols-5 overflow-hidden bg-brand text-center text-brand-foreground"
                 aria-label="Secciones"
             >
                 {GROUP_PAGES.map((page) => {
@@ -46,11 +40,11 @@ export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarPro
                 })}
             </nav>
 
-            <section className="rounded-bl-4xl bg-brand px-5 py-8 text-brand-foreground sm:px-8 lg:px-30">
-                <div className="mx-auto grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_auto]">
+            <section className="rounded-bl-4xl bg-brand px-5 py-5 text-brand-foreground sm:px-8 lg:px-30">
+                <div className="mx-auto grid items-center gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
                     <div className="min-w-0">
                         {pageText.goBackBtn?
-                            <p onClick={handleGoBack} className="flex items-center gap-1.5 cursor-pointer text-sm font-medium hover:underline focus:outline-none pb-4">
+                            <p onClick={handleGoBack} className="flex items-center gap-1.5 cursor-pointer text-sm font-medium hover:underline focus:outline-none pb-2">
                                 <FontAwesomeIcon icon={faArrowLeft} className="h-3.5 w-3.5" />
                                 Volver
                             </p>
@@ -58,9 +52,9 @@ export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarPro
                             <p className="text-base text-brand-foreground/70 pb-1"> Bienvenid@ otra vez </p>
                         }
 
-                        <h1 className="mt-1 text-4xl font-black sm:text-5xl pb-2">{groupName? groupName : pageText.title}</h1>
+                        <h1 className="mt-1 text-3xl font-black sm:text-4xl pb-1">{groupName? groupName : pageText.title}</h1>
 
-                        <p className="mt-2 text-base text-brand-foreground/90 max-w-1/2"> {pageText.description} </p>
+                        <p className="mt-1 text-sm sm:text-base text-brand-foreground/90 max-w-3xl"> {pageText.description} </p>
                     </div>
 
                     {children}
