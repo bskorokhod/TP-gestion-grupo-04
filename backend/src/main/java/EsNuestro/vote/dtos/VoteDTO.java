@@ -6,6 +6,7 @@ import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
 import EsNuestro.vote.Ballot;
 import EsNuestro.vote.ConfigChangeVote;
+import EsNuestro.vote.ExpenseReportVote;
 import EsNuestro.vote.ExtraordinaryExpenseVote;
 import EsNuestro.vote.ReservationClaimVote;
 import EsNuestro.vote.Vote;
@@ -23,8 +24,8 @@ import java.util.List;
  * Vista de una votación desde la perspectiva del caller. {@code involved} son los miembros que votan;
  * {@code canVote} es si el caller es uno de ellos y la votación sigue activa. Solo se informa cuántos
  * votaron cada opción, no quién votó qué. {@code expenseProposal} solo viene en
- * EXTRAORDINARY_EXPENSE, {@code configChange} solo en CONFIG_CHANGE y {@code reservationClaim} solo en
- * RESERVATION_CLAIM (un tipo nuevo agrega su propia propuesta).
+ * EXTRAORDINARY_EXPENSE, {@code configChange} solo en CONFIG_CHANGE, {@code reservationClaim} solo en
+ * RESERVATION_CLAIM y {@code expenseReport} solo en EXPENSE_REPORT (un tipo nuevo agrega su propia propuesta).
  * <p>
  * Una votación recién creada o votada puede volver ya finalizada (status/outcome): así el cliente sabe
  * si el gasto se creó, se rechazó o no pudo ejecutarse ({@code failureReason}).
@@ -45,7 +46,8 @@ public record VoteDTO(
         boolean canVote,
         ExpenseDTO.Details expenseProposal,
         ConfigChangeDTO configChange,
-        ReservationClaimDTO reservationClaim
+        ReservationClaimDTO reservationClaim,
+        ExpenseReportDTO expenseReport
 ) {
 
     /** Votos por opción; los pesos son 1 por miembro, salvo en la mayoría ponderada (% de propiedad). */
@@ -89,6 +91,10 @@ public record VoteDTO(
                 ? ReservationClaimDTO.from(claimVote)
                 : null;
 
+        ExpenseReportDTO expenseReport = vote instanceof ExpenseReportVote reportVote
+                ? ExpenseReportDTO.from(reportVote)
+                : null;
+
         return new VoteDTO(
                 vote.getId(),
                 vote.getGroup().getId(),
@@ -105,7 +111,8 @@ public record VoteDTO(
                 mine != null && vote.isActive(),
                 expenseProposal,
                 configChange,
-                reservationClaim
+                reservationClaim,
+                expenseReport
         );
     }
 

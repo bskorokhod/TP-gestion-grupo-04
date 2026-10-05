@@ -2,6 +2,9 @@ package EsNuestro.vote;
 
 import EsNuestro.expense.Expense;
 import EsNuestro.expense.ExpenseDetails;
+import EsNuestro.group.Group;
+import EsNuestro.group.VotingModel;
+import EsNuestro.member.GroupMember;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,12 +19,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Se vota si modificar o eliminar un gasto ya registrado.
+ * Se vota si modificar o eliminar un gasto ya registrado (un "reporte"). Votan, con el modelo de votación del grupo, la
+ * unión de los miembros involucrados en el gasto: el acreedor, los participantes actuales y, si es una modificación,
+ * los participantes propuestos. El voto "sí" de quien propone es automático.
  * <p>
- * TODO: esqueleto sin terminar. Falta el constructor, el endpoint de creación, el {@code VoteExecutor}
- * (editar/eliminar el gasto al aprobarse) y definir quiénes son los involucrados. Los campos son una
- * primera propuesta, sin validar. Cuando se implemente, cerrar también el agujero descripto en los TODO
- * de {@code ExpenseService.updateExpense} y {@code ExpenseService.resubmitExpense}.
+ * Mientras la votación está activa el gasto queda bloqueado ({@code Expense.reportInProgress}): no se puede pagar
+ * ninguna de sus deudas, ni modificarlo, eliminarlo o reportarlo de nuevo. Lo desbloquea el
+ * {@code ExpenseReportVoteExecutor} al aprobarse, fallar o rechazarse la votación.
+ * <p>
+ * {@code previousDetails} es una copia de los datos del gasto al proponer: al aprobarse una modificación el gasto
+ * pierde los datos viejos, y esta copia conserva qué cambió para el historial. {@code proposedDetails} solo existe en
+ * una modificación; una eliminación no lo tiene.
  */
 @Entity
 @Table(name = "expense_report_votes")
@@ -42,8 +50,34 @@ public class ExpenseReportVote extends Vote {
     @Enumerated(EnumType.STRING)
     private Action action;
 
-    /** Datos propuestos para el gasto; solo con {@link Action#EDIT}. */
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "previous_details_id")
+    private ExpenseDetails previousDetails;
+
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "proposed_details_id")
     private ExpenseDetails proposedDetails;
+
+    private ExpenseReportVote(
+            Group group, GroupMember proposer, VotingModel votingModel,
+            Expense targetExpense, Action action, ExpenseDetails proposedDetails
+    ) {
+        super(group, proposer, VoteType.EXPENSE_REPORT, votingModel);
+        this.targetExpense = targetExpense;
+        this.action = action;
+        this.previousDetails = targetExpense.getDetails().copy();
+        this.proposedDetails = proposedDetails;
+    }
+
+    public static ExpenseReportVote ofEdit(
+            Group group, GroupMember proposer, VotingModel votingModel, Expense targetExpense, ExpenseDetails proposedDetails
+    ) {
+        return new ExpenseReportVote(group, proposer, votingModel, targetExpense, Action.EDIT, proposedDetails);
+    }
+
+    public static ExpenseReportVote ofDeletion(
+            Group group, GroupMember proposer, VotingModel votingModel, Expense targetExpense
+    ) {
+        return new ExpenseReportVote(group, proposer, votingModel, targetExpense, Action.DELETE, null);
+    }
 }

@@ -7,7 +7,7 @@ import type { BackendError } from "@/hooks/useToast.ts";
 import { formatCurrency } from "@/lib/format.ts";
 import { describeResolvedVote } from "@/lib/votes.ts";
 import type { ExpenseMember } from "@/models/Expense.ts";
-import type { ConfigChange, ProposedExpense, ReservationClaim, Vote, VoteChoice } from "@/models/Vote.ts";
+import type { ConfigChange, ExpenseReport, ProposedExpense, ReservationClaim, Vote, VoteChoice } from "@/models/Vote.ts";
 import { useCastBallot } from "@/services/VoteServices.ts";
 import {CONFIG_SETTING_LABEL, DISTRIBUTION_MODE_LABEL, RESERVATION_POLICY_LABEL, SPLIT_METHOD_LABEL, VOTING_MODEL_LABEL,} from "@/constants/config_modals.ts";
 import { useIsGroupStopped } from "@/contexts/GroupContext.tsx";
@@ -67,6 +67,115 @@ function ExpenseProposalDetails({ proposal }: { proposal: ProposedExpense }): Re
                     Ver comprobante
                 </a>
             ) : null}
+        </div>
+    );
+}
+
+/** Un campo que cambia en una modificación: el valor previo tachado y, debajo, el propuesto. */
+function ChangedDetail({ label, previous, proposed }: { label: string; previous: ReactNode; proposed: ReactNode }): ReactElement {
+    return (
+        <div className="space-y-1">
+            <dt className="text-xs font-medium uppercase text-brand">{label}</dt>
+            <dd className="space-y-1 text-sm font-semibold">
+                <p className="text-ink-soft line-through">{previous}</p>
+                <p>{proposed}</p>
+            </dd>
+        </div>
+    );
+}
+
+function ReceiptLink({ url, label }: { url: string; label: string }): ReactElement {
+    return (
+        <a href={url} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-4">
+            {label}
+        </a>
+    );
+}
+
+/**
+ * Lo que se está votando en un reporte de gasto. En una modificación, solo los campos que cambian (valor previo y
+ * nuevo) y los participantes que se suman o se quitan; en una eliminación, los valores actuales del gasto.
+ */
+function ExpenseReportDetails({ report }: { report: ExpenseReport }): ReactElement {
+    const { previous, proposed } = report;
+
+    if (report.action === "DELETE" || !proposed) {
+        return (
+            <div className="space-y-4">
+                <p className="text-sm font-semibold text-group-danger">Se propone eliminar este gasto</p>
+                <ExpenseProposalDetails proposal={previous} />
+                <p className="text-xs text-ink-soft">
+                    Si se aprueba, el gasto queda eliminado. Quien ya haya pagado recibirá una devolución por lo que pagó.
+                </p>
+            </div>
+        );
+    }
+
+    const previousIds = new Set(previous.participants.map((participant) => participant.member.id));
+    const proposedIds = new Set(proposed.participants.map((participant) => participant.member.id));
+    const added = proposed.participants.filter((participant) => !previousIds.has(participant.member.id));
+    const removed = previous.participants.filter((participant) => !proposedIds.has(participant.member.id));
+
+    const previousDescription = previous.description?.trim() || "Sin descripción";
+    const proposedDescription = proposed.description?.trim() || "Sin descripción";
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <p className="text-sm font-semibold text-group-amber">Se propone modificar este gasto</p>
+                <h3 className="text-lg font-black">{previous.title}</h3>
+            </div>
+
+            <dl className="grid gap-4 sm:grid-cols-2">
+                {previous.title !== proposed.title ? (
+                    <ChangedDetail label="Título" previous={previous.title} proposed={proposed.title} />
+                ) : null}
+                {previousDescription !== proposedDescription ? (
+                    <ChangedDetail label="Motivo" previous={previousDescription} proposed={proposedDescription} />
+                ) : null}
+                {previous.totalAmount !== proposed.totalAmount ? (
+                    <ChangedDetail
+                        label="Monto"
+                        previous={formatCurrency(previous.totalAmount)}
+                        proposed={formatCurrency(proposed.totalAmount)}
+                    />
+                ) : null}
+                {previous.splitMethod !== proposed.splitMethod ? (
+                    <ChangedDetail
+                        label="Reparto"
+                        previous={SPLIT_METHOD_LABEL[previous.splitMethod]}
+                        proposed={SPLIT_METHOD_LABEL[proposed.splitMethod]}
+                    />
+                ) : null}
+                {previous.receiptUrl !== proposed.receiptUrl && proposed.receiptUrl ? (
+                    <ChangedDetail
+                        label="Comprobante"
+                        previous={previous.receiptUrl ? <ReceiptLink url={previous.receiptUrl} label="Comprobante anterior" /> : "Sin comprobante"}
+                        proposed={<ReceiptLink url={proposed.receiptUrl} label="Comprobante nuevo" />}
+                    />
+                ) : null}
+                {added.length > 0 ? (
+                    <Detail label="Se suman">
+                        {added.map((participant) => (
+                            <MemberChip key={participant.member.id} member={participant.member} />
+                        ))}
+                    </Detail>
+                ) : null}
+                {removed.length > 0 ? (
+                    <Detail label="Se quitan">
+                        {removed.map((participant) => (
+                            <MemberChip key={participant.member.id} member={participant.member} />
+                        ))}
+                    </Detail>
+                ) : null}
+                <Detail label="A cargo (no cambia)">
+                    <MemberChip member={previous.creditor} />
+                </Detail>
+            </dl>
+
+            <p className="text-xs text-ink-soft">
+                Si se aprueba, el reparto se recalcula. Quien ya haya pagado de más recibirá una devolución por la diferencia.
+            </p>
         </div>
     );
 }
@@ -186,6 +295,8 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
                 <ExpenseProposalDetails proposal={vote.expenseProposal} />
             ) : vote.configChange ? (
                 <ConfigChangeDetails change={vote.configChange} />
+            ) : vote.expenseReport ? (
+                <ExpenseReportDetails report={vote.expenseReport} />
             ) : vote.reservationClaim ? (
                 <ReservationClaimDetails claim={vote.reservationClaim} />
             ) : (

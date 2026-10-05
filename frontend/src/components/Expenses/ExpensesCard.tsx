@@ -17,10 +17,15 @@ export interface PersonRowProps {
     readonly name: string;
     readonly color?: MemberColor;
     readonly amount?: string;
+    /** Si vienen ambos, se muestra "pagado / total" con el total más tenue; tienen prioridad sobre {@link amount}. */
+    readonly paidAmount?: string;
+    readonly totalAmount?: string;
     readonly status?: PaymentStatus;
     readonly action?: "claim" | "none";
     readonly onAction?: () => void;
     readonly photoUrl?: string | null;
+    /** Comprobantes de los pagos declarados por esta persona: un solo botón que abre el modal, con un slider si son varios. */
+    readonly receiptUrls?: readonly string[];
 }
 
 export interface TransactionRowProps {
@@ -47,7 +52,10 @@ export interface DebtCardProps {
     readonly assigned?: MemberInfo[];
     readonly owner?: MemberInfo;
     readonly receiptUrl?: string | null;
+    readonly tag?: string;
     readonly onEdit?: () => void;
+    /** Si está, "Editar" queda deshabilitado y este texto explica por qué. */
+    readonly editDisabledReason?: string | null;
     readonly children: ReactNode;
 }
 
@@ -55,12 +63,19 @@ export interface OwedCardProps {
     readonly title: string;
     readonly amount: string;
     readonly description: string;
-    readonly assigned: MemberInfo[];
-    readonly owner: MemberInfo;
+    readonly assigned?: MemberInfo[];
+    readonly owner?: MemberInfo;
     readonly tag?: string;
     readonly receiptUrl?: string | null;
     readonly onReport?: () => void;
-    readonly action?: { readonly label: string; readonly onClick: () => void };
+    /** Si está, "Reportar" queda deshabilitado y este texto explica por qué. */
+    readonly reportDisabledReason?: string | null;
+    readonly action?: {
+        readonly label: string;
+        readonly onClick: () => void;
+        /** Si está, el botón queda deshabilitado y este texto explica por qué. */
+        readonly disabledReason?: string | null;
+    };
 }
 
 export interface AmountTitleProps {
@@ -129,7 +144,9 @@ export function PeopleMeta({ assigned, owner }: PeopleMetaProps): ReactNode {
     );
 }
 
-export function PersonRow({name, color, amount, status = "unpaid", action = "none", onAction, photoUrl}: PersonRowProps): ReactNode {
+// TODO: Decidir qué hacer al reclamar un pago
+// export function PersonRow({name, color, amount, paidAmount, totalAmount, status = "unpaid", action = "none", onAction, photoUrl, receiptUrls = []}: PersonRowProps): ReactNode {
+export function PersonRow({name, color, amount, paidAmount, totalAmount, status = "unpaid", photoUrl, receiptUrls = []}: PersonRowProps): ReactNode {
     const config = PAYMENT_STATUS_CONFIG[status];
 
     return (
@@ -139,17 +156,22 @@ export function PersonRow({name, color, amount, status = "unpaid", action = "non
                 <span className="truncate text-sm font-medium">{name}</span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-                {amount && (
+                {paidAmount !== undefined && totalAmount !== undefined ? (
+                    <span className="text-sm font-semibold">
+                        <span className="text-brand">{paidAmount}</span>
+                        <span className="text-group-muted"> / {totalAmount}</span>
+                    </span>
+                ) : amount && (
                     <span className="text-sm font-semibold text-brand">{amount}</span>
                 )}
                 <span className={`rounded-full px-3 py-1 text-sm font-medium ${config.badgeClasses}`}>
                     {config.label}
                 </span>
-                {action === "claim" && (
-                    <Button variant="danger" className="hidden sm:block" onClick={onAction}>
-                        Reclamar pago
-                    </Button>
+                {receiptUrls.length > 0 && (
+                    <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} />
                 )}
+                {/* TODO: Decidir qué hacer al reclamar un pago */}
+                {/* {action === "claim" && (<CardActionButton icon={faFlag} label="Reclamar pago" onClick={onAction} tone="danger"/>)} */}
             </div>
         </div>
     );
@@ -199,63 +221,39 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
     );
 }
 
-// TODO !! Agregar proposal otra vez
-// export interface ProposalCardProps {
-//     readonly title: string;
-//     readonly amount: string;
-//     readonly description: string;
-//     readonly assigned: MemberInfo[];
-//     readonly owner: MemberInfo;
-//     readonly status?: keyof typeof PROPOSAL_VARIANTS;
-// }
-//
-// export function ProposalCard({title, amount, description, assigned, owner, status = "pending",}: ProposalCardProps): ReactNode {
-//     return (
-//         <ExpenseCard className="border-group-amber">
-//             <div className="space-y-2">
-//                 <AmountTitle title={title} amount={amount} />
-//                 <p className="text-sm text-group-muted">{description}</p>
-//                 <PeopleMeta assigned={assigned} owner={owner} />
-//             </div>
-//             <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-//                 <button className="inline-flex items-center gap-1 truncate text-left text-sm font-medium text-brand">
-//                     Ver votos ({config.votesLabel} votaron)
-//                     <FontAwesomeIcon icon={faChevronDown} className="h-3 w-3" aria-hidden />
-//                 </button>
-//                 <div className="flex shrink-0 gap-2">
-//                     <Button variant={config.primaryBtn.variant}>{config.primaryBtn.label}</Button>
-//                     <Button variant={config.secondaryBtn.variant}>{config.secondaryBtn.label}</Button>
-//                 </div>
-//             </div>
-//         </ExpenseCard>
-//     );
-// }
-
 type IconProp = ComponentProps<typeof FontAwesomeIcon>["icon"];
 
 interface CardActionButtonProps {
     readonly icon: IconProp;
     readonly label: string;
     readonly onClick?: () => void;
+    /** Si está, el botón queda deshabilitado y este texto reemplaza al tooltip para explicar por qué. */
+    readonly disabledReason?: string | null;
+    /** "danger" pinta el ícono de rojo (p. ej. reclamar un pago). */
+    readonly tone?: "brand" | "danger";
 }
 
 /** Botón de ícono para la esquina superior derecha de la tarjeta, con tooltip en hover y foco. */
-function CardActionButton({ icon, label, onClick }: CardActionButtonProps): ReactNode {
+function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand" }: CardActionButtonProps): ReactNode {
+    const isDisabled = disabledReason != null;
+    const tooltip = disabledReason ?? label;
+
     return (
         <span className="group relative inline-flex">
             <button
                 type="button"
                 onClick={onClick}
-                aria-label={label}
-                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-brand transition-colors hover:bg-group-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                disabled={isDisabled}
+                aria-label={tooltip}
+                className={`inline-flex size-8 cursor-pointer items-center justify-center rounded-full ${tone === "danger" ? "text-group-danger" : "text-brand"} transition-colors hover:bg-group-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
             >
                 <FontAwesomeIcon icon={icon} className="h-4 w-4" aria-hidden />
             </button>
             <span
                 aria-hidden="true"
-                className="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md bg-brand px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
             >
-                {label}
+                {tooltip}
             </span>
         </span>
     );
@@ -264,29 +262,40 @@ function CardActionButton({ icon, label, onClick }: CardActionButtonProps): Reac
 interface ReceiptActionProps {
     readonly title: string;
     readonly receiptUrl?: string | null;
+    /** Varios comprobantes: el modal los muestra con un slider. Tiene prioridad sobre {@link receiptUrl}. */
+    readonly receiptUrls?: readonly string[];
 }
 
-function ReceiptAction({ title, receiptUrl }: ReceiptActionProps): ReactNode {
+function ReceiptAction({ title, receiptUrl, receiptUrls }: ReceiptActionProps): ReactNode {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
     return (
         <>
-            <CardActionButton icon={faReceipt} label="Ver comprobante adjunto" onClick={() => setIsModalOpen(true)} />
+            <CardActionButton
+                icon={faReceipt}
+                label={receiptUrls && receiptUrls.length > 1 ? "Ver comprobantes adjuntos" : "Ver comprobante adjunto"}
+                onClick={() => setIsModalOpen(true)}
+            />
             {isModalOpen && (
-                <ReceiptModal title={title} receiptUrl={receiptUrl} onClose={() => setIsModalOpen(false)} />
+                <ReceiptModal
+                    title={title}
+                    receiptUrl={receiptUrl}
+                    receiptUrls={receiptUrls}
+                    onClose={() => setIsModalOpen(false)}
+                />
             )}
         </>
     );
 }
 
-export function DebtCard({title, amount, description, assigned, owner, receiptUrl, onEdit, children,}: DebtCardProps): ReactNode {
+export function DebtCard({title, amount, description, assigned, owner, receiptUrl, tag, onEdit, editDisabledReason, children,}: DebtCardProps): ReactNode {
     return (
         <ExpenseCard>
             <div className="flex items-start justify-between gap-2">
-                <AmountTitle title={title} amount={amount} />
+                <AmountTitle title={title} amount={amount} tag={tag} />
                 <div className="flex shrink-0 items-center gap-1">
                     <ReceiptAction title={title} receiptUrl={receiptUrl} />
-                    <CardActionButton icon={faPenToSquare} label="Editar" onClick={onEdit} />
+                    <CardActionButton icon={faPenToSquare} label="Editar" onClick={onEdit} disabledReason={editDisabledReason} />
                 </div>
             </div>
             <p className="mt-3 text-sm text-group-muted">{description}</p>
@@ -302,7 +311,7 @@ export function DebtCard({title, amount, description, assigned, owner, receiptUr
     );
 }
 
-export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, action,}: OwedCardProps): ReactNode {
+export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, reportDisabledReason, action,}: OwedCardProps): ReactNode {
     return (
         <ExpenseCard className="flex min-h-48 flex-col justify-between">
             <div className="space-y-2">
@@ -310,15 +319,20 @@ export function OwedCard({title, amount, description, assigned, owner, tag, rece
                     <AmountTitle title={title} amount={amount} tag={tag} />
                     <div className="flex shrink-0 items-center gap-1">
                         <ReceiptAction title={title} receiptUrl={receiptUrl} />
-                        <CardActionButton icon={faFlag} label="Reportar" onClick={onReport} />
+                        <CardActionButton icon={faFlag} label="Reportar" onClick={onReport} disabledReason={reportDisabledReason} tone={"danger"}/>
                     </div>
                 </div>
                 <p className="text-sm text-group-muted">{description}</p>
-                <PeopleMeta assigned={assigned} owner={owner} />
+                {assigned && owner && <PeopleMeta assigned={assigned} owner={owner} />}
             </div>
             {action && (
                 <div className="mt-4 flex justify-end">
-                    <Button variant="success" onClick={action.onClick}>
+                    <Button
+                        variant="success"
+                        onClick={action.onClick}
+                        disabled={action.disabledReason != null}
+                        title={action.disabledReason ?? undefined}
+                    >
                         {action.label}
                     </Button>
                 </div>

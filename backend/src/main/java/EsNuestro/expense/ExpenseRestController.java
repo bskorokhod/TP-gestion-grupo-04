@@ -67,7 +67,7 @@ class ExpenseRestController {
     }
 
     @GetMapping(value = "/owed-to-me", produces = "application/json")
-    @Operation(summary = "Gastos aprobados donde el caller es acreedor y todavía hay deudas sin saldar")
+    @Operation(summary = "Gastos donde el caller es acreedor de alguna deuda sin saldar: el acreedor de un gasto aprobado o quien tiene una devolución a favor de un gasto modificado o eliminado")
     List<ExpenseDTO> owedToMe(
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
@@ -76,7 +76,7 @@ class ExpenseRestController {
     }
 
     @GetMapping(value = "/i-owe", produces = "application/json")
-    @Operation(summary = "Gastos aprobados donde el caller tiene deudas sin saldar")
+    @Operation(summary = "Gastos aprobados (o eliminados con una devolución pendiente) donde el caller tiene deudas sin saldar")
     List<ExpenseDTO> iOwe(
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
@@ -106,9 +106,9 @@ class ExpenseRestController {
     }
 
     @PutMapping(value = "/{expenseId}", produces = "application/json")
-    @Operation(summary = "Editar un gasto aprobado sin pagos (creador o admin); si edita un admin se aplica directo, si no queda pendiente de aprobación")
-    @ApiResponse(responseCode = "403", description = "Solo el creador o un admin pueden editar", content = @Content)
-    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado o tiene pagos", content = @Content)
+    @Operation(summary = "Editar directamente un gasto aprobado (solo su creador): sin pagos, sin un reporte en curso y por debajo del umbral extraordinario; si no, hay que proponer la modificación por votación (POST /groups/{id}/votes/expenses/{expenseId}/edit)")
+    @ApiResponse(responseCode = "403", description = "Solo el creador puede editar", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado, tiene pagos, tiene un reporte en curso o alcanza el umbral extraordinario", content = @Content)
     ExpenseDTO update(
             @PathVariable Long groupId,
             @PathVariable Long expenseId,
@@ -118,6 +118,8 @@ class ExpenseRestController {
         return expenseService.updateExpense(groupId, expenseId, data, principal.email());
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar: createExpense aprueba directo, así que no hay gastos pendientes
+    //  de aprobación (ver ExpenseService.approveExpense). Si se llegara a alcanzar, modificar lo que haga falta.
     @PostMapping(value = "/{expenseId}/approve", produces = "application/json")
     @Operation(summary = "Aprobar un gasto pendiente (o su edición) y generar las deudas (solo admin)")
     @ApiResponse(responseCode = "403", description = "Solo un admin puede aprobar", content = @Content)
@@ -130,6 +132,7 @@ class ExpenseRestController {
         return expenseService.approveExpense(groupId, expenseId, principal.email());
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar (ver approve).
     @PostMapping(value = "/{expenseId}/reject", produces = "application/json")
     @Operation(summary = "Rechazar un gasto pendiente; si era una edición, se restaura el gasto y sus deudas originales (solo admin)")
     @ApiResponse(responseCode = "403", description = "Solo un admin puede rechazar", content = @Content)
@@ -142,6 +145,7 @@ class ExpenseRestController {
         return expenseService.rejectExpense(groupId, expenseId, principal.email());
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar (ver approve).
     @PostMapping(value = "/{expenseId}/resubmit", produces = "application/json")
     @Operation(summary = "Reenviar un gasto rechazado, con cambios (body) o sin ellos; si lo reenvía un admin queda aprobado directo")
     @ApiResponse(responseCode = "403", description = "Solo el creador o un admin pueden reenviar", content = @Content)
@@ -156,10 +160,10 @@ class ExpenseRestController {
     }
 
     @DeleteMapping("/{expenseId}")
-    @Operation(summary = "Eliminar un gasto y sus deudas (creador o admin); bloqueado si alguna deuda tiene pagos")
+    @Operation(summary = "Eliminar directamente un gasto (solo su creador), de forma lógica: sin pagos y sin un reporte en curso; si no, hay que proponer la eliminación por votación (POST /groups/{id}/votes/expenses/{expenseId}/deletion)")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiResponse(responseCode = "403", description = "Solo el creador o un admin pueden eliminar", content = @Content)
-    @ApiResponse(responseCode = "409", description = "Alguna deuda del gasto tiene pagos", content = @Content)
+    @ApiResponse(responseCode = "403", description = "Solo el creador puede eliminar", content = @Content)
+    @ApiResponse(responseCode = "409", description = "Alguna deuda del gasto tiene pagos, tiene un reporte en curso o ya fue eliminado", content = @Content)
     void delete(
             @PathVariable Long groupId,
             @PathVariable Long expenseId,
@@ -173,7 +177,7 @@ class ExpenseRestController {
     @ResponseStatus(HttpStatus.CREATED)
     @ApiResponse(responseCode = "403", description = "Solo el deudor puede declarar el pago de su propia deuda", content = @Content)
     @ApiResponse(responseCode = "404", description = "Grupo, gasto o deuda no encontrados", content = @Content)
-    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado, la deuda está suspendida, o el monto supera el saldo pendiente", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El gasto no está aprobado (salvo una devolución de un gasto eliminado), tiene un reporte en curso, la deuda está suspendida, o el monto supera el saldo pendiente", content = @Content)
     DebtDTO payDebt(
             @PathVariable Long groupId,
             @PathVariable Long expenseId,

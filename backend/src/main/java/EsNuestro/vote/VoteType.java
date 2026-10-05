@@ -6,8 +6,9 @@ public enum VoteType {
     EXTRAORDINARY_EXPENSE,
 
     /**
-     * Modificación o eliminación de un gasto ya registrado.
-     * TODO: todavía no se puede crear (no hay endpoint ni ejecutor); ver {@link ExpenseReportVote}.
+     * Modificación o eliminación (lógica) de un gasto ya registrado. Se propone con
+     * {@code POST /groups/{id}/votes/expenses/{expenseId}/edit} o {@code .../deletion}; ver
+     * {@link ExpenseReportVote} y {@link ExpenseReportVoteExecutor}.
      */
     EXPENSE_REPORT,
 

@@ -62,11 +62,24 @@ export const VoteProgressSchema = z.object({
 });
 export type VoteProgress = z.infer<typeof VoteProgressSchema>;
 
-/** Igual que ExpenseDetails, pero la descripción es opcional: el backend la devuelve null si quedó vacía. */
-const ProposedExpenseSchema = ExpenseDetailsSchema.extend({
-  description: z.string().nullish(),
-});
+/** Datos propuestos de un gasto: mismo esquema que ExpenseDetails (la descripción ya es opcional ahí). */
+const ProposedExpenseSchema = ExpenseDetailsSchema;
 export type ProposedExpense = z.infer<typeof ProposedExpenseSchema>;
+
+export const ExpenseReportActionSchema = z.enum(["EDIT", "DELETE"]);
+export type ExpenseReportAction = z.infer<typeof ExpenseReportActionSchema>;
+
+/**
+ * Lo que se vota en un reporte de gasto: los datos del gasto al proponer (`previous`) y, si se propone modificarlo,
+ * los datos propuestos (`proposed`; null en una eliminación).
+ */
+export const ExpenseReportSchema = z.object({
+  expenseId: z.number(),
+  action: ExpenseReportActionSchema,
+  previous: ProposedExpenseSchema,
+  proposed: ProposedExpenseSchema.nullish(),
+});
+export type ExpenseReport = z.infer<typeof ExpenseReportSchema>;
 
 /** Lo que se vota en un reclamo: la reserva reclamada, su dueño y el motivo del reclamo. */
 export const ReservationClaimSchema = z.object({
@@ -96,6 +109,7 @@ export const VoteSchema = z.object({
   expenseProposal: ProposedExpenseSchema.nullish(),
   configChange: ConfigChangeSchema.nullish(), /** Solo en CONFIG_CHANGE. */
   reservationClaim: ReservationClaimSchema.nullish(), /** Solo en RESERVATION_CLAIM. */
+  expenseReport: ExpenseReportSchema.nullish(), /** Solo en EXPENSE_REPORT. */
 });
 export type Vote = z.infer<typeof VoteSchema>;
 

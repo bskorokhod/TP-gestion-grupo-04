@@ -9,6 +9,7 @@ import EsNuestro.expense.dtos.PaymentDataDTO;
 import EsNuestro.group.DistributionMode;
 import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
+import EsNuestro.group.GroupSettings;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
 import EsNuestro.expense.dtos.BalanceByPersonDTO;
@@ -92,8 +93,10 @@ public class ExpenseService {
     }
 
     /**
-     * Edita un gasto aprobado y sin pagos. Si edita un admin se aplica directo; si edita el creador
-     * (no admin) queda pendiente de aprobación y sus deudas se suspenden hasta la resolución.
+     * Edición directa de un gasto aprobado: solo su creador, solo si nadie pagó nada y no hay un reporte en curso, y
+     * solo si ni el monto actual ni el nuevo alcanzan el umbral extraordinario (en ese caso hay que proponerlo como
+     * votación de reporte). Con pagos, o por encima del umbral, la modificación pasa por
+     * {@code VoteService.createExpenseEditVote}.
      */
     ExpenseDTO updateExpense(Long groupId, Long expenseId, ExpenseDataDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
@@ -104,17 +107,19 @@ public class ExpenseService {
 
         requireCanManage(expense, acting);
         requireEditable(expense);
+        requireNoReportInProgress(expense);
         requireNoPayments(expense);
 
-        // TODO(votaciones): agujero conocido. Esta edición puede llevar el monto por encima del umbral
-        //  extraordinario sin pasar por votación (se crea un gasto chico y se lo edita después). Se cierra
-        //  con el flujo de reportes de gasto (ExpenseReportVote): la edición pasará a ser una votación.
-        expense.proposeEdit(buildDetails(groupId, acting, data));
-        // TODO evaluar proceso de approve tiene sentido ahora q no hay admin
-        expense.approve(acting);
+        ExpenseDetails newDetails = buildDetails(groupId, acting, data);
+        requireDirectChangeBelowThreshold(group, expense, newDetails);
+        expense.applyEdit(newDetails);
+        // Se vuelca a la base antes de armar la respuesta: las deudas nuevas (partes o devoluciones) todavía no tienen id.
+        expenseRepository.saveAndFlush(expense);
         return ExpenseDTO.from(expense);
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar: createExpense aprueba directo, así que no hay gastos
+    //  pendientes de aprobación y ya no hay admins que los resuelvan. Candidato a eliminarse con approve/reject/resubmit.
     ExpenseDTO approveExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
@@ -130,6 +135,7 @@ public class ExpenseService {
         return ExpenseDTO.from(expense);
     }
 
+    // TODO(admin): revisar que hoy no se puede alcanzar (ver approveExpense).
     ExpenseDTO rejectExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
@@ -159,8 +165,8 @@ public class ExpenseService {
             );
         }
 
-        // TODO(votaciones): mismo agujero que en updateExpense: reenviar con cambios puede superar el umbral
-        //  extraordinario sin votación. Se cierra con el flujo de reportes de gasto.
+        // TODO(admin): revisar que hoy no se puede alcanzar (ver approveExpense): nunca hay gastos REJECTED. Si se
+        //  llegara a alcanzar, reenviar con cambios puede superar el umbral extraordinario sin votación.
         ExpenseDetails newDetails = changes == null ? null : buildDetails(groupId, acting, changes);
         if (newDetails == null) {
             requireMembersActive(expense.getDetails());
@@ -183,25 +189,34 @@ public class ExpenseService {
         Debt debt = requireDebtInExpense(expense, debtId);
 
         requireDebtor(debt, caller);
-        requireApproved(expense);
+        requireNoReportInProgress(expense);
+        requirePayable(expense, debt);
         requireDebtActive(debt);
         BigDecimal amount = requireValidPaymentAmount(debt, data.amount());
         String receiptUrl = requireReceiptUrl(data.receiptUrl());
 
         debt.registerPayment(amount, receiptUrl);
+        // Se vuelca a la base antes de armar la respuesta: si no, el pago nuevo todavía no tiene id y el DTO lo devuelve null.
+        expenseRepository.saveAndFlush(expense);
         return DebtDTO.from(debt);
     }
 
-    /** Solo el creador o un admin, y solo si ninguna deuda tiene pagos. Elimina también sus deudas. */
+    /**
+     * Eliminación directa (lógica): solo el creador, solo si nadie pagó nada y no hay un reporte en curso. El gasto queda
+     * cancelado y conserva sus datos para el historial. Con pagos, la eliminación pasa por
+     * {@code VoteService.createExpenseDeletionVote}.
+     */
     void deleteExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
         groupService.requireGroupForUpdate(groupId);
         GroupMember acting = groupService.requireActiveMember(groupId, username);
         Expense expense = requireExpenseForUpdate(groupId, expenseId);
 
         requireCanManage(expense, acting);
+        requireNotCancelled(expense);
+        requireNoReportInProgress(expense);
         requireNoPayments(expense);
 
-        expenseRepository.delete(expense);
+        expense.cancel();
     }
 
     /** Resumen del caller en el grupo: cuánto debe, cuánto le deben y pendientes visibles. */
@@ -221,7 +236,7 @@ public class ExpenseService {
                 pending++;
                 continue;
             }
-            if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            if (!hasLiveDebts(expense)) {
                 continue;
             }
 
@@ -241,22 +256,25 @@ public class ExpenseService {
         return new GroupSummaryDTO(ExpenseMemberDTO.from(caller), owes, owed, pending);
     }
 
-    /** Gastos aprobados donde el caller es el acreedor y todavía tiene deudas sin saldar. */
+    /**
+     * Gastos donde el caller es acreedor de alguna deuda a la vista: sin saldar o, en un gasto aprobado, con un pago
+     * declarado que puede revisar. Es el acreedor de un gasto aprobado o quien tiene una devolución a favor.
+     */
     List<ExpenseDTO> owedToMe(Long groupId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
-                .filter(expense -> expense.getStatus() == ExpenseStatus.APPROVED)
-                .filter(expense -> expense.getDetails().getCreditor().getId().equals(caller.getId()))
-                .filter(expense -> expense.getDebts().stream().anyMatch(Debt::isUnsettled))
+                .filter(this::hasLiveDebts)
+                .filter(expense -> expense.getDebts().stream().anyMatch(debt ->
+                        debt.getCreditor().getId().equals(caller.getId()) && isOwedToCreditor(expense, debt)))
                 .map(ExpenseDTO::from)
                 .toList();
     }
 
-    /** Gastos aprobados donde el caller tiene deudas sin saldar. */
+    /** Gastos aprobados (o cancelados con devolución pendiente) donde el caller tiene deudas sin saldar. */
     List<ExpenseDTO> iOwe(Long groupId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
-                .filter(expense -> expense.getStatus() == ExpenseStatus.APPROVED)
+                .filter(this::hasLiveDebts)
                 .filter(expense -> expense.getDebts().stream()
                         .anyMatch(debt -> debt.getDebtor().getId().equals(caller.getId()) && debt.isUnsettled()))
                 .map(ExpenseDTO::from)
@@ -278,7 +296,7 @@ public class ExpenseService {
                 .forEach(member -> accumulators.put(member.getId(), new PersonAccumulator(member)));
 
         for (Expense expense : expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId)) {
-            if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            if (!hasLiveDebts(expense)) {
                 continue;
             }
             for (Debt debt : expense.getDebts()) {
@@ -379,6 +397,90 @@ public class ExpenseService {
         Expense expense = Expense.register(proposer, proposed.copy());
         expense.approve(null);
         return expenseRepository.save(expense);
+    }
+
+    /**
+     * Toma (con lock) el gasto sobre el que se abre un reporte, o sea una votación para modificarlo o eliminarlo.
+     * Solo quien participa del gasto (acreedor o participante) puede reportarlo; para el resto el gasto no existe.
+     * Tiene que estar aprobado y sin otro reporte en curso. Lo usa {@code VoteService}.
+     */
+    public Expense requireExpenseForReport(Long groupId, Long expenseId, GroupMember proposer) throws ItemNotFoundException {
+        Expense expense = requireExpenseForUpdate(groupId, expenseId);
+        if (!expense.getDetails().involves(proposer)) {
+            throw new ItemNotFoundException("expense", expenseId);
+        }
+        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Only approved expenses can be reported, but it was " + expense.getStatus()
+            );
+        }
+        requireNoReportInProgress(expense);
+        return expense;
+    }
+
+    /**
+     * Valida y arma los datos propuestos para modificar un gasto. El acreedor es siempre el del gasto, no quien propone
+     * el cambio. Lo usa {@code VoteService}.
+     */
+    public ExpenseDetails buildDetailsForReport(Long groupId, Expense expense, ExpenseDataDTO data) throws ItemNotFoundException {
+        return buildDetails(groupId, expense.getDetails().getCreditor(), data);
+    }
+
+    /**
+     * Motivo por el que un reporte aprobado ya no puede ejecutarse (el gasto dejó de estar vigente, o la modificación
+     * propuesta ya no puede registrarse), o vacío si puede. {@code proposed} es null en una eliminación. Nunca lanza,
+     * por la misma razón que {@link #findRegistrationBlocker}.
+     */
+    public Optional<String> findReportBlocker(Expense expense, ExpenseDetails proposed) {
+        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            return Optional.of("The expense is no longer active, it is " + expense.getStatus());
+        }
+        return proposed == null ? Optional.empty() : findRegistrationBlocker(proposed);
+    }
+
+    /**
+     * Una deuda sigue a la vista de su acreedor mientras no se salde y, en un gasto aprobado, también después de que le
+     * declararon un pago: así puede revisar el comprobante y reclamarlo. Las deudas en cero no cuentan.
+     */
+    private boolean isOwedToCreditor(Expense expense, Debt debt) {
+        if (debt.isUnsettled()) {
+            return true;
+        }
+        return expense.getStatus() == ExpenseStatus.APPROVED && debt.getAmount().signum() > 0 && debt.hasPayments();
+    }
+
+    /** Gastos con deudas vigentes: los aprobados y los cancelados (que pueden tener devoluciones pendientes). */
+    private boolean hasLiveDebts(Expense expense) {
+        return expense.getStatus() == ExpenseStatus.APPROVED || expense.getStatus() == ExpenseStatus.CANCELLED;
+    }
+
+    private void requireNoReportInProgress(Expense expense) {
+        if (expense.isReportInProgress()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "There is a vote in progress to modify or delete this expense: it cannot be paid, edited, deleted or reported until it ends"
+            );
+        }
+    }
+
+    private void requireNotCancelled(Expense expense) {
+        if (expense.getStatus() == ExpenseStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The expense was already deleted");
+        }
+    }
+
+    /**
+     * Un gasto extraordinario (el actual o el resultante) no se cambia directamente aunque nadie haya pagado: de lo
+     * contrario una votación de gasto extraordinario se esquivaría achicando el gasto, o uno chico se inflaría sin votación.
+     */
+    private void requireDirectChangeBelowThreshold(Group group, Expense expense, ExpenseDetails newDetails) {
+        GroupSettings settings = group.getSettings();
+        if (settings.isExtraordinary(expense.getDetails().getTotalAmount()) || settings.isExtraordinary(newDetails.getTotalAmount())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The expense reaches the group's extraordinary threshold: changes to it must be proposed as a vote"
+            );
+        }
     }
 
     private void requireBelowExtraordinaryThreshold(Group group, ExpenseDetails details) {
@@ -491,6 +593,7 @@ public class ExpenseService {
     }
 
     private void requireEditable(Expense expense) {
+        requireNotCancelled(expense);
         if (expense.getStatus() == ExpenseStatus.PENDING_APPROVAL) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "The expense is pending approval and cannot be edited until it is resolved"
@@ -516,8 +619,10 @@ public class ExpenseService {
         }
     }
 
-    private void requireApproved(Expense expense) {
-        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+    /** Se paga una deuda de un gasto aprobado, o la devolución pendiente de uno cancelado. */
+    private void requirePayable(Expense expense, Debt debt) {
+        boolean refundOfCancelledExpense = expense.getStatus() == ExpenseStatus.CANCELLED && debt.isRefund();
+        if (expense.getStatus() != ExpenseStatus.APPROVED && !refundOfCancelledExpense) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "The expense is not approved, it is " + expense.getStatus()
             );
