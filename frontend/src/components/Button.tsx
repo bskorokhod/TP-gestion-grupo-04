@@ -21,6 +21,8 @@ const variants = {
     dangerOutline: "rounded-full border border-group-danger/30 text-group-danger shadow-none hover:bg-group-danger-soft",
     success: "rounded-full bg-group-green text-panel shadow-none hover:bg-group-green-soft",
     muted: "rounded-full bg-group-paper text-group-muted shadow-none hover:bg-field",
+    page: "rounded-full border border-[#d2b48c]/50 text-texto-principal hover:bg-tint-primario",
+    pageActive: "rounded-full bg-primario text-fondo",
 } as const;
 
 const sizes = {
