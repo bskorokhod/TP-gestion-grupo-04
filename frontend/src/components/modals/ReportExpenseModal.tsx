@@ -71,6 +71,7 @@ export function ReportExpenseModal({ groupId, expense, onClose }: ReportExpenseM
     const form = useExpenseForm({
         title: details.title,
         description: details.description || "",
+        category: details.category,
         amount: String(details.totalAmount),
         splitMethod: details.splitMethod,
         participantIds: new Set(details.participants.map((participant) => participant.member.id)),
@@ -141,6 +142,7 @@ export function ReportExpenseModal({ groupId, expense, onClose }: ReportExpenseM
             const payload: ExpenseData = {
                 title: form.title.trim(),
                 description: form.description.trim(),
+                category: form.category,
                 totalAmount: validation.amount,
                 splitMethod: effectiveSplitMethod,
                 participants: participants.map((member) => ({ memberId: member.id })),

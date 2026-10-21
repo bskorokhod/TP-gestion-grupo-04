@@ -1,18 +1,9 @@
-import type {ExpenseCategory} from "@/constants/expenseCategories.ts";
-import type {ExpenseMember} from "@/models/Expense.ts";
+import {useQuery} from "@tanstack/react-query";
 
-/** Gasto saldado (todos sus deudores ya pagaron) tal como lo consume la pantalla de balance. */
-export interface SettledExpense {
-    readonly id: number;
-    /** ISO-8601. Única fecha disponible hoy; la definición final queda pendiente del endpoint nuevo. */
-    readonly createdAt: string;
-    readonly title: string;
-    /** null mientras el backend no tenga categorías (ver `@/constants/expenseCategories`). */
-    readonly category: ExpenseCategory | null;
-    /** Quien pagó el gasto ("A cargo de"). */
-    readonly creditor: ExpenseMember;
-    readonly totalAmount: number;
-}
+import {useApiClient} from "@/hooks/useApiClient.ts";
+import {SettledExpenseSchema, type SettledExpense} from "@/models/Expense.ts";
+
+export type {SettledExpense};
 
 export interface SettledExpensesResult {
     readonly data: readonly SettledExpense[];
@@ -22,15 +13,23 @@ export interface SettledExpensesResult {
 const NO_DATA: readonly SettledExpense[] = [];
 
 /**
- * TODO(backend): falta un endpoint con los gastos saldados de TODO el grupo.
- *  `GET /groups/{id}/expenses` solo devuelve los gastos en los que el caller está involucrado (`Expense.isInvolved`),
- *  así que no sirve para un balance del grupo, y el backend no tiene un estado "saldado" ni una fecha de saldado.
- *  A definir junto con el endpoint: qué cuenta como saldado (APPROVED con todas las deudas pagadas, incluidos los
- *  gastos sin participantes), qué fecha usar para los filtros y la forma exacta de la respuesta.
- *  Cuando exista: reemplazar este stub por un `useQuery` con su schema de zod que devuelva `SettledExpense[]`.
- *  Mientras tanto no se usa `useGetExpenses` a propósito: la pantalla queda sin datos.
+ * Gastos saldados de TODO el grupo (aprobados y sin deudas pendientes), del más nuevo al más viejo. Es un endpoint
+ * propio y no `GET /groups/:id/expenses`, que solo devuelve los gastos en los que el caller está involucrado y trae
+ * mucho más de lo que el historial necesita. Filtros, paginación y totales se calculan en la pantalla.
+ *
+ * La clave cuelga de `["groups", groupId, "expenses"]`: crear, editar o pagar un gasto invalida también el historial.
  */
 export function useGetSettledExpenses(groupId?: number): SettledExpensesResult {
-    void groupId;
-    return {data: NO_DATA, isLoading: false};
+    const api = useApiClient();
+
+    const query = useQuery({
+        queryKey: ["groups", groupId, "expenses", "settled"] as const,
+        enabled: typeof groupId === "number" && Number.isFinite(groupId) && groupId > 0,
+        queryFn: async (): Promise<SettledExpense[]> => {
+            const data = await api.get(`/groups/${groupId}/expenses/settled`);
+            return SettledExpenseSchema.array().parse(data);
+        },
+    });
+
+    return {data: query.data ?? NO_DATA, isLoading: query.isLoading};
 }

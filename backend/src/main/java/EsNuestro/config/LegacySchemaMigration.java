@@ -20,5 +20,7 @@ public class LegacySchemaMigration implements ApplicationRunner {
         // ddl-auto=update no modifica los check de los enums ya creados: sin esto una base anterior a
         // ExpenseStatus.CANCELLED rechaza la eliminación lógica de un gasto.
         jdbcTemplate.execute("ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_status_check");
+        // Lo mismo con ExpenseCategory: la lista de categorías va a cambiar y el check creado la primera vez no se actualiza.
+        jdbcTemplate.execute("ALTER TABLE expense_details DROP CONSTRAINT IF EXISTS expense_details_category_check");
     }
 }

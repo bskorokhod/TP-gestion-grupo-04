@@ -1,10 +1,11 @@
 import { useState } from "react";
 
-import type { SplitMethod } from "@/models/Expense.ts";
+import type { ExpenseCategory, SplitMethod } from "@/models/Expense.ts";
 
 export interface ExpenseFormInitialValues {
     readonly title: string;
     readonly description: string;
+    readonly category: ExpenseCategory;
     readonly amount: string;
     readonly splitMethod: SplitMethod;
     readonly participantIds: ReadonlySet<number>;
@@ -16,6 +17,8 @@ export interface ExpenseForm {
     readonly setTitle: (title: string) => void;
     readonly description: string;
     readonly setDescription: (description: string) => void;
+    readonly category: ExpenseCategory;
+    readonly setCategory: (category: ExpenseCategory) => void;
     readonly amount: string;
     readonly setAmount: (amount: string) => void;
     readonly file: File | null;
@@ -31,6 +34,7 @@ export interface ExpenseForm {
 export function useExpenseForm(initial: ExpenseFormInitialValues): ExpenseForm {
     const [title, setTitle] = useState<string>(initial.title);
     const [description, setDescription] = useState<string>(initial.description);
+    const [category, setCategory] = useState<ExpenseCategory>(initial.category);
     const [amount, setAmount] = useState<string>(initial.amount);
     const [file, setFile] = useState<File | null>(null);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>(initial.splitMethod);
@@ -57,6 +61,8 @@ export function useExpenseForm(initial: ExpenseFormInitialValues): ExpenseForm {
         setTitle,
         description,
         setDescription,
+        category,
+        setCategory,
         amount,
         setAmount,
         file,

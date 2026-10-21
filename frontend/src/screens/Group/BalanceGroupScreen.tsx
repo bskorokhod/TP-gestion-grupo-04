@@ -11,7 +11,6 @@ import {
     categoryColor,
     categoryLabel,
     EXPENSE_CATEGORIES,
-    UNCATEGORIZED_LABEL,
 } from "@/constants/expenseCategories.ts";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {formatCurrency} from "@/lib/format.ts";
@@ -29,7 +28,6 @@ const PAGE_SIZE = 9;
 const VISIBLE_PAGE_BUTTONS = 5;
 
 const ALL = "ALL";
-const NO_CATEGORY = "NO_CATEGORY";
 
 const LINE_COLOR = memberChartColor("GREEN");
 
@@ -104,8 +102,7 @@ export const BalanceGroupScreen = () => {
 
     const categoryOptions: SelectOption[] = [
         {value: ALL, label: "Todas"},
-        ...EXPENSE_CATEGORIES.map((name) => ({value: name, label: name})),
-        {value: NO_CATEGORY, label: UNCATEGORIZED_LABEL},
+        ...EXPENSE_CATEGORIES.map((value) => ({value, label: categoryLabel(value)})),
     ];
 
     const creditorOptions: SelectOption[] = [
@@ -152,8 +149,7 @@ export const BalanceGroupScreen = () => {
                 const date = new Date(expense.createdAt);
                 if (date.getFullYear() !== Number(year)) return false;
                 if (month !== ALL && date.getMonth() !== Number(month)) return false;
-                if (category === NO_CATEGORY && expense.category !== null) return false;
-                if (category !== ALL && category !== NO_CATEGORY && expense.category !== category) return false;
+                if (category !== ALL && expense.category !== category) return false;
                 return creditorId === ALL || expense.creditor.id === Number(creditorId);
             })
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

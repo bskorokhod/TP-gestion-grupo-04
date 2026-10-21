@@ -4,6 +4,7 @@ import EsNuestro.member.GroupMember;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -33,6 +34,15 @@ public class ExpenseDetails {
     @Column(length = 200)
     private String description;
 
+    /**
+     * El default de la columna no lo usa la aplicación (el constructor ya asigna {@link ExpenseCategory#DEFAULT}): sirve
+     * para que {@code ddl-auto=update} pueda agregar esta columna NOT NULL a una tabla que ya tiene filas.
+     */
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @ColumnDefault("'SIN_CATEGORIA'")
+    private ExpenseCategory category;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
@@ -55,11 +65,12 @@ public class ExpenseDetails {
     private List<ExpenseParticipant> participants = new ArrayList<>();
 
     public ExpenseDetails(
-            String title, String description, BigDecimal totalAmount, SplitMethod splitMethod,
+            String title, String description, ExpenseCategory category, BigDecimal totalAmount, SplitMethod splitMethod,
             GroupMember creditor, String receiptUrl, List<ExpenseParticipant> participants
     ) {
         this.title = title;
         this.description = description;
+        this.category = ExpenseCategory.orDefault(category);
         this.totalAmount = totalAmount;
         this.splitMethod = splitMethod;
         this.creditor = creditor;
@@ -75,7 +86,9 @@ public class ExpenseDetails {
         List<ExpenseParticipant> participantCopies = participants.stream()
                 .map(participant -> new ExpenseParticipant(participant.getMember()))
                 .toList();
-        return new ExpenseDetails(title, description, totalAmount, splitMethod, creditor, receiptUrl, participantCopies);
+        return new ExpenseDetails(
+                title, description, category, totalAmount, splitMethod, creditor, receiptUrl, participantCopies
+        );
     }
 
     /**
@@ -85,6 +98,7 @@ public class ExpenseDetails {
     public boolean sameContentAs(ExpenseDetails other) {
         return title.equals(other.title)
                 && Objects.equals(description, other.description)
+                && category == other.category
                 && totalAmount.compareTo(other.totalAmount) == 0
                 && splitMethod == other.splitMethod
                 && creditor.getId().equals(other.creditor.getId())

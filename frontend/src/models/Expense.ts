@@ -15,6 +15,20 @@ export type ExpenseStatus = z.infer<typeof ExpenseStatusSchema>;
 export const SplitMethodSchema = z.enum(["EQUAL", "PROPORTIONAL"]);
 export type SplitMethod = z.infer<typeof SplitMethodSchema>;
 
+/** Espeja `ExpenseCategory.java` del backend. Etiquetas y colores en `@/constants/expenseCategories`. */
+export const ExpenseCategorySchema = z.enum([
+  "SERVICIOS",
+  "MANTENIMIENTO",
+  "COMPRAS",
+  "IMPUESTOS",
+  "LIMPIEZA",
+  "SIN_CATEGORIA",
+]);
+export type ExpenseCategory = z.infer<typeof ExpenseCategorySchema>;
+
+/** La que el backend asigna cuando un gasto no informa categoría. */
+export const DEFAULT_EXPENSE_CATEGORY: ExpenseCategory = "SIN_CATEGORIA";
+
 export const ReviewOutcomeSchema = z.enum(["APPROVED", "REJECTED"]);
 export type ReviewOutcome = z.infer<typeof ReviewOutcomeSchema>;
 
@@ -49,6 +63,8 @@ export const ExpenseDetailsSchema = z.object({
   title: z.string(),
   /** Opcional: el backend la devuelve null si quedó vacía. */
   description: z.string().nullish(),
+  /** Tolera null (p. ej. un dato viejo) y lo normaliza: hacia adentro de la app un gasto siempre tiene categoría. */
+  category: ExpenseCategorySchema.nullish().transform((category): ExpenseCategory => category ?? DEFAULT_EXPENSE_CATEGORY),
   totalAmount: z.number(),
   splitMethod: SplitMethodSchema,
   creditor: ExpenseMemberSchema,
@@ -110,6 +126,8 @@ export type Expense = z.infer<typeof ExpenseSchema>;
 export const ExpenseDataSchema = z.object({
   title: z.string().trim().min(1).max(150),
   description: z.string().trim().max(200),
+  /** Opcional: si no se informa, el backend usa la categoría por defecto. */
+  category: ExpenseCategorySchema.nullish(),
   totalAmount: z.number().min(0.01),
   splitMethod: SplitMethodSchema,
   participants: z.array(z.object({ memberId: z.number() })).nonempty(),
@@ -142,3 +160,17 @@ export const BalanceByPersonSchema = z.object({
   items: z.array(BalanceItemSchema),
 });
 export type BalanceByPerson = z.infer<typeof BalanceByPersonSchema>;
+
+/**
+ * Fila del historial: un gasto saldado de cualquier miembro del grupo (`GET /groups/:id/expenses/settled`). Solo trae
+ * lo que el historial muestra; `creditor` es quien estaba a cargo del gasto.
+ */
+export const SettledExpenseSchema = z.object({
+  id: z.number(),
+  createdAt: z.string(),
+  title: z.string(),
+  category: ExpenseCategorySchema,
+  creditor: ExpenseMemberSchema,
+  totalAmount: z.number(),
+});
+export type SettledExpense = z.infer<typeof SettledExpenseSchema>;

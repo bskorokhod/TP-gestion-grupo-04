@@ -1,41 +1,40 @@
+import {ExpenseCategorySchema, type ExpenseCategory} from "@/models/Expense.ts";
 import type {MemberColor} from "@/models/Group.ts";
 
-/**
- * TODO(categorías): el backend todavía no guarda una categoría por gasto (ni en ExpenseDetails ni en sus DTOs).
- * Hasta que exista, `SettledExpense.category` viene siempre null y todo se muestra como "Sin categoría".
- * Cuando se implemente en el backend, alinear estos valores con su enum.
- */
-export const EXPENSE_CATEGORIES = [
-    "Servicios",
-    "Mantenimiento",
-    "Jardín",
-    "Compras",
-    "Impuestos",
-    "Limpieza",
-] as const;
+export {DEFAULT_EXPENSE_CATEGORY} from "@/models/Expense.ts";
+export type {ExpenseCategory};
 
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+/** Los valores del enum del backend, en el orden en que se ofrecen (la categoría por defecto va última). */
+export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = ExpenseCategorySchema.options;
 
-export const UNCATEGORIZED_LABEL = "Sin categoría";
+/** Valor (el del enum del backend) -> etiqueta. El `Record` obliga a cubrir toda categoría nueva. */
+export const CATEGORY_LABELS: Readonly<Record<ExpenseCategory, string>> = {
+    SERVICIOS: "Servicios",
+    MANTENIMIENTO: "Mantenimiento",
+    COMPRAS: "Compras",
+    IMPUESTOS: "Impuestos",
+    LIMPIEZA: "Limpieza",
+    SIN_CATEGORIA: "Sin Categoría",
+};
 
 /**
  * Color de cada categoría, tomado de la paleta única de colores de miembro (`@/lib/colors`), de modo que
- * tags, puntos de leyenda y gráficos se vean siempre igual.
+ * tags, puntos de leyenda y gráficos se vean siempre igual. Sin categoría no tiene color propio: `@/lib/colors`
+ * aplica su color neutro.
  */
-export const CATEGORY_COLORS: Readonly<Record<ExpenseCategory, MemberColor>> = {
-    Servicios: "BLUE",
-    Mantenimiento: "ORANGE",
-    Jardín: "GREEN",
-    Compras: "YELLOW",
-    Impuestos: "RED",
-    Limpieza: "PURPLE",
+export const CATEGORY_COLORS: Readonly<Record<ExpenseCategory, MemberColor | undefined>> = {
+    SERVICIOS: "BLUE",
+    MANTENIMIENTO: "ORANGE",
+    COMPRAS: "YELLOW",
+    IMPUESTOS: "RED",
+    LIMPIEZA: "PURPLE",
+    SIN_CATEGORIA: undefined,
 };
 
-export function categoryLabel(category: ExpenseCategory | null): string {
-    return category ?? UNCATEGORIZED_LABEL;
+export function categoryLabel(category: ExpenseCategory): string {
+    return CATEGORY_LABELS[category];
 }
 
-/** Sin categoría devuelve undefined: `@/lib/colors` aplica su color neutro. */
-export function categoryColor(category: ExpenseCategory | null): MemberColor | undefined {
-    return category === null ? undefined : CATEGORY_COLORS[category];
+export function categoryColor(category: ExpenseCategory): MemberColor | undefined {
+    return CATEGORY_COLORS[category];
 }
