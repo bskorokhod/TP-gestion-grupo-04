@@ -3,6 +3,7 @@ import {CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer
 
 import Navbar from "@/components/Navbar.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
+import {ViewToggle} from "@/components/ViewToggle.tsx";
 import Button from "@/components/Button.tsx";
 import FilterSelect from "@/components/Forms/FilterSelect.tsx";
 import type {SelectOption} from "@/components/Forms/SelectField.tsx";
@@ -15,7 +16,12 @@ import {
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {formatCurrency} from "@/lib/format.ts";
 import {memberChartColor, memberColorClass} from "@/lib/colors.ts";
-import {useGetSettledExpenses} from "@/services/BalanceServices.ts";
+import {
+    useGetCategorySpending,
+    useGetMonthlySpending,
+    useGetSettledExpenses,
+    type SpendingScope,
+} from "@/services/BalanceServices.ts";
 import {useGetGroupMembers} from "@/services/GroupServices.ts";
 
 const MONTHS_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -32,6 +38,17 @@ const ALL = "ALL";
 const LINE_COLOR = memberChartColor("GREEN");
 
 const cardClass = "flex flex-1 flex-col gap-5 rounded-3xl bg-panel p-7";
+
+/** Un mes concreto; `month` va de 0 (enero) a 11, como `Date#getMonth`. */
+interface Period {
+    readonly year: number;
+    readonly month: number;
+}
+
+/** Posición del mes en una línea de tiempo continua, para comparar y desplazar períodos. */
+function monthIndex({year, month}: Period): number {
+    return year * 12 + month;
+}
 
 function CardHead({title, subtitle}: {title: string; subtitle: string}) {
     return (
@@ -78,11 +95,35 @@ export const BalanceGroupScreen = () => {
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
 
+    // Balance (torta y línea). El historial de abajo tiene sus propios filtros y no depende de esto.
+    const [scope, setScope] = useState<SpendingScope>("GROUP");
+    const [period, setPeriod] = useState<Period>({year: currentYear, month: currentMonth});
+
     const [month, setMonth] = useState<string>(String(currentMonth));
     const [year, setYear] = useState<string>(String(currentYear));
     const [category, setCategory] = useState<string>(ALL);
     const [creditorId, setCreditorId] = useState<string>(ALL);
     const [page, setPage] = useState(1);
+
+    // No tiene sentido ir antes del mes en que se creó el grupo ni después del actual.
+    const firstPeriod = useMemo<Period>(() => {
+        const created = new Date(group.createdAt);
+        return {year: created.getFullYear(), month: created.getMonth()};
+    }, [group.createdAt]);
+    const canGoBack = monthIndex(period) > monthIndex(firstPeriod);
+    const canGoForward = monthIndex(period) < monthIndex({year: currentYear, month: currentMonth});
+
+    const shiftMonth = (delta: number) => {
+        setPeriod((current) => {
+            const index = monthIndex(current) + delta;
+            return {year: Math.floor(index / 12), month: index % 12};
+        });
+    };
+
+    const {data: breakdown, isLoading: loadingBreakdown} = useGetCategorySpending(
+        group.id, period.year, period.month + 1, scope,
+    );
+    const {data: monthlySpending, isLoading: loadingMonthly} = useGetMonthlySpending(group.id, period.year, scope);
 
     const changeFilter = (setter: (value: string) => void) => (value: string) => {
         setter(value);
@@ -110,38 +151,35 @@ export const BalanceGroupScreen = () => {
         ...members.map((member) => ({value: String(member.id), label: member.nickname})),
     ];
 
-    const slices = useMemo<Slice[]>(() => {
-        const byCategory = new Map<string, Slice>();
-        for (const expense of expenses) {
-            const date = new Date(expense.createdAt);
-            if (date.getFullYear() !== currentYear || date.getMonth() !== currentMonth) continue;
+    const slices = useMemo<Slice[]>(
+        () =>
+            (breakdown?.categories ?? [])
+                .map(({category: slice, amount}) => {
+                    const color = categoryColor(slice);
+                    return {
+                        name: categoryLabel(slice),
+                        amount,
+                        fill: memberChartColor(color),
+                        dot: memberColorClass(color),
+                    };
+                })
+                .sort((a, b) => b.amount - a.amount),
+        [breakdown],
+    );
 
-            const name = categoryLabel(expense.category);
-            const color = categoryColor(expense.category);
-            const existing = byCategory.get(name);
-            byCategory.set(name, {
-                name,
-                amount: (existing?.amount ?? 0) + expense.totalAmount,
-                fill: memberChartColor(color),
-                dot: memberColorClass(color),
-            });
-        }
-        return [...byCategory.values()].sort((a, b) => b.amount - a.amount);
-    }, [expenses, currentYear, currentMonth]);
+    const monthTotal = breakdown?.total ?? 0;
 
-    const monthTotal = slices.reduce((sum, slice) => sum + slice.amount, 0);
-
-    const monthly = useMemo(() => {
-        const totals = MONTHS_SHORT.map((label) => ({month: label, total: 0}));
-        let hasData = false;
-        for (const expense of expenses) {
-            const date = new Date(expense.createdAt);
-            if (date.getFullYear() !== currentYear) continue;
-            totals[date.getMonth()].total += expense.totalAmount;
-            hasData = true;
-        }
-        return {totals, hasData};
-    }, [expenses, currentYear]);
+    // Los meses que todavía no llegaron no se grafican: un cero ahí se leería como "no se gastó nada".
+    const monthlyPoints = useMemo(
+        () =>
+            MONTHS_SHORT.map((label, index) => {
+                const isFuture = period.year === currentYear && index > currentMonth;
+                const amount = monthlySpending?.find((entry) => entry.month === index + 1)?.amount ?? 0;
+                return {month: label, total: isFuture ? null : amount};
+            }),
+        [monthlySpending, period.year, currentYear, currentMonth],
+    );
+    const monthlyHasData = (monthlySpending ?? []).some((entry) => entry.amount > 0);
 
     const filtered = useMemo(() => {
         return expenses
@@ -159,20 +197,58 @@ export const BalanceGroupScreen = () => {
     const currentPage = Math.min(page, totalPages);
     const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+    const personal = scope === "ME";
+
     return (
         <div className="flex min-h-screen w-full flex-col bg-background font-poppins text-texto-principal">
             <Navbar />
-            <GroupNavbar>
-                <Button variant="pill" size="hero">Exportar reporte</Button>
-            </GroupNavbar>
+            <GroupNavbar />
+
+            <ViewToggle
+                leftLabel="Vista grupal"
+                rightLabel="Vista personal"
+                rightActive={personal}
+                onToggle={() => setScope((current) => (current === "GROUP" ? "ME" : "GROUP"))}
+            />
 
             <main className="flex flex-col gap-6 px-24 pt-10 pb-12">
                 <div className="flex gap-5">
                     {/* PieCard */}
                     <section className={cardClass}>
-                        <CardHead title="Gastos por categoría" subtitle={`${MONTHS_FULL[currentMonth]} ${currentYear}`} />
-                        {slices.length === 0 ? (
-                            <EmptyChart message="Todavía no hay gastos saldados este mes" />
+                        <div className="flex items-start justify-between gap-4">
+                            <CardHead
+                                title={personal ? "Tu parte por categoría" : "Gastos por categoría"}
+                                subtitle={`${MONTHS_FULL[period.month]} ${period.year}`}
+                            />
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="page"
+                                    size="icon"
+                                    aria-label="Mes anterior"
+                                    disabled={!canGoBack}
+                                    onClick={() => shiftMonth(-1)}
+                                >
+                                    ‹
+                                </Button>
+                                <Button
+                                    variant="page"
+                                    size="icon"
+                                    aria-label="Mes siguiente"
+                                    disabled={!canGoForward}
+                                    onClick={() => shiftMonth(1)}
+                                >
+                                    ›
+                                </Button>
+                            </div>
+                        </div>
+                        {loadingBreakdown ? (
+                            <EmptyChart message="Cargando..." />
+                        ) : slices.length === 0 ? (
+                            <EmptyChart
+                                message={personal
+                                    ? "No tenés gastos saldados en este mes"
+                                    : "No hay gastos saldados en este mes"}
+                            />
                         ) : (
                             <div className="flex items-center justify-between gap-6">
                                 <div className="relative h-56 w-56 shrink-0">
@@ -199,7 +275,9 @@ export const BalanceGroupScreen = () => {
                                     </ResponsiveContainer>
                                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                                         <p className="text-xl font-black">{formatCurrency(monthTotal)}</p>
-                                        <p className="text-xs text-texto-principal/60">Total del mes</p>
+                                        <p className="text-xs text-texto-principal/60">
+                                            {personal ? "Tu parte del mes" : "Total del mes"}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -222,13 +300,22 @@ export const BalanceGroupScreen = () => {
 
                     {/* LineCard */}
                     <section className={cardClass}>
-                        <CardHead title="Gastos por mes" subtitle={`Evolución anual — ${currentYear}`} />
-                        {!monthly.hasData ? (
-                            <EmptyChart message="Todavía no hay gastos saldados este año" />
+                        <CardHead
+                            title={personal ? "Tu parte por mes" : "Gastos por mes"}
+                            subtitle={`Evolución anual — ${period.year}`}
+                        />
+                        {loadingMonthly ? (
+                            <EmptyChart message="Cargando..." />
+                        ) : !monthlyHasData ? (
+                            <EmptyChart
+                                message={personal
+                                    ? "No tenés gastos saldados en este año"
+                                    : "No hay gastos saldados en este año"}
+                            />
                         ) : (
                             <div className="h-56 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={monthly.totals} margin={{top: 10, right: 12, left: 12, bottom: 0}}>
+                                    <LineChart data={monthlyPoints} margin={{top: 10, right: 12, left: 12, bottom: 0}}>
                                         <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.1} />
                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
                                         <YAxis hide domain={[0, "auto"]} />
@@ -236,10 +323,11 @@ export const BalanceGroupScreen = () => {
                                         <Line
                                             type="linear"
                                             dataKey="total"
-                                            name="Total"
+                                            name={personal ? "Tu parte" : "Total"}
                                             stroke={LINE_COLOR}
                                             strokeWidth={2}
                                             dot={{r: 2}}
+                                            connectNulls={false}
                                             isAnimationActive={false}
                                         />
                                     </LineChart>

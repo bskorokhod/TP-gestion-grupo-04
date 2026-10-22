@@ -174,3 +174,20 @@ export const SettledExpenseSchema = z.object({
   totalAmount: z.number(),
 });
 export type SettledExpense = z.infer<typeof SettledExpenseSchema>;
+
+/** De quién se calcula el balance: todo el grupo, o solo lo que le toca al usuario (su parte de cada gasto). */
+export type SpendingScope = "GROUP" | "ME";
+
+/** Gasto saldado de un mes, total y por categoría de mayor a menor (`GET .../expenses/balance/categories`). */
+export const CategoryBreakdownSchema = z.object({
+  total: z.number(),
+  categories: z.array(z.object({category: ExpenseCategorySchema, amount: z.number()})),
+});
+export type CategoryBreakdown = z.infer<typeof CategoryBreakdownSchema>;
+
+/** Gasto saldado de un mes de un año; `month` va de 1 (enero) a 12 (`GET .../expenses/balance/monthly`). */
+export const MonthlySpendingSchema = z.object({
+  month: z.number().int().min(1).max(12),
+  amount: z.number(),
+});
+export type MonthlySpending = z.infer<typeof MonthlySpendingSchema>;
