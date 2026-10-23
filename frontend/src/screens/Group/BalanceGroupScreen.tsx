@@ -392,7 +392,7 @@ export const BalanceGroupScreen = () => {
                             {visiblePages(currentPage, totalPages).map((number) => (
                                 <Button
                                     key={number}
-                                    variant={number === currentPage ? "pageActive" : "page"}
+                                    variant={number === currentPage ? "success" : "page"}
                                     size="icon"
                                     onClick={() => setPage(number)}
                                 >
