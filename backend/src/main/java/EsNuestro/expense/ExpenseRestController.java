@@ -8,6 +8,7 @@ import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.DebtDTO;
 import EsNuestro.expense.dtos.PaymentDataDTO;
+import EsNuestro.expense.dtos.SettledExpenseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -64,6 +65,16 @@ class ExpenseRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
         return expenseService.summary(groupId, principal.email());
+    }
+
+    @GetMapping(value = "/settled", produces = "application/json")
+    @Operation(summary = "Historial: gastos aprobados de todo el grupo en los que nadie debe nada, del más nuevo al más viejo; solo trae los campos que muestra el historial")
+    @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
+    List<SettledExpenseDTO> settled(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.listSettledExpenses(groupId, principal.email());
     }
 
     @GetMapping(value = "/owed-to-me", produces = "application/json")

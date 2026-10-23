@@ -15,6 +15,7 @@ import EsNuestro.member.GroupMemberRepository;
 import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.ExpenseMemberDTO;
+import EsNuestro.expense.dtos.SettledExpenseDTO;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -80,6 +81,19 @@ public class ExpenseService {
                 .filter(expense -> status == null || expense.getStatus() == status)
                 .filter(expense -> expense.isInvolved(caller))
                 .map(ExpenseDTO::from)
+                .toList();
+    }
+
+    /**
+     * Historial: los gastos aprobados de todo el grupo (no solo en los que el caller está involucrado) en los que nadie
+     * debe nada, del más nuevo al más viejo. Los eliminados no entran. Solo exige poder ver el grupo y no que esté
+     * funcionando: sigue disponible con el grupo detenido, porque no modifica nada.
+     */
+    List<SettledExpenseDTO> listSettledExpenses(Long groupId, String username) throws ItemNotFoundException {
+        groupService.requireViewer(groupId, username);
+
+        return expenseRepository.findSettledByGroupId(groupId, ExpenseStatus.APPROVED).stream()
+                .map(SettledExpenseDTO::from)
                 .toList();
     }
 
@@ -530,7 +544,7 @@ public class ExpenseService {
                 : data.description().strip();
 
         ExpenseDetails details = new ExpenseDetails(
-                title, description, total, data.splitMethod(), creator, data.receiptUrl().strip(), participants
+                title, description, data.category(), total, data.splitMethod(), creator, data.receiptUrl().strip(), participants
         );
 
         // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.

@@ -3,6 +3,7 @@ import {useParams} from "wouter";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {GroupStoppedBanner} from "@/components/GroupStoppedBanner.tsx";
+import {ViewToggle} from "@/components/ViewToggle.tsx";
 import {PerPersonView} from "@/components/Expenses/PerPersonView.tsx";
 import {PerExpenseView} from "@/components/Expenses/PerExpenseView.tsx";
 import {useGetGroupByCode} from "@/services/GroupServices.ts";
@@ -47,19 +48,12 @@ export const ExpensesGroupScreen = () => {
                 </div>
             </GroupNavbar>
 
-            <div className=" flex justify-end">
-                <button
-                    onClick={() => setPersonView((value) => !value)}
-                    className="flex items-center gap-3 rounded-b-3xl bg-brand px-6 py-3 text-base text-brand-foreground"
-                    aria-pressed={personView}
-                >
-                    Vista por gasto
-                    <span className={`flex h-6 w-12 items-center rounded-full bg-panel p-1 ${personView ? "justify-end" : "justify-start"}`}>
-                    <span className="size-4 rounded-full bg-group-green"/></span>
-                    Vista por persona
-
-                </button>
-            </div>
+            <ViewToggle
+                leftLabel="Vista por gasto"
+                rightLabel="Vista por persona"
+                rightActive={personView}
+                onToggle={() => setPersonView((value) => !value)}
+            />
 
             <GroupStoppedBanner className="mx-5 mt-6 sm:mx-8 lg:mx-30"/>
 

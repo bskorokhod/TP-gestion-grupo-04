@@ -9,7 +9,7 @@ import {ExpensesGroupScreen} from "@/screens/Group/ExpensesGroupScreen.tsx";
 import {ReservationsGroupScreen} from "@/screens/Group/ReservationsGroupScreen.tsx";
 import {VotesGroupScreen} from "@/screens/Group/VotesGroupScreen.tsx";
 import {GroupUnavailableScreen} from "@/screens/GroupUnavailableScreen.tsx";
-import {UnderConstructionGroupScreen} from "@/screens/UnderConstructionGroupScreen";
+import {BalanceGroupScreen} from "@/screens/Group/BalanceGroupScreen";
 import {ConfigurationScreen} from "@/screens/Admin/ConfigurationScreen.tsx";
 import {PercentageConfigScreen} from "@/screens/Admin/PercentageConfigScreen.tsx";
 import {GroupGuard} from "@/components/GroupGuard.tsx";
@@ -53,7 +53,7 @@ const GroupArea = () => {
                     <ExpensesGroupScreen/>
                 </Route>
                 <Route path="/grupos/:code/balance">
-                    <UnderConstructionGroupScreen/>
+                    <BalanceGroupScreen/>
                 </Route>
                 <Route path="/grupos/:code/votaciones">
                     <VotesGroupScreen/>
