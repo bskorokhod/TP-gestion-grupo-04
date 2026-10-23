@@ -1,27 +1,24 @@
 import { useParams } from "wouter";
 
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
-import { EmptyState } from "@/components/Expenses/ExpensesCard.tsx";
-import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
 import { GroupStoppedBanner } from "@/components/GroupStoppedBanner.tsx";
-import { VoteCard } from "@/components/Votes/VoteCard.tsx";
-import type { Vote } from "@/models/Vote.ts";
 import { useGetGroupByCode } from "@/services/GroupServices.ts";
 import { useGetVotes } from "@/services/VoteServices.ts";
-import {SECTIONS} from "@/constants/votes.ts";
+import {ViewToggle} from "@/components/ViewToggle.tsx";
+import {useState} from "react";
+import {ActiveVotesView} from "@/components/Votes/ActiveVotesView.tsx";
+import {HistorialVotesView} from "@/components/Votes/HistorialVotesView.tsx";
 
 
 /** Más nuevas primero (las fechas ISO se ordenan como texto). */
-function newestFirst(votes: readonly Vote[]): Vote[] {
-  return [...votes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
 
 export const VotesGroupScreen = () => {
   const { code } = useParams<{ code: string }>();
+  const [activeVotesView, setActiveView] = useState(false);
 
-  const { data: group } = useGetGroupByCode(code ?? "");
-  const { data: votes = [], isLoading } = useGetVotes(group?.id);
+  const {data: group} = useGetGroupByCode(code ?? "");
+  const { data: votes = [] } = useGetVotes(group?.id);
 
   const awaitingMyVote = votes.filter((vote) => vote.canVote && vote.myChoice == null).length;
 
@@ -40,30 +37,21 @@ export const VotesGroupScreen = () => {
         </div>
       </GroupNavbar>
 
-      <section className="space-y-8 px-5 py-8 sm:px-8 lg:px-30 flex-1">
-        <GroupStoppedBanner />
-        {SECTIONS.map((section) => {
-          const sectionVotes = newestFirst(votes.filter((vote) => vote.type === section.type));
+      <ViewToggle
+          leftLabel="Activas"
+          rightLabel="Historial"
+          rightActive={activeVotesView}
+          onToggle={() => setActiveView((value) => !value)}
+      />
 
-          return (
-            <div key={section.type} className="space-y-4">
-              <SectionBanner title={section.title} description={section.description} variant="allDebt" />
+      <GroupStoppedBanner className="mx-5 mt-6 sm:mx-8 lg:mx-30"/>
 
-              {isLoading || group?.id == null ? (
-                <EmptyState message="Cargando votaciones…" />
-              ) : sectionVotes.length === 0 ? (
-                <EmptyState message={section.emptyMessage} />
-              ) : (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {sectionVotes.map((vote) => (
-                    <VoteCard key={vote.id} vote={vote} groupId={group.id} />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </section>
+      {group?.id != null
+          ? activeVotesView
+              ? <HistorialVotesView groupId={group.id}/>
+              : <ActiveVotesView groupId={group.id} />
+          : null}
+
     </CommonLayout>
   );
 };

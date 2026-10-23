@@ -1,11 +1,6 @@
 import type { ReactElement } from "react";
 
-import {
-    ConfigChangeDetails,
-    ExpenseProposalDetails,
-    ExpenseReportDetails,
-    ReservationClaimDetails,
-} from "@/components/Votes/VoteCard.tsx";
+import { ConfigChangeDetails, ExpenseProposalDetails, ExpenseReportDetails, ReservationClaimDetails,} from "@/components/Votes/VoteCard.tsx";
 import { VOTING_MODEL_LABEL } from "@/constants/config_modals.ts";
 import type { FinishedVote, VoteType } from "@/models/Vote.ts";
 
