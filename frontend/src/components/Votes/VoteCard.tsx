@@ -32,7 +32,7 @@ function Detail({ label, children }: { label: string; children: ReactNode }): Re
 }
 
 /** Lo que se está votando en un gasto extraordinario: los datos del gasto que se crearía. */
-function ExpenseProposalDetails({ proposal }: { proposal: ProposedExpense }): ReactElement {
+export function ExpenseProposalDetails({ proposal }: { proposal: ProposedExpense }): ReactElement {
     return (
         <div className="space-y-4">
             <div>
@@ -96,7 +96,14 @@ function ReceiptLink({ url, label }: { url: string; label: string }): ReactEleme
  * Lo que se está votando en un reporte de gasto. En una modificación, solo los campos que cambian (valor previo y
  * nuevo) y los participantes que se suman o se quitan; en una eliminación, los valores actuales del gasto.
  */
-function ExpenseReportDetails({ report }: { report: ExpenseReport }): ReactElement {
+export function ExpenseReportDetails({
+    report,
+    showConsequences = true,
+}: {
+    report: ExpenseReport;
+    /** Falso en el historial: la votación ya terminó, así que no corresponde anunciar qué pasa "si se aprueba". */
+    showConsequences?: boolean;
+}): ReactElement {
     const { previous, proposed } = report;
 
     if (report.action === "DELETE" || !proposed) {
@@ -104,9 +111,11 @@ function ExpenseReportDetails({ report }: { report: ExpenseReport }): ReactEleme
             <div className="space-y-4">
                 <p className="text-sm font-semibold text-group-danger">Se propone eliminar este gasto</p>
                 <ExpenseProposalDetails proposal={previous} />
-                <p className="text-xs text-ink-soft">
-                    Si se aprueba, el gasto queda eliminado. Quien ya haya pagado recibirá una devolución por lo que pagó.
-                </p>
+                {showConsequences ? (
+                    <p className="text-xs text-ink-soft">
+                        Si se aprueba, el gasto queda eliminado. Quien ya haya pagado recibirá una devolución por lo que pagó.
+                    </p>
+                ) : null}
             </div>
         );
     }
@@ -173,9 +182,11 @@ function ExpenseReportDetails({ report }: { report: ExpenseReport }): ReactEleme
                 </Detail>
             </dl>
 
-            <p className="text-xs text-ink-soft">
-                Si se aprueba, el reparto se recalcula. Quien ya haya pagado de más recibirá una devolución por la diferencia.
-            </p>
+            {showConsequences ? (
+                <p className="text-xs text-ink-soft">
+                    Si se aprueba, el reparto se recalcula. Quien ya haya pagado de más recibirá una devolución por la diferencia.
+                </p>
+            ) : null}
         </div>
     );
 }
@@ -201,7 +212,7 @@ function describeProposedValue(change: ConfigChange): string {
 }
 
 /** Lo que se está votando en un cambio de configuración: qué ajuste cambia y a qué valor. */
-function ConfigChangeDetails({ change }: { change: ConfigChange }): ReactElement {
+export function ConfigChangeDetails({ change }: { change: ConfigChange }): ReactElement {
     return (
         <div className="space-y-4">
             <dl className="grid gap-4 sm:grid-cols-2">
@@ -219,7 +230,7 @@ function formatReservationDay(value: string): string {
 }
 
 /** Lo que se está votando en un reclamo: qué reserva se pide cancelar, de quién es y por qué. */
-function ReservationClaimDetails({claim}: { claim: ReservationClaim }): ReactElement {
+export function ReservationClaimDetails({claim}: { claim: ReservationClaim }): ReactElement {
     return (
         <div className="space-y-4">
             <dl className="grid gap-4 sm:grid-cols-2">

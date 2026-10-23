@@ -1,10 +1,12 @@
 package EsNuestro.vote;
 
 import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.common.api.PageDTO;
 import EsNuestro.config.security.JwtUserDetails;
 import EsNuestro.expense.dtos.ExpenseDataDTO;
 import EsNuestro.vote.dtos.BallotDataDTO;
 import EsNuestro.vote.dtos.ConfigChangeDTO;
+import EsNuestro.vote.dtos.FinishedVoteDTO;
 import EsNuestro.vote.dtos.VoteDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -48,6 +50,20 @@ class VoteRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
         return voteService.listActiveVotes(groupId, principal.email(), type);
+    }
+
+    @GetMapping(value = "/history", produces = "application/json")
+    @Operation(summary = "Historial: votaciones finalizadas del grupo, de la que cerró más recientemente a la más antigua, paginadas y opcionalmente de un solo tipo. Lo ve cualquier miembro del grupo, haya participado o no; las activas no se incluyen")
+    @ApiResponse(responseCode = "403", description = "El caller ya no pertenece al grupo", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
+    PageDTO<FinishedVoteDTO> history(
+            @PathVariable Long groupId,
+            @RequestParam(required = false) VoteType type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return voteService.listFinishedVotes(groupId, principal.email(), type, page, size);
     }
 
     @PostMapping(value = "/extraordinary-expense", produces = "application/json")

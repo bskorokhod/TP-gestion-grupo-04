@@ -1,5 +1,6 @@
 package EsNuestro.vote;
 
+import EsNuestro.common.api.PageDTO;
 import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.expense.Expense;
 import EsNuestro.expense.ExpenseDetails;
@@ -16,9 +17,14 @@ import EsNuestro.reservation.CancellationRequest;
 import EsNuestro.reservation.CancellationRequestedEvent;
 import EsNuestro.reservation.ReservationCancelledEvent;
 import EsNuestro.vote.dtos.ConfigChangeDTO;
+import EsNuestro.vote.dtos.FinishedVoteDTO;
 import EsNuestro.vote.dtos.VoteDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -43,6 +49,7 @@ import java.util.Optional;
 class VoteService {
 
     private static final int MAX_FAILURE_REASON_LENGTH = 300;
+    static final int MAX_HISTORY_PAGE_SIZE = 50;
 
     private final VoteRepository voteRepository;
     private final GroupService groupService;
@@ -192,6 +199,28 @@ class VoteService {
                 .filter(vote -> vote.isVisibleTo(caller))
                 .map(vote -> VoteDTO.from(vote, caller))
                 .toList();
+    }
+
+    /**
+     * Historial: votaciones finalizadas del grupo, de la que cerró más recientemente a la más antigua, opcionalmente de un
+     * solo tipo. Lo ve cualquier miembro del grupo, haya participado o no; las activas no aparecen. {@code page} arranca
+     * en 0 y {@code size} se acota a [1, {@value #MAX_HISTORY_PAGE_SIZE}].
+     */
+    PageDTO<FinishedVoteDTO> listFinishedVotes(
+            Long groupId, String username, VoteType type, int page, int size
+    ) throws ItemNotFoundException {
+        groupService.requireViewer(groupId, username);
+
+        Pageable pageable = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), MAX_HISTORY_PAGE_SIZE),
+                Sort.by(Sort.Direction.DESC, "finalizedAt").and(Sort.by(Sort.Direction.DESC, "id"))
+        );
+        Page<Vote> votes = type == null
+                ? voteRepository.findByGroup_IdAndStatus(groupId, VoteStatus.FINALIZED, pageable)
+                : voteRepository.findByGroup_IdAndStatusAndType(groupId, VoteStatus.FINALIZED, type, pageable);
+
+        return PageDTO.from(votes.map(FinishedVoteDTO::from));
     }
 
     /** Emite o cambia el voto del caller mientras la votación esté activa. */

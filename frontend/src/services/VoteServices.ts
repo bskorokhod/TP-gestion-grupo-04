@@ -1,8 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useApiClient } from "@/hooks/useApiClient";
 import type { ExpenseData } from "@/models/Expense";
-import { CastBallotInput, ConfigChangeCreate, Vote, VoteSchema } from "@/models/Vote";
+import {
+    CastBallotInput,
+    ConfigChangeCreate,
+    FinishedVotePage,
+    FinishedVotePageSchema,
+    Vote,
+    VoteSchema,
+    VoteType,
+} from "@/models/Vote";
 
 /** Votaciones activas visibles para el usuario. Las finalizadas no se listan (quedan guardadas para el historial). */
 export function useGetVotes(groupId?: number) {
@@ -14,6 +22,32 @@ export function useGetVotes(groupId?: number) {
         queryFn: async (): Promise<Vote[]> => {
             const data = await api.get(`/groups/${groupId}/votes`);
             return VoteSchema.array().parse(data);
+        },
+    });
+}
+
+/**
+ * TODO(vote): falta la screen que consume el historial.
+ *
+ * Votaciones finalizadas del grupo, de la que cerró más recientemente a la más antigua. Las ve cualquier miembro, haya
+ * participado o no; las activas no se incluyen (esas son {@link useGetVotes}). Sin `type` trae todos los tipos mezclados.
+ * `page` arranca en 0.
+ *
+ * La clave cuelga de `["groups", groupId, "votes"]`: emitir un voto que finaliza una votación (o proponer una que se
+ * resuelve en el acto) invalida también el historial.
+ */
+export function useGetFinishedVotes(groupId: number | undefined, type?: VoteType, page = 0, size = 10) {
+    const api = useApiClient();
+
+    return useQuery({
+        queryKey: ["groups", groupId, "votes", "history", type ?? "ALL", page, size] as const,
+        enabled: typeof groupId === "number" && Number.isFinite(groupId) && groupId > 0,
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<FinishedVotePage> => {
+            const params = new URLSearchParams({ page: String(page), size: String(size) });
+            if (type) params.set("type", type);
+            const data = await api.get(`/groups/${groupId}/votes/history?${params.toString()}`);
+            return FinishedVotePageSchema.parse(data);
         },
     });
 }
