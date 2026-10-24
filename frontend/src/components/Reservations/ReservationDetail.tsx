@@ -5,6 +5,8 @@ import { Field } from "@/components/Forms/Field.tsx";
 import { TextArea } from "@/components/Forms/TextInput.tsx";
 import { dateKey, formatDate } from "@/lib/dates.ts";
 import type { Reservation } from "@/models/Reservation.ts";
+import {faTriangleExclamation} from "@fortawesome/free-solid-svg-icons";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 
 interface ReservationDetailProps {
     readonly reservation: Reservation;
@@ -43,7 +45,7 @@ export function ReservationDetail({
 
             {pendingReason !== undefined ? (
                 <p className="mt-3 rounded-lg bg-group-danger-soft px-3 py-2 text-xs text-group-danger">
-                    Cancelación pendiente de votación del grupo.
+                    <FontAwesomeIcon icon={faTriangleExclamation}/> Cancelación pendiente de votación del grupo.
                     {pendingReason && <span className="mt-1 block">Motivo: {pendingReason}</span>}
                 </p>
             ) : isOwn ? (
