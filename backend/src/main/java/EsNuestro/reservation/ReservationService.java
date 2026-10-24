@@ -1,6 +1,7 @@
 package EsNuestro.reservation;
 
 import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.common.time.AppTime;
 import EsNuestro.group.Group;
 import EsNuestro.group.ReservationLimitPolicy;
 import EsNuestro.group.GroupService;
@@ -99,6 +100,12 @@ class ReservationService {
         GroupMember requester = groupService.requireActiveMember(groupId, email);
         Reservation reservation = requireReservationForUpdate(groupId, reservationId);
         requireActive(reservation);
+        if (reservation.hasStartedBy(AppTime.today())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The reservation has already started and cannot be claimed"
+            );
+        }
         if (reservation.getMember().getId().equals(requester.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -140,7 +147,7 @@ class ReservationService {
     }
 
     private void validateDates(LocalDate startDate, LocalDate endDate) {
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        LocalDate tomorrow = AppTime.today().plusDays(1);
         if (startDate.isAfter(endDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date must not be after end date");
         }

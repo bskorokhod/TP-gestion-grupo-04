@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -309,6 +310,22 @@ class VoteService {
         }
     }
 
+    /**
+     * Rechaza los reclamos activos de reservas que ya comenzaron (su inicio es {@code today} o antes): si no alcanzaron el
+     * quorum a tiempo, reclamar una reserva en curso no tiene sentido. Rechazar no ejecuta nada, así que se hace aún con
+     * el grupo detenido. Lo invoca {@code ReservationClaimExpirationJob}, una transacción por grupo, tomando el lock del
+     * grupo como el resto de las operaciones.
+     */
+    void rejectClaimsOfStartedReservations(Long groupId, LocalDate today) throws ItemNotFoundException {
+        groupService.requireGroupForUpdate(groupId);
+        for (Vote vote : voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(groupId, VoteStatus.ACTIVE)) {
+            if (vote instanceof ReservationClaimVote claim
+                    && claim.getCancellationRequest().getReservation().hasStartedBy(today)) {
+                reject(claim, "The reservation started before the vote reached a quorum");
+            }
+        }
+    }
+
     private ConfigChangeVote buildConfigChangeVote(Group group, GroupMember proposer, ConfigChangeDTO data) {
         return switch (data.setting()) {
             case DISTRIBUTION_MODE -> ConfigChangeVote.ofDistributionMode(group, proposer, data.distributionMode());
@@ -338,15 +355,17 @@ class VoteService {
         switch (result) {
             case OPEN -> {
             }
-            case REJECTED -> {
-                VoteExecutor executor = executors.get(vote.getType());
-                if (executor != null) {
-                    executor.onRejected(vote);
-                }
-                vote.finalizeWith(VoteOutcome.REJECTED, null);
-            }
+            case REJECTED -> reject(vote, null);
             case APPROVED -> executeApproved(vote);
         }
+    }
+
+    private void reject(Vote vote, String reason) {
+        VoteExecutor executor = executors.get(vote.getType());
+        if (executor != null) {
+            executor.onRejected(vote);
+        }
+        vote.finalizeWith(VoteOutcome.REJECTED, reason);
     }
 
     private void executeApproved(Vote vote) {
