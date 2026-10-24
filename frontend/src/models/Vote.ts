@@ -120,8 +120,6 @@ export interface CastBallotInput {
 
 // ─── Historial ───────────────────────────────────────────────────────────────────────────
 
-// TODO(vote): historial de votaciones finalizadas; falta la screen que lo consume (ver FinishedVoteCard y useGetFinishedVotes).
-
 /** Quién ganó según el conteo; null si la votación se cerró sin que el conteo la resolviera. */
 export const FinishedVoteResultSchema = z.enum(["IN_FAVOR", "AGAINST"]);
 export type FinishedVoteResult = z.infer<typeof FinishedVoteResultSchema>;

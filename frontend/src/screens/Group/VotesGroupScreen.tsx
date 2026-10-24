@@ -11,8 +11,6 @@ import {ActiveVotesView} from "@/components/Votes/ActiveVotesView.tsx";
 import {HistorialVotesView} from "@/components/Votes/HistorialVotesView.tsx";
 
 
-/** Más nuevas primero (las fechas ISO se ordenan como texto). */
-
 export const VotesGroupScreen = () => {
   const { code } = useParams<{ code: string }>();
   const [activeVotesView, setActiveView] = useState(false);

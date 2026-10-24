@@ -1,15 +1,8 @@
 import type { ReactElement } from "react";
 
-import { ConfigChangeDetails, ExpenseProposalDetails, ExpenseReportDetails, ReservationClaimDetails,} from "@/components/Votes/VoteCard.tsx";
+import { ConfigChangeDetails, ExpenseProposalDetails, ExpenseReportDetails, ReservationClaimDetails, TopRow } from "@/components/Votes/VoteCard.tsx";
 import { VOTING_MODEL_LABEL } from "@/constants/config_modals.ts";
-import type { FinishedVote, VoteType } from "@/models/Vote.ts";
-
-const TYPE_LABEL: Record<VoteType, string> = {
-    EXTRAORDINARY_EXPENSE: "Gasto extraordinario",
-    EXPENSE_REPORT: "Reporte de gasto",
-    RESERVATION_CLAIM: "Reclamo de reserva",
-    CONFIG_CHANGE: "Cambio de configuración",
-};
+import type { FinishedVote } from "@/models/Vote.ts";
 
 interface ResultBadge {
     readonly label: string;
@@ -60,33 +53,33 @@ export interface FinishedVoteCardProps {
 }
 
 /**
- * TODO(vote): falta la screen del historial que lo muestra.
- *
  * Votación finalizada, como la activa pero estática: sin botones ni nada que se pueda modificar. Muestra lo que se votó,
  * el conteo y el criterio con el que se votó, y el resultado definitivo.
  */
 export function FinishedVoteCard({ vote }: FinishedVoteCardProps): ReactElement {
     const result = describeResult(vote);
 
+    // El resultado va en la primera fila del contenido, a la derecha, no en una fila propia.
+    const badge = (
+        <span className={`block rounded-full bg-muted px-3 py-1 text-center text-xs font-bold ${result.className}`}>
+            {result.label}
+        </span>
+    );
+
     return (
         <article className="space-y-5 rounded-3xl bg-panel p-6 text-foreground shadow-panel">
-            <header className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-medium uppercase text-brand">{TYPE_LABEL[vote.type]}</span>
-                <span className={`rounded-full bg-muted px-3 py-1 text-xs font-bold ${result.className}`}>
-                    {result.label}
-                </span>
-            </header>
-
             {vote.expenseProposal ? (
-                <ExpenseProposalDetails proposal={vote.expenseProposal} />
+                <ExpenseProposalDetails proposal={vote.expenseProposal} badge={badge} />
             ) : vote.configChange ? (
-                <ConfigChangeDetails change={vote.configChange} />
+                <ConfigChangeDetails change={vote.configChange} badge={badge} />
             ) : vote.expenseReport ? (
-                <ExpenseReportDetails report={vote.expenseReport} showConsequences={false} />
+                <ExpenseReportDetails report={vote.expenseReport} showConsequences={false} badge={badge} />
             ) : vote.reservationClaim ? (
-                <ReservationClaimDetails claim={vote.reservationClaim} />
+                <ReservationClaimDetails claim={vote.reservationClaim} badge={badge} />
             ) : (
-                <p className="text-sm text-ink-soft">El detalle de esta votación no está disponible.</p>
+                <TopRow badge={badge}>
+                    <p className="text-sm text-ink-soft">El detalle de esta votación no está disponible.</p>
+                </TopRow>
             )}
 
             {vote.failureReason ? <p className="text-xs text-ink-soft">{vote.failureReason}</p> : null}

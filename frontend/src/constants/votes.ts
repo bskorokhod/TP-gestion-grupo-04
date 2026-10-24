@@ -1,4 +1,16 @@
-export const SECTIONS = [
+import type { VoteType } from "@/models/Vote.ts";
+
+/** Cantidad máxima de votaciones por página en cada sección (activas e historial). */
+export const VOTES_PAGE_SIZE = 2;
+
+export interface VoteSection {
+    readonly type: VoteType;
+    readonly title: string;
+    readonly description: string;
+    readonly emptyMessage: string;
+}
+
+export const SECTIONS: readonly VoteSection[] = [
     {
         type: "EXTRAORDINARY_EXPENSE",
         title: "Gastos extraordinarios",

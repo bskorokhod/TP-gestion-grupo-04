@@ -27,8 +27,6 @@ export function useGetVotes(groupId?: number) {
 }
 
 /**
- * TODO(vote): falta la screen que consume el historial.
- *
  * Votaciones finalizadas del grupo, de la que cerró más recientemente a la más antigua. Las ve cualquier miembro, haya
  * participado o no; las activas no se incluyen (esas son {@link useGetVotes}). Sin `type` trae todos los tipos mezclados.
  * `page` arranca en 0.
