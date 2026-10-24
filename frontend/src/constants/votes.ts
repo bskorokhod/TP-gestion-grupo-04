@@ -10,6 +10,12 @@ export interface VoteSection {
     readonly emptyMessage: string;
 }
 
+export const FAILURE_REASON_LABEL: Readonly<Record<string, string>> = {
+    "The reservation started before the vote reached a quorum": "La reserva comenzó antes de que la votación alcanzara el quorum",
+    "The reservation was canceled by its owner": "La reserva fue cancelada por su dueño",
+    "The reservation is no longer active": "La reserva ya no está activa",
+};
+
 export const SECTIONS: readonly VoteSection[] = [
     {
         type: "EXTRAORDINARY_EXPENSE",
