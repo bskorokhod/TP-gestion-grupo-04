@@ -312,17 +312,17 @@ class VoteService {
     }
 
     /**
-     * Si el dueño cancela su reserva, los reclamos abiertos sobre ella dejan de tener sentido: se cierran y la
-     * solicitud queda rechazada. Corre en la transacción de {@code ReservationService.cancelOwnReservation}, que ya
-     * tiene el lock del grupo.
+     * Si el dueño cancela su reserva, los reclamos abiertos sobre ella se aprueban en el acto: lo que se votaba (cancelar la
+     * reserva) ya ocurrió, así que la solicitud queda aprobada y la votación se cierra sin esperar el quórum. Corre en la
+     * transacción de {@code ReservationService.cancelOwnReservation}, que ya tiene el lock del grupo.
      */
     @EventListener
     public void onReservationCancelled(ReservationCancelledEvent event) {
         for (Vote vote : voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE)) {
             if (vote instanceof ReservationClaimVote claim
                     && claim.getCancellationRequest().getReservation().getId().equals(event.reservationId())) {
-                claim.getCancellationRequest().reject();
-                claim.finalizeWith(VoteOutcome.EXECUTION_FAILED, "The reservation was canceled by its owner");
+                claim.getCancellationRequest().approve();
+                claim.finalizeWith(VoteOutcome.APPROVED, "The reservation was canceled by its owner");
             }
         }
     }

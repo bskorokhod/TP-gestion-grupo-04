@@ -43,16 +43,19 @@ export function ReservationDetail({
                 </Button>
             </div>
 
-            {pendingReason !== undefined ? (
+            {pendingReason !== undefined && (
                 <p className="mt-3 rounded-lg bg-group-danger-soft px-3 py-2 text-xs text-group-danger">
                     <FontAwesomeIcon icon={faTriangleExclamation}/> Cancelación pendiente de votación del grupo.
                     {pendingReason && <span className="mt-1 block">Motivo: {pendingReason}</span>}
+                    {isOwn && <span className="mt-1 block">Si la cancelás, el reclamo se aprueba.</span>}
                 </p>
-            ) : isOwn ? (
+            )}
+
+            {isOwn ? (
                 <Button variant="dangerOutline" size="sm" className="mt-3 rounded-full" onClick={onCancelOwn}>
                     Cancelar mi reserva
                 </Button>
-            ) : reservation.startDate <= dateKey(new Date()) ? (
+            ) : pendingReason !== undefined ? null : reservation.startDate <= dateKey(new Date()) ? (
                 <p className="mt-3 text-xs text-group-muted">Esta reserva ya comenzó, por lo que no se puede reclamar.</p>
             ) : (
                 <form
