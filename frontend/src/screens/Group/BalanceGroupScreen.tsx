@@ -9,13 +9,12 @@ import FilterSelect from "@/components/Forms/FilterSelect.tsx";
 import type {SelectOption} from "@/components/Forms/SelectField.tsx";
 import {Avatar} from "@/components/ui/Avatar.tsx";
 import {
-    categoryColor,
     categoryLabel,
     EXPENSE_CATEGORIES,
 } from "@/constants/expenseCategories.ts";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {formatCurrency} from "@/lib/format.ts";
-import {memberChartColor, memberColorClass} from "@/lib/colors.ts";
+import {categoryBadgeClass, categoryChartColor, categoryDotClass, memberChartColor} from "@/lib/colors.ts";
 import {
     useGetCategorySpending,
     useGetMonthlySpending,
@@ -154,15 +153,12 @@ export const BalanceGroupScreen = () => {
     const slices = useMemo<Slice[]>(
         () =>
             (breakdown?.categories ?? [])
-                .map(({category: slice, amount}) => {
-                    const color = categoryColor(slice);
-                    return {
-                        name: categoryLabel(slice),
-                        amount,
-                        fill: memberChartColor(color),
-                        dot: memberColorClass(color),
-                    };
-                })
+                .map(({category: slice, amount}) => ({
+                    name: categoryLabel(slice),
+                    amount,
+                    fill: categoryChartColor(slice),
+                    dot: categoryDotClass(slice),
+                }))
                 .sort((a, b) => b.amount - a.amount),
         [breakdown],
     );
@@ -371,7 +367,7 @@ export const BalanceGroupScreen = () => {
                         <div key={expense.id} className="flex items-center justify-between border-b border-warm-muted py-4 pr-6">
                             <div className="flex items-center gap-4">
                                 <p className="w-20 text-xs text-texto-principal/60">{formatDate(expense.createdAt)}</p>
-                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${memberColorClass(categoryColor(expense.category))}`}>
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${categoryBadgeClass(expense.category)}`}>
                                     {categoryLabel(expense.category)}
                                 </span>
                                 <p className="text-xs">{expense.title}</p>

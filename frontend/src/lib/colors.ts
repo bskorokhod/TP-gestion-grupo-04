@@ -1,3 +1,4 @@
+import type { ExpenseCategory } from "@/models/Expense";
 import type { MemberColor } from "@/models/Group";
 
 /** Opacidad (%) con la que se muestra el color de un miembro en toda la app. Debe coincidir con el `/50` de `bg`. */
@@ -46,4 +47,56 @@ export function memberChartColor(color?: MemberColor | string): string {
 export function memberInitial(nickname: string): string {
     const trimmed = nickname.trim();
     return trimmed.length > 0 ? trimmed.charAt(0).toUpperCase() : "?";
+}
+
+
+interface CategoryPaletteEntry {
+    readonly badge: string;
+    readonly dot: string;
+    readonly chart: string;
+}
+
+const CATEGORY_PALETTE: Readonly<Record<ExpenseCategory, CategoryPaletteEntry>> = {
+    SERVICIOS: {
+        badge: "bg-brand/15 text-brand",
+        dot: "bg-brand",
+        chart: "var(--brand)",
+    },
+    MANTENIMIENTO: {
+        badge: "bg-group-amber/15 text-group-amber",
+        dot: "bg-group-amber",
+        chart: "var(--group-amber)",
+    },
+    COMPRAS: {
+        badge: "bg-modal-border/20 text-modal-border",
+        dot: "bg-modal-border",
+        chart: "var(--modal-border)",
+    },
+    IMPUESTOS: {
+        badge: "bg-group-danger/15 text-group-danger",
+        dot: "bg-group-danger",
+        chart: "var(--group-danger)",
+    },
+    LIMPIEZA: {
+        badge: "bg-group-request/15 text-group-request/70",
+        dot: "bg-group-request/70",
+        chart: "color-mix(in oklab, var(--group-request) 70%, transparent)",
+    },
+    SIN_CATEGORIA: {
+        badge: "bg-group-muted/15 text-group-muted",
+        dot: "bg-group-muted",
+        chart: "var(--group-muted)",
+    },
+};
+
+export function categoryBadgeClass(category: ExpenseCategory): string {
+    return CATEGORY_PALETTE[category].badge;
+}
+
+export function categoryDotClass(category: ExpenseCategory): string {
+    return CATEGORY_PALETTE[category].dot;
+}
+
+export function categoryChartColor(category: ExpenseCategory): string {
+    return CATEGORY_PALETTE[category].chart;
 }
