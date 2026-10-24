@@ -1,10 +1,15 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(`${API_URL}${path}`, {
-        headers: { "Content-Type": "application/json" },
-        ...options,
-    });
+    let res: Response;
+    try {
+        res = await fetch(`${API_URL}${path}`, {
+            headers: { "Content-Type": "application/json" },
+            ...options,
+        });
+    } catch {
+        throw new Error("No se pudo conectar con el servidor. Verificá tu conexión e intentá de nuevo.");
+    }
 
     if (!res.ok) {
         const message = await res.text().catch(() => "");
