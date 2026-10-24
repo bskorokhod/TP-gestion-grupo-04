@@ -236,6 +236,7 @@ function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand"
                 type="button"
                 variant={tone === "danger" ? "cardActionDanger" : "cardAction"}
                 size="cardAction"
+                className="size-8"
                 onClick={onClick}
                 disabled={isDisabled}
                 aria-label={tooltip}
@@ -244,7 +245,7 @@ function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand"
             </Button>
             <span
                 aria-hidden="true"
-                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground shadow transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
+                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
             >
                 {tooltip}
             </span>
