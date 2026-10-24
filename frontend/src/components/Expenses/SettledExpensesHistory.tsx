@@ -12,7 +12,6 @@ import {useGetSettledExpenses} from "@/services/BalanceServices.ts";
 
 const MONTHS_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const PAGE_SIZE = 6;
-const VISIBLE_PAGE_BUTTONS = 5;
 const ALL = "ALL";
 
 function formatDate(iso: string): string {
@@ -21,10 +20,22 @@ function formatDate(iso: string): string {
     return `${day} ${MONTHS_SHORT[date.getMonth()].toLowerCase()} ${date.getFullYear()}`;
 }
 
-function visiblePages(current: number, total: number): number[] {
-    const length = Math.min(VISIBLE_PAGE_BUTTONS, total);
-    const start = Math.max(1, Math.min(current - Math.floor(VISIBLE_PAGE_BUTTONS / 2), total - length + 1));
-    return Array.from({length}, (_, index) => start + index);
+type PageItem = number | "ellipsis";
+
+function visiblePages(current: number, total: number): PageItem[] {
+    if (total <= 3) {
+        return Array.from({length: total}, (_, index) => index + 1);
+    }
+
+    if (current <= 2) {
+        return [1, 2, 3, "ellipsis"];
+    }
+
+    if (current >= total - 1) {
+        return ["ellipsis", total - 2, total - 1, total];
+    }
+
+    return ["ellipsis", current - 1, current, current + 1, "ellipsis"];
 }
 
 interface HistoryFilterProps {
@@ -172,7 +183,13 @@ export function SettledExpensesHistory({groupId, initiallyOpen = false}: Settled
                     </div>
                     {totalPages > 1 && <div className="flex items-center gap-2 py-4">
                         <Button variant="page" size="icon" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</Button>
-                        {visiblePages(currentPage, totalPages).map((number) => <Button key={number} variant={number === currentPage ? "success" : "page"} size="icon" onClick={() => setPage(number)}>{number}</Button>)}
+                        {visiblePages(currentPage, totalPages).map((item, index) => item === "ellipsis" ? (
+                            <span key={`ellipsis-${index}`} className="flex size-9 items-center justify-center text-sm text-texto-principal/60" aria-hidden>
+                                …
+                            </span>
+                        ) : (
+                            <Button key={item} variant={item === currentPage ? "success" : "page"} size="icon" onClick={() => setPage(item)}>{item}</Button>
+                        ))}
                         <Button variant="page" size="icon" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>›</Button>
                     </div>}
                 </div>
