@@ -42,6 +42,7 @@ function FormSection({id, title, description, children}: FormSectionProps) {
 
 export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) => {
     const { showSchemaError } = useFormToasts();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [distribution, setDistribution] = useState<DistributionMode | "">("");
     const [voting, setVoting] = useState<VotingModel | "">("");
@@ -109,7 +110,13 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             return;
         }
 
-        await onCreate(result.data);
+        if (isSubmitting) return;
+        try {
+            setIsSubmitting(true);
+            await onCreate(result.data);
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -119,6 +126,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             onClose={onClose}
             onSubmit={handleSubmit}
             modalClassName="max-w-lg"
+            isSubmitting={isSubmitting}
         >
             <FormSection
                 id="create-group-config-title"
