@@ -23,7 +23,6 @@ interface ModalShellProps {
     submitClassName?: string;
     modalClassName?: string;
     secondaryAction?: ModalSecondaryAction;
-    /** Deshabilita el botón de envío mientras la acción está en curso (evita doble submit). */
     isSubmitting?: boolean;
 }
 
