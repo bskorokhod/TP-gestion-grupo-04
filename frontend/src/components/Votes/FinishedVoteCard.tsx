@@ -20,6 +20,10 @@ function describeResult(vote: FinishedVote): ResultBadge {
     if (vote.result === "AGAINST") {
         return { label: "Ganó en contra", className: "text-group-danger" };
     }
+    // Aprobada sin resultado de conteo: el dueño canceló su reserva y el reclamo se cerró sin esperar el quorum.
+    if (vote.outcome === "APPROVED") {
+        return { label: "Aprobada", className: "text-group-green" };
+    }
     return { label: "Cerrada sin resultado", className: "text-ink-soft" };
 }
 
