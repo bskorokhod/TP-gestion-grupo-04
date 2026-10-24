@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/Button.tsx";
 import { Field } from "@/components/Forms/Field.tsx";
 import { TextArea } from "@/components/Forms/TextInput.tsx";
-import { formatDate } from "@/lib/dates.ts";
+import { dateKey, formatDate } from "@/lib/dates.ts";
 import type { Reservation } from "@/models/Reservation.ts";
 
 interface ReservationDetailProps {
@@ -50,6 +50,8 @@ export function ReservationDetail({
                 <Button variant="dangerOutline" size="sm" className="mt-3 rounded-full" onClick={onCancelOwn}>
                     Cancelar mi reserva
                 </Button>
+            ) : reservation.startDate <= dateKey(new Date()) ? (
+                <p className="mt-3 text-xs text-group-muted">Esta reserva ya comenzó, por lo que no se puede reclamar.</p>
             ) : (
                 <form
                     className="mt-4 space-y-2"

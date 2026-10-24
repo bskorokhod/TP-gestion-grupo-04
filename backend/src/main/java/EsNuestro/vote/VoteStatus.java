@@ -5,8 +5,8 @@ public enum VoteStatus {
     ACTIVE,
 
     /**
-     * Ya tiene resultado y se ejecutó: no se muestra a los miembros, pero se conserva (borrado lógico)
-     * para el futuro historial de decisiones.
+     * Ya tiene resultado y se ejecutó: no se muestra entre las votaciones activas, pero se conserva (borrado lógico)
+     * y se lista en el historial ({@code GET /groups/{id}/votes/history}).
      */
     FINALIZED
 }

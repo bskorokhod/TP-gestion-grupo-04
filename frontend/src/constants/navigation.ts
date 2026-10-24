@@ -3,6 +3,7 @@ import {ReactNode} from "react";
 export interface GroupNavbarProps {
     children?: ReactNode,
     groupName?: string;
+    description?: string;
 }
 
 export const GROUP_PAGES = [
