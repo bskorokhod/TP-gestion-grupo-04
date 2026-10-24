@@ -6,7 +6,7 @@ import {
     CastBallotInput,
     ConfigChangeCreate,
     FinishedVotePage,
-    FinishedVotePageSchema,
+    FinishedVotePageSchema, FinishedVoteSummary, FinishedVoteSummarySchema,
     Vote,
     VoteSchema,
     VoteType,
@@ -46,6 +46,24 @@ export function useGetFinishedVotes(groupId: number | undefined, type?: VoteType
             if (type) params.set("type", type);
             const data = await api.get(`/groups/${groupId}/votes/history?${params.toString()}`);
             return FinishedVotePageSchema.parse(data);
+        },
+    });
+}
+
+/**
+ * Conteo del historial del grupo: cuántas votaciones finalizadas se aprobaron y cuántas no (`rejected` incluye las
+ * rechazadas y las que ganaron pero no pudieron ejecutarse). Lo calcula el backend. La clave cuelga del historial, así que
+ * se invalida junto con él. `enabled` permite no pedirlo si no se está viendo.
+ */
+export function useGetFinishedVotesSummary(groupId: number | undefined, enabled = true) {
+    const api = useApiClient();
+
+    return useQuery({
+        queryKey: ["groups", groupId, "votes", "history", "summary"] as const,
+        enabled: enabled && typeof groupId === "number" && Number.isFinite(groupId) && groupId > 0,
+        queryFn: async (): Promise<FinishedVoteSummary> => {
+            const data = await api.get(`/groups/${groupId}/votes/history/summary`);
+            return FinishedVoteSummarySchema.parse(data);
         },
     });
 }

@@ -158,3 +158,10 @@ export const FinishedVotePageSchema = z.object({
   hasNext: z.boolean(),
 });
 export type FinishedVotePage = z.infer<typeof FinishedVotePageSchema>;
+
+/** Conteo del historial: `rejected` incluye las que no se aprobaron (rechazadas o que no pudieron ejecutarse). */
+export const FinishedVoteSummarySchema = z.object({
+  approved: z.number(),
+  rejected: z.number(),
+});
+export type FinishedVoteSummary = z.infer<typeof FinishedVoteSummarySchema>;

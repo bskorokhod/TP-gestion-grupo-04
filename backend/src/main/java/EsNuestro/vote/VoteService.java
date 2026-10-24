@@ -18,6 +18,7 @@ import EsNuestro.reservation.CancellationRequestedEvent;
 import EsNuestro.reservation.ReservationCancelledEvent;
 import EsNuestro.vote.dtos.ConfigChangeDTO;
 import EsNuestro.vote.dtos.FinishedVoteDTO;
+import EsNuestro.vote.dtos.FinishedVoteSummaryDTO;
 import EsNuestro.vote.dtos.VoteDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -222,6 +223,22 @@ class VoteService {
                 : voteRepository.findByGroup_IdAndStatusAndType(groupId, VoteStatus.FINALIZED, type, pageable);
 
         return PageDTO.from(votes.map(FinishedVoteDTO::from));
+    }
+
+    /**
+     * Conteo del historial: cuántas votaciones finalizadas del grupo se aprobaron y cuántas no. Las no aprobadas son las
+     * rechazadas y las que ya no pudieron ejecutarse (EXECUTION_FAILED). Lo ve cualquier miembro del grupo, como el historial.
+     */
+    FinishedVoteSummaryDTO summarizeFinishedVotes(Long groupId, String username) throws ItemNotFoundException {
+        groupService.requireViewer(groupId, username);
+
+        long approved = voteRepository.countByGroup_IdAndStatusAndOutcomeIn(
+                groupId, VoteStatus.FINALIZED, List.of(VoteOutcome.APPROVED)
+        );
+        long rejected = voteRepository.countByGroup_IdAndStatusAndOutcomeIn(
+                groupId, VoteStatus.FINALIZED, List.of(VoteOutcome.REJECTED, VoteOutcome.EXECUTION_FAILED)
+        );
+        return new FinishedVoteSummaryDTO(approved, rejected);
     }
 
     /** Emite o cambia el voto del caller mientras la votación esté activa. */

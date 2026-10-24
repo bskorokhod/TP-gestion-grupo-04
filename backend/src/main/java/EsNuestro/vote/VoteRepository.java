@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -35,4 +36,6 @@ interface VoteRepository extends JpaRepository<Vote, Long> {
     Page<Vote> findByGroup_IdAndStatus(Long groupId, VoteStatus status, Pageable pageable);
 
     Page<Vote> findByGroup_IdAndStatusAndType(Long groupId, VoteStatus status, VoteType type, Pageable pageable);
+
+    long countByGroup_IdAndStatusAndOutcomeIn(Long groupId, VoteStatus status, Collection<VoteOutcome> outcomes);
 }
