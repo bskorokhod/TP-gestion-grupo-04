@@ -42,6 +42,7 @@ function FormSection({id, title, description, children}: FormSectionProps) {
 
 export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) => {
     const { showSchemaError } = useFormToasts();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [distribution, setDistribution] = useState<DistributionMode | "">("");
     const [voting, setVoting] = useState<VotingModel | "">("");
@@ -109,7 +110,13 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             return;
         }
 
-        await onCreate(result.data);
+        if (isSubmitting) return;
+        try {
+            setIsSubmitting(true);
+            await onCreate(result.data);
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -119,6 +126,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             onClose={onClose}
             onSubmit={handleSubmit}
             modalClassName="max-w-lg"
+            isSubmitting={isSubmitting}
         >
             <FormSection
                 id="create-group-config-title"
@@ -151,7 +159,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                     placeholder="Elegí una opción"
                     options={DISTRIBUTION_OPTIONS}
                     value={distribution}
-                    onChange={(event) => handleDistributionChange(event.target.value as DistributionMode)}
+                    onChange={(value) => handleDistributionChange(value as DistributionMode)}
                     required
                 />
                 <SelectField
@@ -161,7 +169,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                     placeholder="Elegí una opción"
                     options={votingOptions}
                     value={voting}
-                    onChange={(event) => setVoting(event.target.value as VotingModel)}
+                    onChange={(value) => setVoting(value as VotingModel)}
                     disabled={settingsLocked}
                     required
                 />
@@ -172,7 +180,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                     placeholder="Elegí una opción"
                     options={reservationOptions}
                     value={reservation}
-                    onChange={(event) => handleReservationChange(event.target.value as ReservationLimitPolicy)}
+                    onChange={(value) => handleReservationChange(value as ReservationLimitPolicy)}
                     disabled={settingsLocked}
                     required
                 />

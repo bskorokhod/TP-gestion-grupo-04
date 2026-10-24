@@ -5,6 +5,7 @@ import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -78,6 +79,10 @@ public abstract class Vote {
 
     private Instant finalizedAt;
 
+    /** Conteo al finalizar; null mientras la votación está activa. Ver {@link TallySnapshot}. */
+    @Embedded
+    private TallySnapshot finalTally;
+
     @OneToMany(mappedBy = "vote", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Ballot> ballots = new ArrayList<>();
 
@@ -132,5 +137,6 @@ public abstract class Vote {
         this.outcome = outcome;
         this.failureReason = failureReason;
         this.finalizedAt = Instant.now();
+        this.finalTally = TallySnapshot.of(votingModel, tallyEntries());
     }
 }

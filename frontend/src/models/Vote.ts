@@ -117,3 +117,51 @@ export interface CastBallotInput {
   readonly voteId: number;
   readonly choice: VoteChoice;
 }
+
+// ─── Historial ───────────────────────────────────────────────────────────────────────────
+
+/** Quién ganó según el conteo; null si la votación se cerró sin que el conteo la resolviera. */
+export const FinishedVoteResultSchema = z.enum(["IN_FAVOR", "AGAINST"]);
+export type FinishedVoteResult = z.infer<typeof FinishedVoteResultSchema>;
+
+/**
+ * Votación finalizada. `votingModel` es el criterio con el que se votó y `progress` el conteo al finalizar. Con `outcome`
+ * EXECUTION_FAILED y `result` IN_FAVOR ganó el "a favor" pero la acción ya no pudo aplicarse (ver `failureReason`).
+ */
+export const FinishedVoteSchema = z.object({
+  id: z.number(),
+  groupId: z.number(),
+  type: VoteTypeSchema,
+  votingModel: VotingModelSchema,
+  outcome: VoteOutcomeSchema,
+  result: FinishedVoteResultSchema.nullish(),
+  failureReason: z.string().nullish(),
+  proposer: ExpenseMemberSchema,
+  createdAt: z.string(),
+  finalizedAt: z.string(),
+  progress: VoteProgressSchema,
+  /** Solo en EXTRAORDINARY_EXPENSE. */
+  expenseProposal: ProposedExpenseSchema.nullish(),
+  configChange: ConfigChangeSchema.nullish(), /** Solo en CONFIG_CHANGE. */
+  reservationClaim: ReservationClaimSchema.nullish(), /** Solo en RESERVATION_CLAIM. */
+  expenseReport: ExpenseReportSchema.nullish(), /** Solo en EXPENSE_REPORT. */
+});
+export type FinishedVote = z.infer<typeof FinishedVoteSchema>;
+
+/** `page` arranca en 0. */
+export const FinishedVotePageSchema = z.object({
+  items: z.array(FinishedVoteSchema),
+  page: z.number(),
+  size: z.number(),
+  totalElements: z.number(),
+  totalPages: z.number(),
+  hasNext: z.boolean(),
+});
+export type FinishedVotePage = z.infer<typeof FinishedVotePageSchema>;
+
+/** Conteo del historial: `rejected` incluye las que no se aprobaron (rechazadas o que no pudieron ejecutarse). */
+export const FinishedVoteSummarySchema = z.object({
+  approved: z.number(),
+  rejected: z.number(),
+});
+export type FinishedVoteSummary = z.infer<typeof FinishedVoteSummarySchema>;

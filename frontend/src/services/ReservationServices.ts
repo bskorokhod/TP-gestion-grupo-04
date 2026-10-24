@@ -46,6 +46,8 @@ export function useCancelReservation(groupId: number) {
         },
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: reservationsKey(groupId) });
+            void queryClient.invalidateQueries({ queryKey: cancellationRequestsKey(groupId) });
+            void queryClient.invalidateQueries({ queryKey: ["groups", groupId, "votes"] });
         },
     });
 }
