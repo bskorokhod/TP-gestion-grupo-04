@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useMemo, useState} from "react";
 import {Link, useLocation} from "wouter";
 import {MemberInfoCard} from "@/components/AdminCard";
 import Button from "@/components/Button.tsx";
@@ -10,6 +10,8 @@ import {cn} from "@/lib/cn.ts";
 import type {GroupSettings, Member} from "@/models/Group.ts";
 import type {ConfigChangeKind, ConfigChangeRequest, ModalSettingItem} from "@/models/Config.ts";
 import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useRejectJoinRequest } from "@/services/GroupServices.ts";
+import {useMyMember} from "@/hooks/useMyMember.ts";
+import {useUpdateMyNickname} from "@/services/NicknameServices.ts";
 import {toast, type BackendError} from "@/hooks/useToast.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import {describeResolvedVote} from "@/lib/votes.ts";
@@ -73,6 +75,29 @@ interface MembersSectionProps {
 
 function MembersSection({ groupId }: MembersSectionProps) {
     const membersQuery = useGetGroupMembers(groupId, "ACTIVE");
+    const myMember = useMyMember(groupId);
+    const updateNickname = useUpdateMyNickname(groupId);
+    const { showApiError, showSuccessToast } = useFormToasts();
+
+    const members = membersQuery.data ?? [];
+
+    // El propio miembro siempre va primero; el resto conserva el orden que devuelve el backend.
+    const orderedMembers = useMemo(() => {
+        if (!myMember) return members;
+        const mine = members.filter((member) => member.id === myMember.id);
+        const others = members.filter((member) => member.id !== myMember.id);
+        return [...mine, ...others];
+    }, [members, myMember]);
+
+    async function handleSaveNickname(nickname: string) {
+        try {
+            const updated = await updateNickname.mutateAsync({ nickname });
+            showSuccessToast("Apodo actualizado", `Tu apodo en el grupo ahora es "${updated.nickname}".`);
+        } catch (error) {
+            showApiError(error as BackendError, "No se pudo guardar tu apodo");
+            throw error;
+        }
+    }
 
     if (membersQuery.isLoading) {
         return (
@@ -90,8 +115,6 @@ function MembersSection({ groupId }: MembersSectionProps) {
         );
     }
 
-    const members = membersQuery.data ?? [];
-
     if (members.length === 0) {
         return (
             <p className="text-base text-warm-muted py-4">
@@ -102,9 +125,18 @@ function MembersSection({ groupId }: MembersSectionProps) {
 
     return (
         <div className="grid grid-cols-1 gap-8 justify-between items-start self-stretch py-4 sm:grid-cols-2 xl:grid-cols-3">
-            {members.map((member) => (
-                <MemberInfoCard key={member.id} member={member} />
-            ))}
+            {orderedMembers.map((member) => {
+                const isMine = member.id === myMember?.id;
+                return (
+                    <MemberInfoCard
+                        key={member.id}
+                        member={member}
+                        isMine={isMine}
+                        onSaveNickname={isMine ? handleSaveNickname : undefined}
+                        isSaving={isMine && updateNickname.isPending}
+                    />
+                );
+            })}
         </div>
     );
 }
