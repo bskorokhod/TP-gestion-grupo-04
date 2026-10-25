@@ -130,7 +130,7 @@ export function MemberInfoCard({ member, isMine = false, onSaveNickname, isSavin
                         </div>
                     ) : (
                         <div className="flex min-w-0 flex-1 flex-col items-start">
-                            <div className="flex min-w-0 max-w-full flex-row items-center gap-2">
+                            <div className="flex h-6.5 min-w-0 max-w-full flex-row items-center gap-2">
                                 <p className="min-w-0 truncate text-xl font-semibold text-ink leading-6.5">
                                     {member.nickname}
                                 </p>
