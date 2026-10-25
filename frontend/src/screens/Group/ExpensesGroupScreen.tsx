@@ -9,6 +9,7 @@ import {PerExpenseView} from "@/components/Expenses/PerExpenseView.tsx";
 import {useGetGroupByCode} from "@/services/GroupServices.ts";
 import {useGetGroupSummary} from "@/services/ExpenseServices.ts";
 import {formatCurrency} from "@/lib/format.ts";
+import {SettledExpensesHistory} from "@/components/Expenses/SettledExpensesHistory.tsx";
 
 
 export const ExpensesGroupScreen = () => {
@@ -57,11 +58,15 @@ export const ExpensesGroupScreen = () => {
 
             <GroupStoppedBanner className="mx-5 mt-6 sm:mx-8 lg:mx-30"/>
 
-            {group?.id != null
-                ? personView
-                    ? <PerPersonView groupId={group.id}/>
-                    : <PerExpenseView groupId={group.id}/>
-                : null}
+            <section className=" space-y-8 px-5 py-8 sm:px-8 lg:px-30 flex-1">
+                {group?.id != null
+                    ? personView
+                        ? <PerPersonView groupId={group.id}/>
+                        : <PerExpenseView groupId={group.id}/>
+                    : null}
+
+                {group?.id != null && <SettledExpensesHistory groupId={group?.id}/>}
+            </section>
 
         </CommonLayout>
     );

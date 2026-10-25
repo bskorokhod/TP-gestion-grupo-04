@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from "react";
+import {faFileInvoiceDollar} from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/Button.tsx";
 import { ReceiptModal } from "@/components/modals/ReceiptModal.tsx";
 import { Avatar } from "@/components/ui/Avatar";
-import { CardActionButton } from "@/components/ui/CardActionButton";
+// TODO IconProp, TooltipPlacement están raro importados, deuda técnica a resolver
+import { CardActionButton, IconProp, TooltipPlacement } from "@/components/ui/CardActionButton";
 import type { MemberColor } from "@/models/Group";
 import { faFlag, faPenToSquare, faReceipt } from "@fortawesome/free-solid-svg-icons";
 import {BALANCE_COLORS, PAYMENT_STATUS_CONFIG, TRANSACTION_VARIANTS, type BalanceStatus, type PaymentStatus, type TransactionVariant,} from "@/constants/expenses.ts";
@@ -162,7 +164,7 @@ export function PersonRow({name, color, amount, paidAmount, totalAmount, status 
                     {config.label}
                 </span>
                 {receiptUrls.length > 0 && (
-                    <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} />
+                    <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} icon={faFileInvoiceDollar} />
                 )}
             </div>
         </div>
@@ -213,27 +215,48 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
     );
 }
 
+
 interface ReceiptActionProps {
     readonly title: string;
     readonly receiptUrl?: string | null;
     readonly receiptUrls?: readonly string[];
+    /** Quien subió cada comprobante de `receiptUrls`, en el mismo orden; el modal lo muestra sobre cada uno. */
+    readonly receiptCaptions?: readonly string[];
+    readonly icon?: IconProp;
+    /** Texto del tooltip; si no se indica, depende de cuántos comprobantes haya. */
+    readonly label?: string;
+    /** Si no es null el botón queda deshabilitado y el tooltip muestra este motivo. */
+    readonly disabledReason?: string | null;
+    readonly tooltipPlacement?: TooltipPlacement;
 }
 
-function ReceiptAction({ title, receiptUrl, receiptUrls }: ReceiptActionProps): ReactNode {
+export function ReceiptAction({
+    title,
+    receiptUrl,
+    receiptUrls,
+    receiptCaptions,
+    icon = faReceipt,
+    label,
+    disabledReason,
+    tooltipPlacement,
+}: ReceiptActionProps): ReactNode {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
     return (
         <>
             <CardActionButton
-                icon={faReceipt}
-                label={receiptUrls && receiptUrls.length > 1 ? "Ver comprobantes adjuntos" : "Ver comprobante adjunto"}
+                icon={icon}
+                label={label ?? (receiptUrls && receiptUrls.length > 1 ? "Ver comprobantes adjuntos" : "Ver comprobante adjunto")}
                 onClick={() => setIsModalOpen(true)}
+                disabledReason={disabledReason}
+                tooltipPlacement={tooltipPlacement}
             />
             {isModalOpen && (
                 <ReceiptModal
                     title={title}
                     receiptUrl={receiptUrl}
                     receiptUrls={receiptUrls}
+                    receiptCaptions={receiptCaptions}
                     onClose={() => setIsModalOpen(false)}
                 />
             )}

@@ -4,21 +4,29 @@ import {useApiClient} from "@/hooks/useApiClient.ts";
 import {
     CategoryBreakdownSchema,
     MonthlySpendingSchema,
+    PaidExpenseSchema,
     SettledExpenseSchema,
     type CategoryBreakdown,
     type MonthlySpending,
+    type PaidExpense,
     type SettledExpense,
     type SpendingScope,
 } from "@/models/Expense.ts";
 
-export type {SettledExpense, SpendingScope};
+export type {PaidExpense, SettledExpense, SpendingScope};
 
 export interface SettledExpensesResult {
     readonly data: readonly SettledExpense[];
     readonly isLoading: boolean;
 }
 
+export interface PaidExpensesResult {
+    readonly data: readonly PaidExpense[];
+    readonly isLoading: boolean;
+}
+
 const NO_DATA: readonly SettledExpense[] = [];
+const NO_PAID_DATA: readonly PaidExpense[] = [];
 
 function isValidId(groupId: number | undefined): groupId is number {
     return typeof groupId === "number" && Number.isFinite(groupId) && groupId > 0;
@@ -53,6 +61,29 @@ export function useGetSettledExpenses(groupId?: number): SettledExpensesResult {
     });
 
     return {data: query.data ?? NO_DATA, isLoading: query.isLoading};
+}
+
+/**
+ * Historial personal: los gastos en los que el usuario tenía una parte y ya la pagó por completo (aunque otros sigan
+ * debiendo), con lo que pagó y a quién, del más nuevo al más viejo. Sin devoluciones ni gastos eliminados. Pasar
+ * `undefined` como `groupId` deja la consulta apagada.
+ *
+ * Cuelga de `["groups", groupId, "expenses"]` igual que el historial del grupo, así que pagar, editar o eliminar un
+ * gasto también lo invalida.
+ */
+export function useGetPaidExpenses(groupId?: number): PaidExpensesResult {
+    const api = useApiClient();
+
+    const query = useQuery({
+        queryKey: ["groups", groupId, "expenses", "paid-by-me"] as const,
+        enabled: isValidId(groupId),
+        queryFn: async (): Promise<PaidExpense[]> => {
+            const data = await api.get(`/groups/${groupId}/expenses/paid-by-me`);
+            return PaidExpenseSchema.array().parse(data);
+        },
+    });
+
+    return {data: query.data ?? NO_PAID_DATA, isLoading: query.isLoading};
 }
 
 /**

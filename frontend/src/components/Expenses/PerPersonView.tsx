@@ -30,7 +30,7 @@ export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => 
     const { data: balances = [], isLoading } = useGetBalancesByPerson(groupId);
 
     return (
-        <section className=" space-y-8 px-5 py-8 sm:px-8 lg:px-30 flex-1">
+        <section className="space-y-4 flex-1">
             <SectionBanner
                 title="Gastos por persona"
                 description="Estas son las deudas que tienen con vos y las que tenés con el resto de los miembros del grupo."
