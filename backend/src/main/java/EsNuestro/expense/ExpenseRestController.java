@@ -8,6 +8,7 @@ import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.DebtDTO;
 import EsNuestro.expense.dtos.PaymentDataDTO;
+import EsNuestro.expense.dtos.PaidExpenseDTO;
 import EsNuestro.expense.dtos.SettledExpenseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -75,6 +76,16 @@ class ExpenseRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
         return expenseService.listSettledExpenses(groupId, principal.email());
+    }
+
+    @GetMapping(value = "/paid-by-me", produces = "application/json")
+    @Operation(summary = "Historial personal: gastos aprobados donde el caller tenía una parte y ya la pagó por completo (aunque el gasto no esté saldado para todos), con lo que pagó, a quién y cuándo (la fecha de su último pago, no la de creación del gasto); sin devoluciones ni gastos eliminados, del pago más nuevo al más viejo")
+    @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
+    List<PaidExpenseDTO> paidByMe(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.listPaidByMe(groupId, principal.email());
     }
 
     @GetMapping(value = "/owed-to-me", produces = "application/json")

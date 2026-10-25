@@ -15,6 +15,7 @@ import EsNuestro.member.GroupMemberRepository;
 import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.ExpenseMemberDTO;
+import EsNuestro.expense.dtos.PaidExpenseDTO;
 import EsNuestro.expense.dtos.SettledExpenseDTO;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,16 +41,19 @@ import java.util.stream.Collectors;
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
+    private final DebtRepository debtRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupService groupService;
 
     @Autowired
     ExpenseService(
             ExpenseRepository expenseRepository,
+            DebtRepository debtRepository,
             GroupMemberRepository groupMemberRepository,
             GroupService groupService
     ) {
         this.expenseRepository = expenseRepository;
+        this.debtRepository = debtRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupService = groupService;
     }
@@ -94,6 +98,23 @@ public class ExpenseService {
 
         return expenseRepository.findSettledByGroupId(groupId, ExpenseStatus.APPROVED).stream()
                 .map(SettledExpenseDTO::from)
+                .toList();
+    }
+
+    /**
+     * Historial personal: los gastos aprobados en los que el caller tenía una parte y ya la pagó por completo, aunque
+     * otros participantes sigan debiendo (el gasto no tiene que estar saldado para todos). Cada fila lleva lo que pagó
+     * el caller, a quién y cuándo lo pagó (la fecha de su último pago, no la de creación del gasto). Las devoluciones no
+     * cuentan y los gastos eliminados no entran. Del pago más nuevo al más viejo.
+     * Como {@link #listSettledExpenses}, solo exige poder ver el grupo.
+     */
+    List<PaidExpenseDTO> listPaidByMe(Long groupId, String username) throws ItemNotFoundException {
+        GroupMember caller = groupService.requireViewer(groupId, username);
+
+        return debtRepository.findByDebtorInGroupAndExpenseStatus(groupId, caller.getId(), ExpenseStatus.APPROVED).stream()
+                .filter(Debt::isPaidShare)
+                .map(PaidExpenseDTO::from)
+                .sorted(Comparator.comparing(PaidExpenseDTO::paidAt).reversed())
                 .toList();
     }
 

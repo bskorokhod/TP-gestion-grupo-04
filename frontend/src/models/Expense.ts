@@ -175,6 +175,21 @@ export const SettledExpenseSchema = z.object({
 });
 export type SettledExpense = z.infer<typeof SettledExpenseSchema>;
 
+/**
+ * Fila del historial personal (`GET /groups/:id/expenses/paid-by-me`): un gasto en el que el usuario tenía una parte y ya
+ * la pagó por completo, aunque el gasto no esté saldado para todos. `paidAmount` es lo que pagó él, `creditor` a quien
+ * se lo pagó y `paidAt` cuándo (la fecha de su último pago, no la de creación del gasto).
+ */
+export const PaidExpenseSchema = z.object({
+  id: z.number(),
+  paidAt: z.string(),
+  title: z.string(),
+  category: ExpenseCategorySchema,
+  creditor: ExpenseMemberSchema,
+  paidAmount: z.number(),
+});
+export type PaidExpense = z.infer<typeof PaidExpenseSchema>;
+
 /** De quién se calcula el balance: todo el grupo, o solo lo que le toca al usuario (su parte de cada gasto). */
 export type SpendingScope = "GROUP" | "ME";
 

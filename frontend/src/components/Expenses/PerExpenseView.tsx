@@ -1,27 +1,15 @@
 import { useState } from "react";
 
 import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
-import {DebtCard, OwedCard, PersonRow, EmptyState, MemberInfo, ExpenseCard} from "@/components/Expenses/ExpensesCard.tsx";
+import {DebtCard, OwedCard, PersonRow, EmptyState, MemberInfo} from "@/components/Expenses/ExpensesCard.tsx";
 import { NewExpenseModal, ReportExpenseModal } from "@/components/modals";
 import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
-import {
-    isVisibleToCreditor,
-    useGetExpensesIOwe,
-    useGetExpensesOwedToMe,
-    useGetGroupSummary,
-    useGetExpenses,
-} from "@/services/ExpenseServices.ts";
+import {isVisibleToCreditor, useGetExpensesIOwe, useGetExpensesOwedToMe, useGetGroupSummary} from "@/services/ExpenseServices.ts";
 import type { Debt, Expense } from "@/models/Expense.ts";
 import {formatCurrency} from "@/lib/format.ts";
 import {useIsGroupStopped} from "@/contexts/GroupContext.tsx";
 import {GROUP_STOPPED_EXPENSE_TITLE} from "@/constants/group.ts";
-import {SettledExpensesHistory} from "@/components/Expenses/SettledExpensesHistory.tsx";
-import {Avatar} from "@/components/ui/Avatar.tsx";
-import {
-    REFUND_OF_CANCELLED_EXPENSE_TAG,
-    REFUND_TAG,
-    REPORT_IN_PROGRESS_TITLE,
-} from "@/constants/expenses.ts";
+import {REFUND_OF_CANCELLED_EXPENSE_TAG, REFUND_TAG, REPORT_IN_PROGRESS_TITLE,} from "@/constants/expenses.ts";
 
 interface PerExpenseViewProps {
     groupId?: number;
@@ -76,7 +64,6 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     const { data: summary } = useGetGroupSummary(groupId);
     const { data: owedToMe = [], isLoading: isLoadingOwed } = useGetExpensesOwedToMe(groupId);
     const { data: iOwe = [], isLoading: isLoadingIOwe } = useGetExpensesIOwe(groupId);
-    const { data: proposed = [], isLoading: isLoadingProposed } = useGetExpenses(groupId, "PENDING_APPROVAL");
 
     const myMemberId = summary?.me.id;
 
@@ -138,46 +125,6 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                                 }
                             />
                         ))}
-                    </div>
-                )}
-            </div>
-
-            {groupId != null && <SettledExpensesHistory groupId={groupId}/>}
-
-            <div className="space-y-4">
-                <SectionBanner
-                    title="Gastos propuestos"
-                    description="Estos gastos están esperando la aprobación del grupo."
-                    variant="allDebt"
-                    action={undefined}
-                />
-                {isLoadingProposed ? (
-                    <EmptyState message="Cargando gastos propuestos…" />
-                ) : proposed.length === 0 ? (
-                    <EmptyState message="No hay gastos propuestos." />
-                ) : (
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        {proposed.map((expense) => {
-                            const details = expense.pendingDetails ?? expense.details;
-                            return (
-                                <ExpenseCard key={expense.id} className="flex min-h-32 flex-col justify-between">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <h3 className="text-base font-semibold">{details.title}</h3>
-                                            <p className="mt-1 text-sm text-group-muted">{details.description || "Sin descripción"}</p>
-                                        </div>
-                                        <span className="rounded-full bg-field/70 px-3 py-1 text-xs font-medium text-group-muted">Pendiente</span>
-                                    </div>
-                                    <div className="mt-4 flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <Avatar name={expense.creator.nickname} color={expense.creator.color} photoUrl={expense.creator.photoUrl}/>
-                                            <span>Propuesto por {expense.creator.nickname}</span>
-                                        </div>
-                                        <strong className="text-brand">{formatCurrency(details.totalAmount)}</strong>
-                                    </div>
-                                </ExpenseCard>
-                            );
-                        })}
                     </div>
                 )}
             </div>
