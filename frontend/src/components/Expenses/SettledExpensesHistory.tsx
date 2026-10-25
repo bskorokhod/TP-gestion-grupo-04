@@ -13,7 +13,7 @@ export function SettledExpensesHistory({groupId, initiallyOpen = false}: Settled
     const [isOpen, setIsOpen] = useState(initiallyOpen);
 
     return (
-        <section className=" space-y-4 px-5 pb-8 sm:px-8 lg:px-30 flex-1">
+        <section className="space-y-4 flex-1">
             <button
                 type="button"
                 className="flex w-full items-center justify-between gap-4 rounded-full bg-warm-muted px-6 py-3 text-left text-white shadow-sm transition-colors hover:bg-[#6c6a62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:px-8 sm:py-4"

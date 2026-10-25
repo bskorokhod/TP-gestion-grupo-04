@@ -292,15 +292,16 @@ public class ExpenseService {
     }
 
     /**
-     * Gastos donde el caller es acreedor de alguna deuda a la vista: sin saldar o, en un gasto aprobado, con un pago
-     * declarado que puede revisar. Es el acreedor de un gasto aprobado o quien tiene una devolución a favor.
+     * Gastos donde el caller es acreedor de alguna deuda todavía sin saldar: el acreedor de un gasto aprobado o quien tiene
+     * una devolución a favor. Cuando todas se saldan el gasto sale de esta lista y pasa al historial. Mientras siga abierto
+     * trae todas sus deudas, también las ya pagadas, para que se vea quién pagó.
      */
     List<ExpenseDTO> owedToMe(Long groupId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
                 .filter(this::hasLiveDebts)
                 .filter(expense -> expense.getDebts().stream().anyMatch(debt ->
-                        debt.getCreditor().getId().equals(caller.getId()) && isOwedToCreditor(expense, debt)))
+                        debt.getCreditor().getId().equals(caller.getId()) && debt.isUnsettled()))
                 .map(ExpenseDTO::from)
                 .toList();
     }
@@ -471,17 +472,6 @@ public class ExpenseService {
             return Optional.of("The expense is no longer active, it is " + expense.getStatus());
         }
         return proposed == null ? Optional.empty() : findRegistrationBlocker(proposed);
-    }
-
-    /**
-     * Una deuda sigue a la vista de su acreedor mientras no se salde y, en un gasto aprobado, también después de que le
-     * declararon un pago: así puede revisar el comprobante y reclamarlo. Las deudas en cero no cuentan.
-     */
-    private boolean isOwedToCreditor(Expense expense, Debt debt) {
-        if (debt.isUnsettled()) {
-            return true;
-        }
-        return expense.getStatus() == ExpenseStatus.APPROVED && debt.getAmount().signum() > 0 && debt.hasPayments();
     }
 
     /** Gastos con deudas vigentes: los aprobados y los cancelados (que pueden tener devoluciones pendientes). */

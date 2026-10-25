@@ -116,8 +116,10 @@ function isOpenDebt(debt: Debt): boolean {
 }
 
 /**
- * Una deuda sigue a la vista de su acreedor mientras no se salde y, en un gasto aprobado, también después de que le
- * declararon un pago: así puede revisar el comprobante y reclamarlo. Las deudas en cero no cuentan.
+ * Qué filas de deuda muestra la tarjeta de "Gastos que me deben" de un gasto que ya está en la lista: las abiertas y, en
+ * un gasto aprobado, también las que ya tienen un pago declarado, para ver quién pagó y revisar el comprobante. No decide
+ * si el gasto aparece en la lista: eso lo define {@link useGetExpensesOwedToMe}, que lo muestra solo mientras alguna
+ * deuda siga abierta. Las deudas en cero no cuentan.
  */
 export function isVisibleToCreditor(expense: Expense, debt: Debt): boolean {
   if (isOpenDebt(debt)) return true;
@@ -173,6 +175,11 @@ export interface DerivedExpensesResult {
 }
 
 
+/**
+ * Gastos donde el caller es acreedor de alguna deuda todavía abierta. Cuando todos pagan, el gasto sale de esta lista
+ * (pasa al historial de Balance); mientras quede alguien sin pagar se muestra completo, con los que ya pagaron
+ * incluidos (ver {@link isVisibleToCreditor}).
+ */
 export function useGetExpensesOwedToMe(groupId?: number): DerivedExpensesResult {
   const query = useGetExpenses(groupId);
   const me = useMyMember(groupId);
@@ -180,7 +187,7 @@ export function useGetExpensesOwedToMe(groupId?: number): DerivedExpensesResult 
   const data = useMemo<Expense[]>(() => {
     if (!me || !query.data) return [];
     return query.data.filter(
-        (e) => hasLiveDebts(e) && e.debts.some((d) => d.creditor.id === me.id && isVisibleToCreditor(e, d)),
+        (e) => hasLiveDebts(e) && e.debts.some((d) => d.creditor.id === me.id && isOpenDebt(d)),
     );
   }, [query.data, me]);
 
