@@ -1,5 +1,6 @@
 package EsNuestro.vote;
 
+import EsNuestro.common.api.PageDTO;
 import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.expense.Expense;
 import EsNuestro.expense.ExpenseDetails;
@@ -16,9 +17,15 @@ import EsNuestro.reservation.CancellationRequest;
 import EsNuestro.reservation.CancellationRequestedEvent;
 import EsNuestro.reservation.ReservationCancelledEvent;
 import EsNuestro.vote.dtos.ConfigChangeDTO;
+import EsNuestro.vote.dtos.FinishedVoteDTO;
+import EsNuestro.vote.dtos.FinishedVoteSummaryDTO;
 import EsNuestro.vote.dtos.VoteDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -26,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +51,7 @@ import java.util.Optional;
 class VoteService {
 
     private static final int MAX_FAILURE_REASON_LENGTH = 300;
+    static final int MAX_HISTORY_PAGE_SIZE = 50;
 
     private final VoteRepository voteRepository;
     private final GroupService groupService;
@@ -194,6 +203,44 @@ class VoteService {
                 .toList();
     }
 
+    /**
+     * Historial: votaciones finalizadas del grupo, de la que cerró más recientemente a la más antigua, opcionalmente de un
+     * solo tipo. Lo ve cualquier miembro del grupo, haya participado o no; las activas no aparecen. {@code page} arranca
+     * en 0 y {@code size} se acota a [1, {@value #MAX_HISTORY_PAGE_SIZE}].
+     */
+    PageDTO<FinishedVoteDTO> listFinishedVotes(
+            Long groupId, String username, VoteType type, int page, int size
+    ) throws ItemNotFoundException {
+        groupService.requireViewer(groupId, username);
+
+        Pageable pageable = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), MAX_HISTORY_PAGE_SIZE),
+                Sort.by(Sort.Direction.DESC, "finalizedAt").and(Sort.by(Sort.Direction.DESC, "id"))
+        );
+        Page<Vote> votes = type == null
+                ? voteRepository.findByGroup_IdAndStatus(groupId, VoteStatus.FINALIZED, pageable)
+                : voteRepository.findByGroup_IdAndStatusAndType(groupId, VoteStatus.FINALIZED, type, pageable);
+
+        return PageDTO.from(votes.map(FinishedVoteDTO::from));
+    }
+
+    /**
+     * Conteo del historial: cuántas votaciones finalizadas del grupo se aprobaron y cuántas no. Las no aprobadas son las
+     * rechazadas y las que ya no pudieron ejecutarse (EXECUTION_FAILED). Lo ve cualquier miembro del grupo, como el historial.
+     */
+    FinishedVoteSummaryDTO summarizeFinishedVotes(Long groupId, String username) throws ItemNotFoundException {
+        groupService.requireViewer(groupId, username);
+
+        long approved = voteRepository.countByGroup_IdAndStatusAndOutcomeIn(
+                groupId, VoteStatus.FINALIZED, List.of(VoteOutcome.APPROVED)
+        );
+        long rejected = voteRepository.countByGroup_IdAndStatusAndOutcomeIn(
+                groupId, VoteStatus.FINALIZED, List.of(VoteOutcome.REJECTED, VoteOutcome.EXECUTION_FAILED)
+        );
+        return new FinishedVoteSummaryDTO(approved, rejected);
+    }
+
     /** Emite o cambia el voto del caller mientras la votación esté activa. */
     VoteDTO castBallot(Long groupId, Long voteId, VoteChoice choice, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
@@ -265,17 +312,33 @@ class VoteService {
     }
 
     /**
-     * Si el dueño cancela su reserva, los reclamos abiertos sobre ella dejan de tener sentido: se cierran y la
-     * solicitud queda rechazada. Corre en la transacción de {@code ReservationService.cancelOwnReservation}, que ya
-     * tiene el lock del grupo.
+     * Si el dueño cancela su reserva, los reclamos abiertos sobre ella se aprueban en el acto: lo que se votaba (cancelar la
+     * reserva) ya ocurrió, así que la solicitud queda aprobada y la votación se cierra sin esperar el quórum. Corre en la
+     * transacción de {@code ReservationService.cancelOwnReservation}, que ya tiene el lock del grupo.
      */
     @EventListener
     public void onReservationCancelled(ReservationCancelledEvent event) {
         for (Vote vote : voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE)) {
             if (vote instanceof ReservationClaimVote claim
                     && claim.getCancellationRequest().getReservation().getId().equals(event.reservationId())) {
-                claim.getCancellationRequest().reject();
-                claim.finalizeWith(VoteOutcome.EXECUTION_FAILED, "The reservation was canceled by its owner");
+                claim.getCancellationRequest().approve();
+                claim.finalizeWith(VoteOutcome.APPROVED, "The reservation was canceled by its owner");
+            }
+        }
+    }
+
+    /**
+     * Rechaza los reclamos activos de reservas que ya comenzaron (su inicio es {@code today} o antes): si no alcanzaron el
+     * quorum a tiempo, reclamar una reserva en curso no tiene sentido. Rechazar no ejecuta nada, así que se hace aún con
+     * el grupo detenido. Lo invoca {@code ReservationClaimExpirationJob}, una transacción por grupo, tomando el lock del
+     * grupo como el resto de las operaciones.
+     */
+    void rejectClaimsOfStartedReservations(Long groupId, LocalDate today) throws ItemNotFoundException {
+        groupService.requireGroupForUpdate(groupId);
+        for (Vote vote : voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(groupId, VoteStatus.ACTIVE)) {
+            if (vote instanceof ReservationClaimVote claim
+                    && claim.getCancellationRequest().getReservation().hasStartedBy(today)) {
+                reject(claim, "The reservation started before the vote reached a quorum");
             }
         }
     }
@@ -309,15 +372,17 @@ class VoteService {
         switch (result) {
             case OPEN -> {
             }
-            case REJECTED -> {
-                VoteExecutor executor = executors.get(vote.getType());
-                if (executor != null) {
-                    executor.onRejected(vote);
-                }
-                vote.finalizeWith(VoteOutcome.REJECTED, null);
-            }
+            case REJECTED -> reject(vote, null);
             case APPROVED -> executeApproved(vote);
         }
+    }
+
+    private void reject(Vote vote, String reason) {
+        VoteExecutor executor = executors.get(vote.getType());
+        if (executor != null) {
+            executor.onRejected(vote);
+        }
+        vote.finalizeWith(VoteOutcome.REJECTED, reason);
     }
 
     private void executeApproved(Vote vote) {

@@ -189,12 +189,10 @@ export function useReservationsCalendar() {
     };
 
     const navigateMonth = (amount: number) => {
-        setVisibleMonth((month) => {
-            const next = new Date(month.getFullYear(), month.getMonth() + amount, 1);
-            const current = monthStart(new Date());
-            return next < current ? current : next;
-        });
+        setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + amount, 1));
     };
+
+    const goToToday = () => setVisibleMonth(monthStart(new Date()));
 
     return {
         members,
@@ -204,8 +202,9 @@ export function useReservationsCalendar() {
         groupStopped,
         firstBookableDate,
         visibleMonth,
-        canGoBack: visibleMonth > monthStart(new Date()),
+        isPastMonth: visibleMonth < monthStart(new Date()),
         navigateMonth,
+        goToToday,
         reservationOn,
         range,
         selected,

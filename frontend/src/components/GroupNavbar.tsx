@@ -5,7 +5,7 @@ import {GROUP_PAGES, GroupNavbarProps, PAGES_NAVBAR_DATA, Routes} from "@/consta
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 
 
-export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarProps) {
+export function GroupNavbar({children, groupName: groupNameProp, description}: GroupNavbarProps) {
     const [location] = useLocation();
     const group = useCurrentGroup();
     const groupName = groupNameProp ?? group.name;
@@ -54,7 +54,7 @@ export function GroupNavbar({children, groupName: groupNameProp}: GroupNavbarPro
 
                         <h1 className="mt-1 text-3xl font-black sm:text-4xl pb-1">{groupName? groupName : pageText.title}</h1>
 
-                        <p className="mt-1 text-sm sm:text-base text-brand-foreground/90 max-w-3xl"> {pageText.description} </p>
+                        <p className="mt-1 text-sm sm:text-base text-brand-foreground/90 max-w-3xl"> {description ?? pageText.description} </p>
                     </div>
 
                     {children}

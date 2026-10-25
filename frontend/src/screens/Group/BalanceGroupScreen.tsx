@@ -1,4 +1,6 @@
 import {useMemo, useState} from "react";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {faChevronLeft, faChevronRight} from "@fortawesome/free-solid-svg-icons";
 import {CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
 
 import Navbar from "@/components/Navbar.tsx";
@@ -9,13 +11,12 @@ import FilterSelect from "@/components/Forms/FilterSelect.tsx";
 import type {SelectOption} from "@/components/Forms/SelectField.tsx";
 import {Avatar} from "@/components/ui/Avatar.tsx";
 import {
-    categoryColor,
     categoryLabel,
     EXPENSE_CATEGORIES,
 } from "@/constants/expenseCategories.ts";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {formatCurrency} from "@/lib/format.ts";
-import {memberChartColor, memberColorClass} from "@/lib/colors.ts";
+import {categoryBadgeClass, categoryChartColor, categoryDotClass, memberChartColor} from "@/lib/colors.ts";
 import {
     useGetCategorySpending,
     useGetMonthlySpending,
@@ -38,6 +39,8 @@ const ALL = "ALL";
 const LINE_COLOR = memberChartColor("GREEN");
 
 const cardClass = "flex flex-1 flex-col gap-5 rounded-3xl bg-panel p-7";
+
+const HISTORY_GRID = "grid grid-cols-[7.5rem_9rem_minmax(0,1fr)_12rem_7rem] items-center gap-x-4 pr-6";
 
 /** Un mes concreto; `month` va de 0 (enero) a 11, como `Date#getMonth`. */
 interface Period {
@@ -154,15 +157,12 @@ export const BalanceGroupScreen = () => {
     const slices = useMemo<Slice[]>(
         () =>
             (breakdown?.categories ?? [])
-                .map(({category: slice, amount}) => {
-                    const color = categoryColor(slice);
-                    return {
-                        name: categoryLabel(slice),
-                        amount,
-                        fill: memberChartColor(color),
-                        dot: memberColorClass(color),
-                    };
-                })
+                .map(({category: slice, amount}) => ({
+                    name: categoryLabel(slice),
+                    amount,
+                    fill: categoryChartColor(slice),
+                    dot: categoryDotClass(slice),
+                }))
                 .sort((a, b) => b.amount - a.amount),
         [breakdown],
     );
@@ -228,7 +228,7 @@ export const BalanceGroupScreen = () => {
                                     disabled={!canGoBack}
                                     onClick={() => shiftMonth(-1)}
                                 >
-                                    ‹
+                                    <FontAwesomeIcon icon={faChevronLeft} aria-hidden />
                                 </Button>
                                 <Button
                                     variant="page"
@@ -237,7 +237,7 @@ export const BalanceGroupScreen = () => {
                                     disabled={!canGoForward}
                                     onClick={() => shiftMonth(1)}
                                 >
-                                    ›
+                                    <FontAwesomeIcon icon={faChevronRight} aria-hidden />
                                 </Button>
                             </div>
                         </div>
@@ -250,8 +250,8 @@ export const BalanceGroupScreen = () => {
                                     : "No hay gastos saldados en este mes"}
                             />
                         ) : (
-                            <div className="flex items-center justify-between gap-6">
-                                <div className="relative h-56 w-56 shrink-0">
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6">
+                                <div className="relative col-start-2 h-56 w-56">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
@@ -281,7 +281,7 @@ export const BalanceGroupScreen = () => {
                                     </div>
                                 </div>
 
-                                <ul className="flex flex-col gap-3">
+                                <ul className="col-start-3 flex flex-col gap-3">
                                     {slices.map((slice) => (
                                         <li key={slice.name} className="flex items-start gap-3">
                                             <span className={`mt-1 size-2.5 shrink-0 rounded-full ${slice.dot}`} />
@@ -349,40 +349,32 @@ export const BalanceGroupScreen = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-b border-texto-principal py-4 pr-6">
-                        <div className="flex items-center gap-4 text-sm font-medium">
-                            <p>Fecha creación</p>
-                            <p>Categoría</p>
-                            <p>Nombre del gasto</p>
-                        </div>
-                        <div className="flex w-48 items-center gap-5 whitespace-nowrap text-sm font-medium">
-                            <p>A cargo de</p>
-                            <p className="w-25">Monto total</p>
-                        </div>
+                    <div className={`${HISTORY_GRID} whitespace-nowrap border-b border-texto-principal py-4 text-sm font-medium`}>
+                        <p>Fecha creación</p>
+                        <p>Categoría</p>
+                        <p>Nombre del gasto</p>
+                        <p>A cargo de</p>
+                        <p>Monto total</p>
                     </div>
 
                     {pageItems.length === 0 && (
-                        <p className="border-b border-warm-muted py-8 text-center text-sm text-texto-principal/60">
+                        <p className="border-b border-warm-muted/30 py-8 text-center text-sm text-texto-principal/60">
                             No hay gastos saldados para mostrar.
                         </p>
                     )}
 
                     {pageItems.map((expense) => (
-                        <div key={expense.id} className="flex items-center justify-between border-b border-warm-muted py-4 pr-6">
-                            <div className="flex items-center gap-4">
-                                <p className="w-20 text-xs text-texto-principal/60">{formatDate(expense.createdAt)}</p>
-                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${memberColorClass(categoryColor(expense.category))}`}>
-                                    {categoryLabel(expense.category)}
-                                </span>
-                                <p className="text-xs">{expense.title}</p>
+                        <div key={expense.id} className={`${HISTORY_GRID} border-b border-warm-muted/30 py-4 transition-colors hover:bg-group-paper`}>
+                            <p className="text-xs text-warm-muted ps-3">{formatDate(expense.createdAt)}</p>
+                            <span className={`justify-self-start rounded-full px-2.5 py-1 text-xs font-medium ${categoryBadgeClass(expense.category)}`}>
+                                {categoryLabel(expense.category)}
+                            </span>
+                            <p className="text-xs">{expense.title}</p>
+                            <div className="flex max-w-full items-center gap-1.5 justify-self-start rounded-2xl bg-fondo py-0.5 pr-1.5 pl-0.5">
+                                <Avatar name={expense.creditor.nickname} color={expense.creditor.color} photoUrl={expense.creditor.photoUrl} />
+                                <p className="truncate text-sm font-medium">{expense.creditor.nickname}</p>
                             </div>
-                            <div className="flex items-center gap-15">
-                                <div className="flex items-center gap-1.5 rounded-2xl bg-fondo py-0.5 pr-1.5 pl-0.5">
-                                    <Avatar name={expense.creditor.nickname} color={expense.creditor.color} photoUrl={expense.creditor.photoUrl} />
-                                    <p className="text-sm font-medium">{expense.creditor.nickname}</p>
-                                </div>
-                                <p className="text-sm font-semibold">{formatCurrency(expense.totalAmount)}</p>
-                            </div>
+                            <p className="text-sm font-semibold">{formatCurrency(expense.totalAmount)}</p>
                         </div>
                     ))}
 

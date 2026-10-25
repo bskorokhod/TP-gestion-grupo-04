@@ -14,7 +14,7 @@ export function MemberPicker({members, onSelect, onClose, emptyLabel,}: MemberPi
             {members.length === 0 ? (
                 <p className="px-2 py-2 text-sm text-modal-muted">{emptyLabel} </p>)
                 :
-                (<ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+                (<ul className="flex flex-col gap-1">
                     {members.map((member) => (
                         <li key={member.id}>
                             <button

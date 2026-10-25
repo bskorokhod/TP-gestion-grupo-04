@@ -55,14 +55,14 @@ function ModalSettingRow({ item, settings, disabled = false, onRequestChange }: 
                 </p>
                 <Button
                     type="button"
-                    variant="danger"
-                    size="icon"
+                    variant="cardAction"
+                    size="cardAction"
                     title={disabled ? CONFIG_BLOCKED_WHEN_STOPPED_LABEL : MODIFY_CONFIG_LABEL}
                     aria-label={`${MODIFY_CONFIG_LABEL}: ${item.title}`}
                     disabled={disabled}
                     onClick={() => onRequestChange(item.kind)}
                 >
-                    <FontAwesomeIcon icon={faPenToSquare} aria-hidden />
+                    <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" aria-hidden />
                 </Button>
             </div>
         </div>
@@ -144,7 +144,6 @@ function MembersSection({ groupId }: MembersSectionProps) {
 interface JoinRequestItemProps {
     readonly member: Member;
     readonly selected: boolean;
-    /** En grupos porcentuales, muestra el porcentaje que pide quien solicita unirse. */
     readonly showPercentage: boolean;
     readonly onToggle: (id: number) => void;
 }
@@ -436,7 +435,7 @@ function JoinCodeShare({ joinCode }: JoinCodeShareProps) {
                 Código de grupo
             </span>
 
-            <div className="inline-flex items-center gap-1 rounded-full border border-modal-border bg-modal-surface py-1 pl-5 pr-1 shadow-none">
+            <div className="inline-flex items-center gap-1 rounded-full bg-modal-surface py-1 pl-5 pr-1 shadow-none">
                 <button
                     type="button"
                     onClick={handleCopy}
@@ -553,10 +552,7 @@ export const ConfigurationScreen = () => {
 
                         <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
                             {isPercentageGroup && (
-                            <Link
-                                href={`${configBasePath}/porcentajes`}
-                                className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left"
-                            >
+                            <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
                                 <div className="flex flex-row gap-5 items-center">
                                     <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
                                         <p className="text-lg font-semibold text-brand">
@@ -572,14 +568,18 @@ export const ConfigurationScreen = () => {
                                         </p>
                                     </div>
                                 </div>
-                                <span
-                                    title={MODIFY_PERCENTAGES_LABEL}
-                                    aria-label={MODIFY_PERCENTAGES_LABEL}
-                                    className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-group-danger text-panel text-xl transition-colors hover:bg-group-danger-soft hover:text-group-danger"
-                                >
-                                    <FontAwesomeIcon icon={faArrowRight} aria-hidden />
-                                </span>
-                            </Link>
+                                <Link href={`${configBasePath}/porcentajes`}>
+                                    <Button
+                                        type="button"
+                                        variant="modalPrimary"
+                                        size="cardAction"
+                                        title={MODIFY_PERCENTAGES_LABEL}
+                                        aria-label={MODIFY_PERCENTAGES_LABEL}
+                                    >
+                                        <FontAwesomeIcon icon={faArrowRight} aria-hidden />
+                                    </Button>
+                                </Link>
+                            </div>
                             )}
 
                             {SETTINGS_INFO.map((item) => (

@@ -11,6 +11,7 @@ import {
 } from "recharts";
 
 import { PercentageCard } from "@/components/AdminCard";
+import Button from "@/components/Button.tsx";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { GroupNavbar } from "@/components/GroupNavbar.tsx";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
@@ -160,7 +161,7 @@ export const PercentageConfigScreen = () => {
         <CommonLayout className="flex flex-col min-h-screen lg:h-screen lg:overflow-hidden">
             <GroupNavbar children={undefined} groupName="" />
 
-            <div className="flex flex-col lg:flex-row flex-1 lg:min-h-0 items-stretch gap-6 bg-background pt-4 px-4 sm:px-12 lg:px-30 pb-6 lg:overflow-hidden">
+            <div className="flex flex-col lg:flex-row lg:justify-center flex-1 lg:min-h-0 items-stretch gap-6 bg-background pt-4 px-4 sm:px-12 lg:px-30 pb-6 lg:overflow-hidden">
                 {isLoading && (
                     <p className="text-base text-warm-muted">Cargando porcentajes del grupo...</p>
                 )}
@@ -173,9 +174,9 @@ export const PercentageConfigScreen = () => {
 
                 {!isLoading && !isError && (
                     <>
-                        <div className="bg-panel p-5 flex flex-col gap-2.5 items-center w-full lg:basis-3/4 lg:min-h-0 rounded-2xl order-2 lg:order-1">
+                        <div className="bg-panel p-5 flex flex-col gap-2.5 items-center w-full lg:w-fit lg:basis-auto lg:shrink-0 lg:min-h-0 rounded-2xl order-2 lg:order-1">
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 w-full flex-1 min-h-0 content-start overflow-visible">
+                            <div className="grid grid-cols-1 gap-2 w-full lg:w-110 flex-1 min-h-0 content-start overflow-visible">
                                 {members.map((member) => {
                                     const isMine = member.id === myMember?.id;
                                     return (
@@ -209,37 +210,35 @@ export const PercentageConfigScreen = () => {
                             </div>
 
                             <div className="flex flex-row flex-wrap lg:flex-nowrap gap-2 justify-center lg:justify-end items-center self-stretch">
-                                <button
+                                <Button
                                     type="button"
+                                    variant="modalSecondary"
                                     onClick={handleCancel}
                                     disabled={updateMutation.isPending || !isDirty}
-                                    className="flex flex-row justify-center items-center bg-panel rounded-[50px] border border-field/60 py-2 px-4 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <p className="text-base font-medium text-ink">Cancelar</p>
-                                </button>
-                                <button
+                                    Cancelar
+                                </Button>
+                                <Button
                                     type="button"
+                                    variant="modalPrimary"
                                     onClick={handleSave}
                                     disabled={!canSave}
                                     aria-disabled={!canSave}
-                                    className="flex flex-row justify-center items-center bg-brand rounded-[50px] border border-brand py-2 px-4 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <p className="text-base font-medium text-brand-foreground whitespace-nowrap">
-                                        {updateMutation.isPending
-                                            ? "Guardando..."
-                                            : !isDirty
-                                                ? "Cambios guardados"
-                                                : "Guardar mi porcentaje"}
-                                    </p>
-                                </button>
+                                    {updateMutation.isPending
+                                        ? "Guardando..."
+                                        : !isDirty
+                                            ? "Cambios guardados"
+                                            : "Guardar mi porcentaje"}
+                                </Button>
                             </div>
                         </div>
 
-                        <div id="percentage-chart" className="w-full lg:basis-1/4 rounded-2xl flex flex-col items-stretch justify-center gap-3 h-72 lg:h-auto lg:min-h-0 shrink-0 order-1 lg:order-2">
+                        <div id="percentage-chart" className="w-full lg:basis-1/2 rounded-2xl flex flex-col items-stretch justify-center gap-3 h-72 lg:h-auto lg:min-h-0 shrink-0 order-1 lg:order-2">
                             {hasChartData ? (
                                 <>
                                     <div className="flex-1 min-h-0 relative">
-                                        <div className="absolute inset-0 [&_*]:outline-none [&_*]:focus:outline-none">
+                                        <div className="absolute inset-0 **:focus:outline-none">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart accessibilityLayer={false}>
                                                     <Pie
@@ -274,7 +273,7 @@ export const PercentageConfigScreen = () => {
                                                     className={cn("inline-block w-3 h-3 rounded-full shrink-0", entry.unassigned && "border border-field")}
                                                     style={{ backgroundColor: entry.color }}
                                                 />
-                                                <span className="truncate max-w-[9rem]">{entry.name}</span>
+                                                <span className="truncate max-w-36">{entry.name}</span>
                                             </li>
                                         ))}
                                     </ul>
