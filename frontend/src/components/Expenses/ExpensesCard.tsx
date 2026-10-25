@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import {faFileInvoiceDollar} from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/Button.tsx";
 import { ReceiptModal } from "@/components/modals/ReceiptModal.tsx";
 import { Avatar } from "@/components/ui/Avatar";
@@ -163,7 +164,7 @@ export function PersonRow({name, color, amount, paidAmount, totalAmount, status 
                     {config.label}
                 </span>
                 {receiptUrls.length > 0 && (
-                    <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} />
+                    <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} icon={faFileInvoiceDollar} />
                 )}
             </div>
         </div>
