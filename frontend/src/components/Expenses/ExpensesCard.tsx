@@ -213,44 +213,6 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
     );
 }
 
-type IconProp = ComponentProps<typeof FontAwesomeIcon>["icon"];
-
-interface CardActionButtonProps {
-    readonly icon: IconProp;
-    readonly label: string;
-    readonly onClick?: () => void;
-    readonly disabledReason?: string | null;
-    readonly tone?: "brand" | "danger";
-}
-
-
-function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand" }: CardActionButtonProps): ReactNode {
-    const isDisabled = disabledReason != null;
-    const tooltip = disabledReason ?? label;
-
-    return (
-        <span className="group relative inline-flex">
-            <Button
-                type="button"
-                variant={tone === "danger" ? "cardActionDanger" : "cardAction"}
-                size="cardAction"
-                className="size-8"
-                onClick={onClick}
-                disabled={isDisabled}
-                aria-label={tooltip}
-            >
-                <FontAwesomeIcon icon={icon} className="h-4 w-4" aria-hidden />
-            </Button>
-            <span
-                aria-hidden="true"
-                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
-            >
-                {tooltip}
-            </span>
-        </span>
-    );
-}
-
 interface ReceiptActionProps {
     readonly title: string;
     readonly receiptUrl?: string | null;
