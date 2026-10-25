@@ -15,6 +15,8 @@ import EsNuestro.member.GroupMemberRepository;
 import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.ExpenseMemberDTO;
+import EsNuestro.expense.dtos.PaidExpenseDTO;
+import EsNuestro.expense.dtos.SettledExpenseDTO;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -39,16 +41,19 @@ import java.util.stream.Collectors;
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
+    private final DebtRepository debtRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupService groupService;
 
     @Autowired
     ExpenseService(
             ExpenseRepository expenseRepository,
+            DebtRepository debtRepository,
             GroupMemberRepository groupMemberRepository,
             GroupService groupService
     ) {
         this.expenseRepository = expenseRepository;
+        this.debtRepository = debtRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupService = groupService;
     }
@@ -80,6 +85,48 @@ public class ExpenseService {
                 .filter(expense -> status == null || expense.getStatus() == status)
                 .filter(expense -> expense.isInvolved(caller))
                 .map(ExpenseDTO::from)
+                .toList();
+    }
+
+    /**
+     * Historial: los gastos aprobados de todo el grupo (no solo en los que el caller está involucrado) en los que nadie
+     * debe nada, del más nuevo al más viejo. Los eliminados no entran. Cada fila lleva el comprobante de creación y los
+     * de todos los pagos, que así quedan visibles para cualquier miembro que pueda ver el grupo. Solo exige poder ver el
+     * grupo y no que esté funcionando: sigue disponible con el grupo detenido, porque no modifica nada.
+     */
+    List<SettledExpenseDTO> listSettledExpenses(Long groupId, String username) throws ItemNotFoundException {
+        groupService.requireViewer(groupId, username);
+
+        List<Expense> expenses = expenseRepository.findSettledByGroupId(groupId, ExpenseStatus.APPROVED);
+        if (expenses.isEmpty()) {
+            return List.of();
+        }
+
+        // Una sola consulta para los pagos de todos los gastos, en lugar de una por gasto.
+        Map<Long, List<Debt>> debtsByExpenseId = debtRepository
+                .findWithPaymentsByExpenseIds(expenses.stream().map(Expense::getId).toList()).stream()
+                .collect(Collectors.groupingBy(debt -> debt.getExpense().getId()));
+
+        return expenses.stream()
+                .map(expense -> SettledExpenseDTO.from(expense, debtsByExpenseId.getOrDefault(expense.getId(), List.of())))
+                .toList();
+    }
+
+    /**
+     * Historial personal: los gastos aprobados en los que el caller tenía una parte y ya la pagó por completo, aunque
+     * otros participantes sigan debiendo (el gasto no tiene que estar saldado para todos). Cada fila lleva lo que pagó
+     * el caller, a quién y cuándo lo pagó (la fecha de su último pago, no la de creación del gasto), el comprobante de
+     * creación del gasto y los comprobantes de sus propios pagos (no los de otros participantes). Las devoluciones no
+     * cuentan y los gastos eliminados no entran. Del pago más nuevo al más viejo.
+     * Como {@link #listSettledExpenses}, solo exige poder ver el grupo.
+     */
+    List<PaidExpenseDTO> listPaidByMe(Long groupId, String username) throws ItemNotFoundException {
+        GroupMember caller = groupService.requireViewer(groupId, username);
+
+        return debtRepository.findByDebtorInGroupAndExpenseStatus(groupId, caller.getId(), ExpenseStatus.APPROVED).stream()
+                .filter(Debt::isPaidShare)
+                .map(PaidExpenseDTO::from)
+                .sorted(Comparator.comparing(PaidExpenseDTO::paidAt).reversed())
                 .toList();
     }
 
@@ -257,15 +304,16 @@ public class ExpenseService {
     }
 
     /**
-     * Gastos donde el caller es acreedor de alguna deuda a la vista: sin saldar o, en un gasto aprobado, con un pago
-     * declarado que puede revisar. Es el acreedor de un gasto aprobado o quien tiene una devolución a favor.
+     * Gastos donde el caller es acreedor de alguna deuda todavía sin saldar: el acreedor de un gasto aprobado o quien tiene
+     * una devolución a favor. Cuando todas se saldan el gasto sale de esta lista y pasa al historial. Mientras siga abierto
+     * trae todas sus deudas, también las ya pagadas, para que se vea quién pagó.
      */
     List<ExpenseDTO> owedToMe(Long groupId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
                 .filter(this::hasLiveDebts)
                 .filter(expense -> expense.getDebts().stream().anyMatch(debt ->
-                        debt.getCreditor().getId().equals(caller.getId()) && isOwedToCreditor(expense, debt)))
+                        debt.getCreditor().getId().equals(caller.getId()) && debt.isUnsettled()))
                 .map(ExpenseDTO::from)
                 .toList();
     }
@@ -438,17 +486,6 @@ public class ExpenseService {
         return proposed == null ? Optional.empty() : findRegistrationBlocker(proposed);
     }
 
-    /**
-     * Una deuda sigue a la vista de su acreedor mientras no se salde y, en un gasto aprobado, también después de que le
-     * declararon un pago: así puede revisar el comprobante y reclamarlo. Las deudas en cero no cuentan.
-     */
-    private boolean isOwedToCreditor(Expense expense, Debt debt) {
-        if (debt.isUnsettled()) {
-            return true;
-        }
-        return expense.getStatus() == ExpenseStatus.APPROVED && debt.getAmount().signum() > 0 && debt.hasPayments();
-    }
-
     /** Gastos con deudas vigentes: los aprobados y los cancelados (que pueden tener devoluciones pendientes). */
     private boolean hasLiveDebts(Expense expense) {
         return expense.getStatus() == ExpenseStatus.APPROVED || expense.getStatus() == ExpenseStatus.CANCELLED;
@@ -530,7 +567,7 @@ public class ExpenseService {
                 : data.description().strip();
 
         ExpenseDetails details = new ExpenseDetails(
-                title, description, total, data.splitMethod(), creator, data.receiptUrl().strip(), participants
+                title, description, data.category(), total, data.splitMethod(), creator, data.receiptUrl().strip(), participants
         );
 
         // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.

@@ -16,7 +16,7 @@ export interface GroupActionProps {
 export default function GroupAction({children, variant = "filled", onClick}: GroupActionProps) {
     return (
         <a onClick={onClick}
-             className={`inline-flex min-h-12 items-center justify-center rounded-full border px-5 text-base font-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-group-paper ${variants[variant]}`}>
+             className={`inline-flex min-h-12 cursor-pointer items-center justify-center rounded-full border px-5 text-base font-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-group-paper ${variants[variant]}`}>
             {children}
         </a>
     );

@@ -6,7 +6,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -127,5 +129,21 @@ public class Debt {
 
     public boolean isUnsettled() {
         return paidAmount.compareTo(amount) < 0;
+    }
+
+    /**
+     * Parte (no devolución) con saldo que el deudor ya pagó por completo. Una parte en cero no cuenta: no había nada
+     * que pagar. No depende de que el resto de las deudas del gasto estén saldadas.
+     */
+    public boolean isPaidShare() {
+        return !isRefund() && amount.signum() > 0 && !isUnsettled();
+    }
+
+    /**
+     * Fecha del pago más reciente sobre esta deuda, o null si nunca se pagó. En una parte paga por completo es cuándo
+     * se terminó de pagar.
+     */
+    public Instant lastPaymentAt() {
+        return payments.stream().map(Payment::getPaidAt).max(Comparator.naturalOrder()).orElse(null);
     }
 }

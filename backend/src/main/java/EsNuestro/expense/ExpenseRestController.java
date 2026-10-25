@@ -8,6 +8,8 @@ import EsNuestro.expense.dtos.BalanceByPersonDTO;
 import EsNuestro.expense.dtos.GroupSummaryDTO;
 import EsNuestro.expense.dtos.DebtDTO;
 import EsNuestro.expense.dtos.PaymentDataDTO;
+import EsNuestro.expense.dtos.PaidExpenseDTO;
+import EsNuestro.expense.dtos.SettledExpenseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -64,6 +66,26 @@ class ExpenseRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
         return expenseService.summary(groupId, principal.email());
+    }
+
+    @GetMapping(value = "/settled", produces = "application/json")
+    @Operation(summary = "Historial: gastos aprobados de todo el grupo en los que nadie debe nada, del más nuevo al más viejo; cada fila incluye el comprobante de creación y los comprobantes de todos los pagos (con quién los subió), visibles para cualquier miembro del grupo")
+    @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
+    List<SettledExpenseDTO> settled(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.listSettledExpenses(groupId, principal.email());
+    }
+
+    @GetMapping(value = "/paid-by-me", produces = "application/json")
+    @Operation(summary = "Historial personal: gastos aprobados donde el caller tenía una parte y ya la pagó por completo (aunque el gasto no esté saldado para todos), con lo que pagó, a quién y cuándo (la fecha de su último pago, no la de creación del gasto), el comprobante de creación y los comprobantes de sus propios pagos; sin devoluciones ni gastos eliminados, del pago más nuevo al más viejo")
+    @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
+    List<PaidExpenseDTO> paidByMe(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return expenseService.listPaidByMe(groupId, principal.email());
     }
 
     @GetMapping(value = "/owed-to-me", produces = "application/json")

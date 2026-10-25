@@ -54,7 +54,7 @@ class UserRestController {
         String email = getEmailFromContext();
         UserDTO user = userService.getUserByEmail(email).get();
 
-        UserProfileDTO userProfileDTO = new UserProfileDTO(user.name(), user.surname(), user.photoUrl());
+        UserProfileDTO userProfileDTO = new UserProfileDTO(user.id(), user.name(), user.surname(), user.photoUrl(), user.email());
 
         JsonResponse response = JsonResponseDirector.createSuccessfulResponseWithResults(userProfileDTO);
         return ResponseEntity.ok().body(response);
@@ -75,6 +75,23 @@ class UserRestController {
         JsonResponse response = JsonResponseDirector.createSuccessfulResponse("User photo updated successfully");
         return ResponseEntity.ok().body(response);
 
+    }
+
+    @PatchMapping("/profile/email")
+    @ApiResponse(responseCode = "409", description = "Email already in use", content = @Content)
+    public ResponseEntity<JsonResponse> updateUserEmail(
+            @Valid @RequestBody EmailDto data
+    ) {
+        String email = getEmailFromContext();
+        return userService.updateEmail(email, data.email())
+                .map(tokens -> {
+                    JsonResponse response = JsonResponseDirector.createSuccessfulResponseWithToken("Email updated successfully", tokens.accessToken(), tokens.refreshToken());
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse("Email already in use");
+                    return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+                });
     }
 
     private String getEmailFromContext() {

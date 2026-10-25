@@ -21,6 +21,12 @@ const variants = {
     dangerOutline: "rounded-full border border-group-danger/30 text-group-danger shadow-none hover:bg-group-danger-soft",
     success: "rounded-full bg-group-green text-panel shadow-none hover:bg-group-green-soft",
     muted: "rounded-full bg-group-paper text-group-muted shadow-none hover:bg-field",
+    page: "rounded-full border border-[#d2b48c]/50 text-texto-principal hover:bg-tint-primario",
+    pageActive: "rounded-full bg-primario text-fondo",
+    cardAction:
+        "rounded-full text-brand shadow-none hover:bg-group-paper focus-visible:ring-2 focus-visible:ring-brand/40 disabled:pointer-events-auto disabled:opacity-40 disabled:hover:bg-transparent",
+    cardActionDanger:
+        "rounded-full text-group-danger shadow-none hover:bg-group-paper focus-visible:ring-2 focus-visible:ring-brand/40 disabled:pointer-events-auto disabled:opacity-40 disabled:hover:bg-transparent",
 } as const;
 
 const sizes = {
@@ -31,7 +37,8 @@ const sizes = {
     icon: "h-9 w-9",
     modal: "h-12 px-6 text-sm",
     modalIcon: "size-7 p-0",
-    xl2: "h-16 px-8 text-xl rounded-full"
+    xl2: "h-16 px-8 text-xl rounded-full",
+    cardAction: "size-12 p-0 text-lg",
 } as const;
 
 export type ButtonVariant = keyof typeof variants;

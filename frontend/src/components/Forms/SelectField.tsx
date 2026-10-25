@@ -1,4 +1,5 @@
 import type {SelectHTMLAttributes} from "react";
+import {DropdownSelect} from "@/components/Forms/DropdownSelect.tsx";
 
 export interface SelectOption {
     value: string;
@@ -6,7 +7,7 @@ export interface SelectOption {
     disabled?: boolean;
 }
 
-export interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "id" | "children"> {
+export interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "id" | "children" | "onChange" | "value"> {
     id: string;
     label: string;
     options: ReadonlyArray<SelectOption>;
@@ -14,6 +15,8 @@ export interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectEl
     placeholder: string;
     hint?: string;
     className?: string;
+    value?: string;
+    onChange?: (value: string) => void;
 }
 
 /** Select nativo con el mismo estilo que {@link TextField}. Pensado para uso controlado (`value` + `onChange`). */
@@ -32,20 +35,14 @@ export default function SelectField({
                 {label}
             </label>
             {hint ? <p className="mt-1 text-xs text-warm-muted">{hint}</p> : null}
-            <select
+            <DropdownSelect
                 id={id}
-                {...selectProps}
-                className="mt-3 h-14 w-full rounded-xl border border-field bg-input-surface px-5 text-base text-warm-muted outline-none transition-shadow focus:ring-2 focus:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-                <option value="" disabled>
-                    {placeholder}
-                </option>
-                {options.map((option) => (
-                    <option key={option.value} value={option.value} disabled={option.disabled}>
-                        {option.label}
-                    </option>
-                ))}
-            </select>
+                options={[{value: "", label: placeholder, disabled: true}, ...options]}
+                value={selectProps.value?.toString() ?? ""}
+                onChange={(value) => selectProps.onChange?.(value)}
+                disabled={selectProps.disabled}
+                className="mt-3"
+            />
         </div>
     );
 }

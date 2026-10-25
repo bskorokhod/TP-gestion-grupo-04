@@ -7,7 +7,7 @@ import type { BackendError } from "@/hooks/useToast.ts";
 import { formatCurrency } from "@/lib/format.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
 import { describeResolvedVote, reachesExtraordinaryThreshold } from "@/lib/votes.ts";
-import type { SplitMethod } from "@/models/Expense.ts";
+import { DEFAULT_EXPENSE_CATEGORY, type SplitMethod } from "@/models/Expense.ts";
 import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 import { useCreateExtraordinaryExpenseVote } from "@/services/VoteServices.ts";
@@ -40,6 +40,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
     const form = useExpenseForm({
         title: "",
         description: "",
+        category: DEFAULT_EXPENSE_CATEGORY,
         amount: "",
         splitMethod: "PROPORTIONAL",
         participantIds: new Set<number>(),
@@ -85,6 +86,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
             const payload = {
                 title: form.title.trim(),
                 description: form.description.trim(),
+                category: form.category,
                 totalAmount: validation.amount,
                 splitMethod: effectiveSplitMethod,
                 participants: participants.map((member) => ({ memberId: member.id })),

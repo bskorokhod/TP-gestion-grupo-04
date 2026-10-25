@@ -198,6 +198,26 @@ public class Expense {
         return debts.stream().anyMatch(Debt::hasPayments);
     }
 
+    /**
+     * Lo que le cuesta este gasto a {@code memberId}: su parte. Para un deudor es el monto de su deuda de tipo parte
+     * (las devoluciones no son gasto); para el acreedor, el total menos lo que deben los demás, es decir lo que puso
+     * él mismo. Sin participantes, el acreedor cubre todo. Para quien no tiene nada que ver con el gasto es cero.
+     * Así la suma de todos los miembros da el total del gasto.
+     */
+    public BigDecimal costFor(Long memberId) {
+        if (details.getCreditor().getId().equals(memberId)) {
+            BigDecimal owedByOthers = debts.stream()
+                    .filter(debt -> !debt.isRefund())
+                    .map(Debt::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return details.getTotalAmount().subtract(owedByOthers).max(BigDecimal.ZERO);
+        }
+        return debts.stream()
+                .filter(debt -> !debt.isRefund() && debt.getDebtor().getId().equals(memberId))
+                .map(Debt::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private void recordResolution(GroupMember resolver, ReviewOutcome outcome) {
         this.lastResolvedBy = resolver;
         this.lastOutcome = outcome;

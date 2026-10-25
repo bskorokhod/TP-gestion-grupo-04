@@ -23,9 +23,10 @@ interface ModalShellProps {
     submitClassName?: string;
     modalClassName?: string;
     secondaryAction?: ModalSecondaryAction;
+    isSubmitting?: boolean;
 }
 
-export function ModalShell({title, children, submitLabel, onClose, onSubmit, submitClassName, modalClassName, secondaryAction}: ModalShellProps) {
+export function ModalShell({title, children, submitLabel, onClose, onSubmit, submitClassName, modalClassName, secondaryAction, isSubmitting}: ModalShellProps) {
     useDismissibleModal(onClose);
 
     return createPortal(
@@ -72,7 +73,7 @@ export function ModalShell({title, children, submitLabel, onClose, onSubmit, sub
                             {secondaryAction.label}
                         </Button>
                     )}
-                    <Button type="submit" variant="modalPrimary" size="modal" className={submitClassName}>
+                    <Button type="submit" variant="modalPrimary" size="modal" className={submitClassName} disabled={isSubmitting}>
                         {submitLabel}
                     </Button>
                 </footer>

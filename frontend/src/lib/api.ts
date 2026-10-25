@@ -14,7 +14,12 @@ export function getApiErrorStatus(error: unknown): number | null {
 }
 
 export async function fetchApi(url: string, options: RequestInit = {}) {
-    const response = await fetch(url, options);
+    let response: Response;
+    try {
+        response = await fetch(url, options);
+    } catch {
+        throw new Error("No se pudo conectar con el servidor. Verificá tu conexión e intentá de nuevo.");
+    }
 
     if (!response.ok) {
         let errorData: { message: string };

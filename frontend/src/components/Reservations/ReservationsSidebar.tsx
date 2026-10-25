@@ -6,15 +6,24 @@ import type { ReservationsCalendarState } from "@/hooks/useReservationsCalendar.
 const ACTIVITY_LIMIT = 6;
 
 export function ReservationsSidebar({ calendar }: { readonly calendar: ReservationsCalendarState }) {
-    const { reservations, members, selected, pendingReasons, myMemberId, limit, visibleMonth } = calendar;
+    const { reservations, members, selected, pendingReasons, myMemberId, limit, visibleMonth, isPastMonth } = calendar;
     const monthName = visibleMonth.toLocaleDateString("es-AR", { month: "long" });
     const recent = [...reservations].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, ACTIVITY_LIMIT);
 
     return (
         <aside className="space-y-7">
             <p className="rounded-xl bg-panel px-4 py-3 text-xs text-group-muted">
-                Tu límite para <strong>{monthName}</strong> es de <strong>{limit.total} días</strong>. Ya tenés{" "}
-                <strong>{limit.booked} reservados</strong> y te quedan <strong>{limit.remaining} disponibles</strong>
+                {isPastMonth ? (
+                    <>
+                        En <strong>{monthName}</strong> reservaste <strong>{limit.booked} días</strong>
+                    </>
+                ) : (
+                    <>
+                        Tu límite para <strong>{monthName}</strong> es de <strong>{limit.total} días</strong>.
+                        Ya tenés <strong>{limit.booked} reservados</strong> y te
+                        quedan <strong>{limit.remaining} disponibles</strong>
+                    </>
+                )}
                 {limit.ownershipPercentage !== undefined ? ` según tu ${limit.ownershipPercentage}% de propiedad.` : "."}
             </p>
 

@@ -1,4 +1,4 @@
-import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { faChevronLeft, faChevronRight, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { Button } from "@/components/Button.tsx";
@@ -12,7 +12,7 @@ const WEEKDAYS = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
 const NAV_BUTTON = "rounded-full border-brand/30 text-brand hover:bg-brand/10 hover:text-brand";
 
 export function ReservationsCalendar({ calendar }: { readonly calendar: ReservationsCalendarState }) {
-    const { visibleMonth, range, selected, members, groupStopped, firstBookableDate, reservationOn } = calendar;
+    const { visibleMonth, range, selected, members, groupStopped, firstBookableDate, reservationOn, pendingReasons } = calendar;
     const monthName = visibleMonth.toLocaleDateString("es-AR", { month: "long" });
     const firstWeekday = (monthStart(visibleMonth).getDay() + 6) % 7;
     const cells = Array.from({ length: firstWeekday + daysInMonth(visibleMonth) }, (_, index) =>
@@ -43,7 +43,6 @@ export function ReservationsCalendar({ calendar }: { readonly calendar: Reservat
                         size="icon"
                         className={NAV_BUTTON}
                         aria-label="Mes anterior"
-                        disabled={!calendar.canGoBack}
                         onClick={() => calendar.navigateMonth(-1)}
                     >
                         <FontAwesomeIcon icon={faChevronLeft} className="h-3 w-3" aria-hidden />
@@ -56,6 +55,9 @@ export function ReservationsCalendar({ calendar }: { readonly calendar: Reservat
                         onClick={() => calendar.navigateMonth(1)}
                     >
                         <FontAwesomeIcon icon={faChevronRight} className="h-3 w-3" aria-hidden />
+                    </Button>
+                    <Button variant="outline" size="default" className={NAV_BUTTON} onClick={calendar.goToToday}>
+                        Hoy
                     </Button>
                 </div>
             </div>
@@ -80,6 +82,7 @@ export function ReservationsCalendar({ calendar }: { readonly calendar: Reservat
 
                     const key = dateKey(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day));
                     const booking = reservationOn(key);
+                    const claimed = booking !== undefined && pendingReasons.has(booking.id);
                     const unavailable = key < firstBookableDate;
                     const disabled = unavailable || (groupStopped && !booking);
                     const isEdge = key === range.start || key === range.end;
@@ -97,7 +100,7 @@ export function ReservationsCalendar({ calendar }: { readonly calendar: Reservat
                             type="button"
                             onClick={() => calendar.chooseDate(key)}
                             disabled={disabled}
-                            aria-label={`${day} ${monthName}${booking ? `, reservado por ${booking.memberNickname}, ${formatDate(booking.startDate)} al ${formatDate(booking.endDate)}` : ", disponible"}`}
+                            aria-label={`${day} ${monthName}${booking ? `, reservado por ${booking.memberNickname}, ${formatDate(booking.startDate)} al ${formatDate(booking.endDate)}${claimed ? ", reclamada para su cancelación" : ""}` : ", disponible"}`}
                             aria-pressed={isEdge || isSelected}
                             className={cn(
                                 "relative flex min-h-14 flex-col items-center justify-center overflow-hidden rounded-xl px-1 py-2 text-xs transition sm:min-h-[4.5rem]",
@@ -112,6 +115,13 @@ export function ReservationsCalendar({ calendar }: { readonly calendar: Reservat
                                 <span
                                     aria-hidden="true"
                                     className="pointer-events-none absolute left-[-12%] top-1/2 h-px w-[124%] rotate-[-25deg] bg-group-muted/60"
+                                />
+                            )}
+                            {claimed && (
+                                <FontAwesomeIcon
+                                    icon={faTriangleExclamation}
+                                    className="absolute right-1 top-1 h-3 w-3 text-group-danger"
+                                    aria-label="Reserva reclamada para su cancelación"
                                 />
                             )}
                             <span>{day}</span>

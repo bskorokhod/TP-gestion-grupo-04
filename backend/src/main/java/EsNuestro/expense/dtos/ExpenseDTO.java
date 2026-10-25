@@ -29,6 +29,7 @@ public record ExpenseDTO(
     public record Details(
             String title,
             String description,
+            ExpenseCategory category,
             BigDecimal totalAmount,
             SplitMethod splitMethod,
             ExpenseMemberDTO creditor,
@@ -42,6 +43,7 @@ public record ExpenseDTO(
             return new Details(
                     details.getTitle(),
                     details.getDescription(),
+                    details.getCategory(),
                     details.getTotalAmount(),
                     details.getSplitMethod(),
                     ExpenseMemberDTO.from(details.getCreditor()),

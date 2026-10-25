@@ -4,6 +4,7 @@ import { Field } from "@/components/Forms/Field";
 import { TextArea, TextInput } from "@/components/Forms/TextInput";
 import type { Member } from "@/models/Group.ts";
 
+import { CategorySelect } from "./CategorySelect";
 import { FileDropzone } from "./FileDropzone";
 import { MemberPicker } from "./MemberPicker";
 import { ChipButton, PersonChip } from "./PersonChip";
@@ -82,6 +83,14 @@ export function ExpenseFormFields({
                         placeholder="$ 0"
                     />
                     {amountNotice}
+                </Field>
+
+                <Field label="Categoría" htmlFor="expense-category">
+                    <CategorySelect
+                        id="expense-category"
+                        value={form.category}
+                        onChange={form.setCategory}
+                    />
                 </Field>
 
                 <Field

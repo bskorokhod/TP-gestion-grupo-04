@@ -62,4 +62,11 @@ public class Reservation {
         }
         status = ReservationStatus.CANCELLED;
     }
+
+    /**
+     * La reserva ya comenzó si su primer día es {@code today} o anterior.
+     */
+    public boolean hasStartedBy(LocalDate today) {
+        return !startDate.isAfter(today);
+    }
 }

@@ -4,21 +4,12 @@ import { SectionBanner } from "@/components/Expenses/SectionBanner.tsx";
 import {DebtCard, OwedCard, PersonRow, EmptyState, MemberInfo} from "@/components/Expenses/ExpensesCard.tsx";
 import { NewExpenseModal, ReportExpenseModal } from "@/components/modals";
 import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
-import {
-    isVisibleToCreditor,
-    useGetExpensesIOwe,
-    useGetExpensesOwedToMe,
-    useGetGroupSummary,
-} from "@/services/ExpenseServices.ts";
+import {isVisibleToCreditor, useGetExpensesIOwe, useGetExpensesOwedToMe, useGetGroupSummary} from "@/services/ExpenseServices.ts";
 import type { Debt, Expense } from "@/models/Expense.ts";
 import {formatCurrency} from "@/lib/format.ts";
 import {useIsGroupStopped} from "@/contexts/GroupContext.tsx";
 import {GROUP_STOPPED_EXPENSE_TITLE} from "@/constants/group.ts";
-import {
-    REFUND_OF_CANCELLED_EXPENSE_TAG,
-    REFUND_TAG,
-    REPORT_IN_PROGRESS_TITLE,
-} from "@/constants/expenses.ts";
+import {REFUND_OF_CANCELLED_EXPENSE_TAG, REFUND_TAG, REPORT_IN_PROGRESS_TITLE,} from "@/constants/expenses.ts";
 
 interface PerExpenseViewProps {
     groupId?: number;
@@ -77,7 +68,7 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
     const myMemberId = summary?.me.id;
 
     return (
-        <section className=" space-y-8 px-5 py-8 sm:px-8 lg:px-30 flex-1">
+        <section className="space-y-8 flex-1">
             <div className="space-y-4">
                 <SectionBanner
                     title="Gastos que me deben"

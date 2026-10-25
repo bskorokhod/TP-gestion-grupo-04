@@ -31,14 +31,31 @@ function Detail({ label, children }: { label: string; children: ReactNode }): Re
     );
 }
 
+/**
+ * Primera fila de una tarjeta: el contenido y, si hay, un elemento a la derecha en esa misma fila (p. ej. el resultado
+ * en el historial). Sin `badge` no agrega nada.
+ */
+export function TopRow({ badge, children }: { badge?: ReactNode; children: ReactNode }): ReactElement {
+    if (!badge) return <>{children}</>;
+
+    return (
+        <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">{children}</div>
+            <div className="max-w-[50%] shrink-0">{badge}</div>
+        </div>
+    );
+}
+
 /** Lo que se está votando en un gasto extraordinario: los datos del gasto que se crearía. */
-function ExpenseProposalDetails({ proposal }: { proposal: ProposedExpense }): ReactElement {
+export function ExpenseProposalDetails({ proposal, badge }: { proposal: ProposedExpense; badge?: ReactNode }): ReactElement {
     return (
         <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-black">{proposal.title}</h3>
-                <p className="text-sm text-ink-soft">{proposal.description?.trim() || "Sin descripción"}</p>
-            </div>
+            <TopRow badge={badge}>
+                <div>
+                    <h3 className="text-lg font-black">{proposal.title}</h3>
+                    <p className="text-sm text-ink-soft">{proposal.description?.trim() || "Sin descripción"}</p>
+                </div>
+            </TopRow>
 
             <dl className="grid gap-4 sm:grid-cols-2">
                 <Detail label="Monto">{formatCurrency(proposal.totalAmount)}</Detail>
@@ -96,17 +113,31 @@ function ReceiptLink({ url, label }: { url: string; label: string }): ReactEleme
  * Lo que se está votando en un reporte de gasto. En una modificación, solo los campos que cambian (valor previo y
  * nuevo) y los participantes que se suman o se quitan; en una eliminación, los valores actuales del gasto.
  */
-function ExpenseReportDetails({ report }: { report: ExpenseReport }): ReactElement {
+export function ExpenseReportDetails({
+    report,
+    showConsequences = true,
+    badge,
+}: {
+    report: ExpenseReport;
+    /** Falso en el historial: la votación ya terminó, así que no corresponde anunciar qué pasa "si se aprueba". */
+    showConsequences?: boolean;
+    /** Se muestra a la derecha de la primera fila. */
+    badge?: ReactNode;
+}): ReactElement {
     const { previous, proposed } = report;
 
     if (report.action === "DELETE" || !proposed) {
         return (
             <div className="space-y-4">
-                <p className="text-sm font-semibold text-group-danger">Se propone eliminar este gasto</p>
+                <TopRow badge={badge}>
+                    <p className="text-sm font-semibold text-group-danger">Se propone eliminar este gasto</p>
+                </TopRow>
                 <ExpenseProposalDetails proposal={previous} />
-                <p className="text-xs text-ink-soft">
-                    Si se aprueba, el gasto queda eliminado. Quien ya haya pagado recibirá una devolución por lo que pagó.
-                </p>
+                {showConsequences ? (
+                    <p className="text-xs text-ink-soft">
+                        Si se aprueba, el gasto queda eliminado. Quien ya haya pagado recibirá una devolución por lo que pagó.
+                    </p>
+                ) : null}
             </div>
         );
     }
@@ -121,10 +152,12 @@ function ExpenseReportDetails({ report }: { report: ExpenseReport }): ReactEleme
 
     return (
         <div className="space-y-4">
-            <div>
-                <p className="text-sm font-semibold text-group-amber">Se propone modificar este gasto</p>
-                <h3 className="text-lg font-black">{previous.title}</h3>
-            </div>
+            <TopRow badge={badge}>
+                <div>
+                    <p className="text-sm font-semibold text-group-amber">Se propone modificar este gasto</p>
+                    <h3 className="text-lg font-black">{previous.title}</h3>
+                </div>
+            </TopRow>
 
             <dl className="grid gap-4 sm:grid-cols-2">
                 {previous.title !== proposed.title ? (
@@ -173,9 +206,11 @@ function ExpenseReportDetails({ report }: { report: ExpenseReport }): ReactEleme
                 </Detail>
             </dl>
 
-            <p className="text-xs text-ink-soft">
-                Si se aprueba, el reparto se recalcula. Quien ya haya pagado de más recibirá una devolución por la diferencia.
-            </p>
+            {showConsequences ? (
+                <p className="text-xs text-ink-soft">
+                    Si se aprueba, el reparto se recalcula. Quien ya haya pagado de más recibirá una devolución por la diferencia.
+                </p>
+            ) : null}
         </div>
     );
 }
@@ -201,13 +236,15 @@ function describeProposedValue(change: ConfigChange): string {
 }
 
 /** Lo que se está votando en un cambio de configuración: qué ajuste cambia y a qué valor. */
-function ConfigChangeDetails({ change }: { change: ConfigChange }): ReactElement {
+export function ConfigChangeDetails({ change, badge }: { change: ConfigChange; badge?: ReactNode }): ReactElement {
     return (
         <div className="space-y-4">
-            <dl className="grid gap-4 sm:grid-cols-2">
-                <Detail label="Configuración">{CONFIG_SETTING_LABEL[change.setting]}</Detail>
-                <Detail label="Nuevo valor">{describeProposedValue(change)}</Detail>
-            </dl>
+            <TopRow badge={badge}>
+                <dl className="grid gap-4 sm:grid-cols-2">
+                    <Detail label="Configuración">{CONFIG_SETTING_LABEL[change.setting]}</Detail>
+                    <Detail label="Nuevo valor">{describeProposedValue(change)}</Detail>
+                </dl>
+            </TopRow>
         </div>
     );
 }
@@ -219,17 +256,19 @@ function formatReservationDay(value: string): string {
 }
 
 /** Lo que se está votando en un reclamo: qué reserva se pide cancelar, de quién es y por qué. */
-function ReservationClaimDetails({claim}: { claim: ReservationClaim }): ReactElement {
+export function ReservationClaimDetails({claim, badge}: { claim: ReservationClaim; badge?: ReactNode }): ReactElement {
     return (
         <div className="space-y-4">
-            <dl className="grid gap-4 sm:grid-cols-2">
-                <Detail label="Reserva">
-                    {formatReservationDay(claim.startDate)} al {formatReservationDay(claim.endDate)}
-                </Detail>
-                <Detail label="Reservada por">
-                    <MemberChip member={claim.owner}/>
-                </Detail>
-            </dl>
+            <TopRow badge={badge}>
+                <dl className="grid gap-4 sm:grid-cols-2">
+                    <Detail label="Reserva">
+                        {formatReservationDay(claim.startDate)} al {formatReservationDay(claim.endDate)}
+                    </Detail>
+                    <Detail label="Reservada por">
+                        <MemberChip member={claim.owner}/>
+                    </Detail>
+                </dl>
+            </TopRow>
             <dl>
                 <Detail label="Motivo del reclamo">{claim.reason}</Detail>
             </dl>

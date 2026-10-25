@@ -153,7 +153,7 @@ export const ConfigChangeModal = ({ kind, settings, onClose, onSubmit }: ConfigC
                     placeholder="Elegí una opción"
                     options={buildOptions(kind, settings)}
                     value={selected}
-                    onChange={(event) => setSelected(event.target.value)}
+                    onChange={setSelected}
                     required
                 />
             )}

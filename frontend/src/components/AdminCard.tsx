@@ -1,18 +1,71 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import type {Member} from "@/models/Group.ts";
+import { MemberNicknameSchema } from "@/models/Nickname.ts";
 import { cn } from "@/lib/cn.ts";
 import { memberColorClass } from "@/lib/colors"
 import {Avatar} from "@/components/ui/Avatar.tsx";
+import Button from "@/components/Button.tsx";
+import { CardActionButton } from "@/components/ui/CardActionButton";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCheck, faPenToSquare, faXmark } from "@fortawesome/free-solid-svg-icons";
 
 export interface MemberInfoCardProps {
     readonly member: Member;
+    /** Solo la tarjeta del propio miembro puede editar el apodo; el resto se muestra en solo lectura. */
+    readonly isMine?: boolean;
+    /** Persiste el nuevo apodo (PATCH al backend). Si rechaza, la tarjeta se queda en edición para reintentar. */
+    readonly onSaveNickname?: (nickname: string) => Promise<void>;
+    readonly isSaving?: boolean;
 }
 
-export function MemberInfoCard({ member }: MemberInfoCardProps) {
+export function MemberInfoCard({ member, isMine = false, onSaveNickname, isSaving = false }: MemberInfoCardProps) {
     const initial = member.nickname.charAt(0).toUpperCase();
     const percentage = member.percentage !== null ? member.percentage : 0;
     const hasPhoto = Boolean(member.photoUrl);
+    const canEdit = isMine && Boolean(onSaveNickname);
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [draft, setDraft] = useState(member.nickname);
+
+    // Si el apodo cambia desde afuera (ej. otra pestaña) mientras no se está editando, no queda un draft viejo.
+    useEffect(() => {
+        if (!isEditing) setDraft(member.nickname);
+    }, [member.nickname, isEditing]);
+
+    const validation = MemberNicknameSchema.safeParse(draft);
+    const isDirty = draft.trim() !== member.nickname;
+    const canConfirm = canEdit && validation.success && isDirty && !isSaving;
+
+    function startEditing() {
+        setDraft(member.nickname);
+        setIsEditing(true);
+    }
+
+    function cancelEditing() {
+        setDraft(member.nickname);
+        setIsEditing(false);
+    }
+
+    async function confirmEditing() {
+        if (!canConfirm || !validation.success || !onSaveNickname) return;
+        try {
+            await onSaveNickname(validation.data);
+            setIsEditing(false);
+        } catch {
+            // El error ya se reporta (toast) en el llamador; se mantiene en edición para reintentar o cancelar.
+        }
+    }
+
+    function handleInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            void confirmEditing();
+        } else if (event.key === "Escape") {
+            event.preventDefault();
+            cancelEditing();
+        }
+    }
 
     return (
         <div className="flex flex-col gap-3 items-start flex-1 bg-panel rounded-2xl border border-field/50 py-6 px-7 overflow-hidden">
@@ -34,16 +87,71 @@ export function MemberInfoCard({ member }: MemberInfoCardProps) {
                         <p className="text-lg font-medium text-panel">{initial}</p>
                     </div>
                     )}
-                    <div className="flex min-w-0 flex-col items-start">
-                        <p className="max-w-full truncate text-xl font-semibold text-ink leading-6.5">
-                            {member.nickname}
-                        </p>
-                        <p className="max-w-full truncate text-base font-normal text-warm-muted">
-                            {member.username}
-                        </p>
-                    </div>
+
+                    {isEditing ? (
+                        <div className="flex min-w-0 flex-1 flex-row gap-2 items-center">
+                            <input
+                                type="text"
+                                value={draft}
+                                maxLength={30}
+                                autoFocus
+                                disabled={isSaving}
+                                aria-label="Editar tu apodo en el grupo"
+                                aria-invalid={!validation.success}
+                                onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft(event.target.value)}
+                                onKeyDown={handleInputKeyDown}
+                                className={cn(
+                                    "min-w-0 flex-1 rounded-lg border bg-input-surface px-3 py-1.5 text-lg font-semibold text-ink outline-none",
+                                    validation.success ? "border-brand" : "border-group-danger",
+                                )}
+                            />
+                            <Button
+                                type="button"
+                                variant="success"
+                                size="icon"
+                                title="Confirmar"
+                                aria-label="Confirmar nuevo apodo"
+                                disabled={!canConfirm}
+                                onClick={confirmEditing}
+                            >
+                                <FontAwesomeIcon icon={faCheck} aria-hidden />
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="muted"
+                                size="icon"
+                                title="Cancelar"
+                                aria-label="Cancelar edición del apodo"
+                                disabled={isSaving}
+                                onClick={cancelEditing}
+                            >
+                                <FontAwesomeIcon icon={faXmark} aria-hidden />
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex min-w-0 flex-1 flex-col items-start">
+                            <div className="flex h-6.5 min-w-0 max-w-full flex-row items-center gap-2">
+                                <p className="min-w-0 truncate text-xl font-semibold text-ink leading-6.5">
+                                    {member.nickname}
+                                </p>
+                                {canEdit && (
+                                    <CardActionButton
+                                        icon={faPenToSquare}
+                                        label="Editar tu apodo"
+                                        onClick={startEditing}
+                                    />
+                                )}
+                            </div>
+                            <p className="max-w-full truncate text-base font-normal text-warm-muted">
+                                {member.username}
+                            </p>
+                        </div>
+                    )}
                 </div>
-                <p className="shrink-0 whitespace-nowrap text-2xl font-semibold text-olive">{percentage}%</p>
+                {/* Durante la edición se oculta para que el input y los botones entren sin romper el layout. */}
+                {!isEditing && (
+                    <p className="shrink-0 whitespace-nowrap text-2xl font-semibold text-olive">{percentage}%</p>
+                )}
             </div>
 
             {member.joinedAt && (
