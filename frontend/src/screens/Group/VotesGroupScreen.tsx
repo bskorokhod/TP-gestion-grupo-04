@@ -9,6 +9,7 @@ import { ViewToggle } from "@/components/ViewToggle.tsx";
 import { useState } from "react";
 import { ActiveVotesView } from "@/components/Votes/ActiveVotesView.tsx";
 import { HistorialVotesView } from "@/components/Votes/HistorialVotesView.tsx";
+import { PendingVotesIndicator } from "@/components/Votes/PendingVotesIndicator.tsx";
 
 const HISTORY_DESCRIPTION = "Votaciones finalizadas: revisá el resultado de cada propuesta.";
 
@@ -39,7 +40,9 @@ export const VotesGroupScreen = () => {
     const {data: actives = []} = useGetVotes(group?.id);
     const {data: summary} = useGetFinishedVotesSummary(group?.id, showHistory);
 
-    const awaitingMyVote = actives.filter((vote) => vote.canVote && vote.myChoice == null).length;
+    const pendingVotes = actives.filter((vote) => vote.canVote && vote.myChoice == null);
+    const awaitingMyVote = pendingVotes.length;
+    const pendingSectionTypes = Array.from(new Set(pendingVotes.map((vote) => vote.type)));
 
     const stats: readonly [PillStat, PillStat] = showHistory
         ? [
@@ -71,6 +74,8 @@ export const VotesGroupScreen = () => {
                     ? <HistorialVotesView groupId={group.id}/>
                     : <ActiveVotesView groupId={group.id}/>
                 : null}
+
+            {!showHistory ? <PendingVotesIndicator pendingSectionTypes={pendingSectionTypes}/> : null}
 
         </CommonLayout>
     );

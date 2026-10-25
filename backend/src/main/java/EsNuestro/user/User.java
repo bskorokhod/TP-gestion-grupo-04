@@ -81,6 +81,10 @@ public class User implements UserDetails, UserCredentials {
         this.photoUrl = photoUrl;
     }
 
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     // NO BORRAR
     // Parecen innecesarios, pero lo son para que implementen la interfaz de UserDetails y UserCredentials
     @Override

@@ -1,9 +1,10 @@
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Button from "@/components/Button.tsx";
 import { ReceiptModal } from "@/components/modals/ReceiptModal.tsx";
 import { Avatar } from "@/components/ui/Avatar";
+// TODO IconProp, TooltipPlacement están raro importados, deuda técnica a resolver
+import { CardActionButton, IconProp, TooltipPlacement } from "@/components/ui/CardActionButton";
 import type { MemberColor } from "@/models/Group";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFlag, faPenToSquare, faReceipt } from "@fortawesome/free-solid-svg-icons";
 import {BALANCE_COLORS, PAYMENT_STATUS_CONFIG, TRANSACTION_VARIANTS, type BalanceStatus, type PaymentStatus, type TransactionVariant,} from "@/constants/expenses.ts";
 
@@ -164,8 +165,6 @@ export function PersonRow({name, color, amount, paidAmount, totalAmount, status 
                 {receiptUrls.length > 0 && (
                     <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} />
                 )}
-                {/* TODO: Decidir qué hacer al reclamar un pago */}
-                {/* {action === "claim" && (<CardActionButton icon={faFlag} label="Reclamar pago" onClick={onAction} tone="danger"/>)} */}
             </div>
         </div>
     );
@@ -215,47 +214,6 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
     );
 }
 
-type IconProp = ComponentProps<typeof FontAwesomeIcon>["icon"];
-
-type TooltipPlacement = "bottom" | "top";
-
-interface CardActionButtonProps {
-    readonly icon: IconProp;
-    readonly label: string;
-    readonly onClick?: () => void;
-    readonly disabledReason?: string | null;
-    readonly tone?: "brand" | "danger";
-    /** Dónde se abre el tooltip; "top" evita que lo recorte un contenedor con scroll (p. ej. la tabla del historial). */
-    readonly tooltipPlacement?: TooltipPlacement;
-}
-
-
-export function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand", tooltipPlacement = "bottom" }: CardActionButtonProps): ReactNode {
-    const isDisabled = disabledReason != null;
-    const tooltip = disabledReason ?? label;
-
-    return (
-        <span className="group relative inline-flex">
-            <Button
-                type="button"
-                variant={tone === "danger" ? "cardActionDanger" : "cardAction"}
-                size="cardAction"
-                className="size-8"
-                onClick={onClick}
-                disabled={isDisabled}
-                aria-label={tooltip}
-            >
-                <FontAwesomeIcon icon={icon} className="h-4 w-4" aria-hidden />
-            </Button>
-            <span
-                aria-hidden="true"
-                className={`pointer-events-none absolute right-0 z-10 rounded-md ${tooltipPlacement === "top" ? "bottom-full mb-1" : "top-full mt-1"} ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
-            >
-                {tooltip}
-            </span>
-        </span>
-    );
-}
 
 interface ReceiptActionProps {
     readonly title: string;

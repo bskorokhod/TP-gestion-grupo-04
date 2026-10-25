@@ -21,3 +21,16 @@ export function formatDate(iso: string): string {
     const day = String(date.getDate()).padStart(2, "0");
     return `${day} ${MONTHS_SHORT[date.getMonth()].toLowerCase()} ${date.getFullYear()}`;
 }
+
+export const amount: Intl.NumberFormat = new Intl.NumberFormat("es-AR", {
+    maximumFractionDigits: 0,
+});
+
+export function formatAmount(value: number): string {
+    return Number.isFinite(value) ? amount.format(value) : "";
+}
+
+export function parseAmount(value: string): number {
+    const digits = value.replace(/\D/g, "");
+    return digits === "" ? NaN : Number(digits);
+}

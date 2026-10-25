@@ -30,7 +30,7 @@ const ActiveVotesSection = ({ section, votes, isLoading, groupId }: ActiveVotesS
     const pageVotes = sectionVotes.slice((currentPage - 1) * VOTES_PAGE_SIZE, currentPage * VOTES_PAGE_SIZE);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 scroll-mt-6" data-vote-section={section.type}>
             <SectionBanner title={section.title} description={section.description} variant="allDebt" />
 
             {isLoading || groupId == null ? (

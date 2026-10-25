@@ -12,6 +12,7 @@ import {GroupUnavailableScreen} from "@/screens/GroupUnavailableScreen.tsx";
 import {BalanceGroupScreen} from "@/screens/Group/BalanceGroupScreen";
 import {ConfigurationScreen} from "@/screens/Admin/ConfigurationScreen.tsx";
 import {PercentageConfigScreen} from "@/screens/Admin/PercentageConfigScreen.tsx";
+import {ProfileScreen} from "@/screens/Profile/ProfileScreen.tsx";
 import {GroupGuard} from "@/components/GroupGuard.tsx";
 import {RequireGroupAction} from "@/components/RequireGroupAction.tsx";
 import {GROUP_UNAVAILABLE_PATH, GROUPS_PATH, HOME_PATH, LOGIN_PATH, SIGNUP_PATH, groupReservationsPath} from "@/constants/routes.ts";
@@ -91,6 +92,10 @@ const PrivateRoutes = () => (
         </Route>
         <Route path={GROUPS_PATH}>
             <GroupSelectionScreen/>
+        </Route>
+
+        <Route path="/perfil">
+            <ProfileScreen/>
         </Route>
 
         <Route path={GROUP_UNAVAILABLE_PATH}>
