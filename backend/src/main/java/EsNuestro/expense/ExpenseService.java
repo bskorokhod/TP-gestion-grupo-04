@@ -90,21 +90,33 @@ public class ExpenseService {
 
     /**
      * Historial: los gastos aprobados de todo el grupo (no solo en los que el caller está involucrado) en los que nadie
-     * debe nada, del más nuevo al más viejo. Los eliminados no entran. Solo exige poder ver el grupo y no que esté
-     * funcionando: sigue disponible con el grupo detenido, porque no modifica nada.
+     * debe nada, del más nuevo al más viejo. Los eliminados no entran. Cada fila lleva el comprobante de creación y los
+     * de todos los pagos, que así quedan visibles para cualquier miembro que pueda ver el grupo. Solo exige poder ver el
+     * grupo y no que esté funcionando: sigue disponible con el grupo detenido, porque no modifica nada.
      */
     List<SettledExpenseDTO> listSettledExpenses(Long groupId, String username) throws ItemNotFoundException {
         groupService.requireViewer(groupId, username);
 
-        return expenseRepository.findSettledByGroupId(groupId, ExpenseStatus.APPROVED).stream()
-                .map(SettledExpenseDTO::from)
+        List<Expense> expenses = expenseRepository.findSettledByGroupId(groupId, ExpenseStatus.APPROVED);
+        if (expenses.isEmpty()) {
+            return List.of();
+        }
+
+        // Una sola consulta para los pagos de todos los gastos, en lugar de una por gasto.
+        Map<Long, List<Debt>> debtsByExpenseId = debtRepository
+                .findWithPaymentsByExpenseIds(expenses.stream().map(Expense::getId).toList()).stream()
+                .collect(Collectors.groupingBy(debt -> debt.getExpense().getId()));
+
+        return expenses.stream()
+                .map(expense -> SettledExpenseDTO.from(expense, debtsByExpenseId.getOrDefault(expense.getId(), List.of())))
                 .toList();
     }
 
     /**
      * Historial personal: los gastos aprobados en los que el caller tenía una parte y ya la pagó por completo, aunque
      * otros participantes sigan debiendo (el gasto no tiene que estar saldado para todos). Cada fila lleva lo que pagó
-     * el caller, a quién y cuándo lo pagó (la fecha de su último pago, no la de creación del gasto). Las devoluciones no
+     * el caller, a quién y cuándo lo pagó (la fecha de su último pago, no la de creación del gasto), el comprobante de
+     * creación del gasto y los comprobantes de sus propios pagos (no los de otros participantes). Las devoluciones no
      * cuentan y los gastos eliminados no entran. Del pago más nuevo al más viejo.
      * Como {@link #listSettledExpenses}, solo exige poder ver el grupo.
      */

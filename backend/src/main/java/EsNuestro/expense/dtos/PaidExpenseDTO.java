@@ -5,13 +5,16 @@ import EsNuestro.expense.ExpenseCategory;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Fila del historial personal: un gasto en el que el caller tenía una parte y ya la pagó por completo. A diferencia de
  * {@link SettledExpenseDTO}, el monto es lo que pagó el caller ({@code paidAmount}) y no el total del gasto,
  * {@code creditor} es a quien se lo pagó y la fecha ({@code paidAt}) es cuándo el caller hizo el pago, no cuándo se
- * creó el gasto. Si pagó en varios aportes es la fecha del último, cuando terminó de pagar. Solo lleva lo que muestra
- * el historial.
+ * creó el gasto. Si pagó en varios aportes es la fecha del último, cuando terminó de pagar.
+ * <p>
+ * Lleva además el comprobante de creación del gasto ({@code receiptUrl}) y solo los comprobantes de los pagos del
+ * propio caller ({@code payments}); los de otros participantes no se incluyen.
  */
 public record PaidExpenseDTO(
         Long id,
@@ -19,7 +22,9 @@ public record PaidExpenseDTO(
         String title,
         ExpenseCategory category,
         ExpenseMemberDTO creditor,
-        BigDecimal paidAmount
+        BigDecimal paidAmount,
+        String receiptUrl,
+        List<PaymentReceiptDTO> payments
 ) {
 
     public static PaidExpenseDTO from(Debt debt) {
@@ -31,7 +36,9 @@ public record PaidExpenseDTO(
                 debt.getExpense().getDetails().getTitle(),
                 debt.getExpense().getDetails().getCategory(),
                 ExpenseMemberDTO.from(debt.getCreditor()),
-                debt.getPaidAmount()
+                debt.getPaidAmount(),
+                debt.getExpense().getDetails().getReceiptUrl(),
+                PaymentReceiptDTO.fromDebts(List.of(debt))
         );
     }
 }

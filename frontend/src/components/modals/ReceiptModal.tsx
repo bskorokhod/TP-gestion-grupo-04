@@ -15,10 +15,12 @@ export interface ReceiptModalProps {
     readonly receiptUrl?: string | null;
     /** Varios comprobantes (p. ej. los pagos de una deuda): el modal los muestra de a uno, con un slider. */
     readonly receiptUrls?: readonly string[];
+    /** Quien subió cada comprobante de {@link receiptUrls}, en el mismo orden. Si falta, no se muestra autor. */
+    readonly receiptCaptions?: readonly string[];
     readonly onClose: () => void;
 }
 
-export function ReceiptModal({ title, receiptUrl, receiptUrls, onClose }: ReceiptModalProps) {
+export function ReceiptModal({ title, receiptUrl, receiptUrls, receiptCaptions, onClose }: ReceiptModalProps) {
     const titleId = useId();
     useDismissibleModal(onClose);
 
@@ -28,6 +30,7 @@ export function ReceiptModal({ title, receiptUrl, receiptUrls, onClose }: Receip
     const count = receipts.length;
     const hasSeveral = count > 1;
     const current = receipts[Math.min(index, Math.max(count - 1, 0))];
+    const currentCaption = receiptCaptions?.[Math.min(index, Math.max(count - 1, 0))];
 
     const showPrevious = (): void => setIndex((value) => (value - 1 + count) % count);
     const showNext = (): void => setIndex((value) => (value + 1) % count);
@@ -73,7 +76,19 @@ export function ReceiptModal({ title, receiptUrl, receiptUrls, onClose }: Receip
 
                 <div className="mt-6 space-y-4">
                     {current ? (
-                        <ExpenseReceiptPreview key={current} url={current} title={title} />
+                        <>
+                            {currentCaption ? (
+                                <p className="text-sm text-modal-ink">
+                                    Subido por <span className="font-semibold">{currentCaption}</span>
+                                </p>
+                            ) : null}
+                            {/* El apodo va en el título para que cada comprobante se descargue con un nombre distinto. */}
+                            <ExpenseReceiptPreview
+                                key={current}
+                                url={current}
+                                title={currentCaption ? `${title} - ${currentCaption}` : title}
+                            />
+                        </>
                     ) : (
                         <p className="rounded-lg bg-modal-field px-3 py-6 text-center text-sm text-modal-ink">
                             Este gasto no tiene comprobante adjunto.

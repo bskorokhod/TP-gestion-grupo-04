@@ -217,16 +217,20 @@ export function PersonBalanceCard({name, color, balance, balanceStatus, items, }
 
 type IconProp = ComponentProps<typeof FontAwesomeIcon>["icon"];
 
+type TooltipPlacement = "bottom" | "top";
+
 interface CardActionButtonProps {
     readonly icon: IconProp;
     readonly label: string;
     readonly onClick?: () => void;
     readonly disabledReason?: string | null;
     readonly tone?: "brand" | "danger";
+    /** Dónde se abre el tooltip; "top" evita que lo recorte un contenedor con scroll (p. ej. la tabla del historial). */
+    readonly tooltipPlacement?: TooltipPlacement;
 }
 
 
-function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand" }: CardActionButtonProps): ReactNode {
+export function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand", tooltipPlacement = "bottom" }: CardActionButtonProps): ReactNode {
     const isDisabled = disabledReason != null;
     const tooltip = disabledReason ?? label;
 
@@ -245,7 +249,7 @@ function CardActionButton({ icon, label, onClick, disabledReason, tone = "brand"
             </Button>
             <span
                 aria-hidden="true"
-                className={`pointer-events-none absolute right-0 top-full z-10 mt-1 rounded-md ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
+                className={`pointer-events-none absolute right-0 z-10 rounded-md ${tooltipPlacement === "top" ? "bottom-full mb-1" : "top-full mt-1"} ${tone === "danger" ? "bg-group-danger" : "bg-brand"} px-2 py-1 text-xs font-medium text-brand-foreground opacity-0 shadow transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 ${isDisabled ? "w-56 whitespace-normal" : "whitespace-nowrap"}`}
             >
                 {tooltip}
             </span>
@@ -257,23 +261,43 @@ interface ReceiptActionProps {
     readonly title: string;
     readonly receiptUrl?: string | null;
     readonly receiptUrls?: readonly string[];
+    /** Quien subió cada comprobante de `receiptUrls`, en el mismo orden; el modal lo muestra sobre cada uno. */
+    readonly receiptCaptions?: readonly string[];
+    readonly icon?: IconProp;
+    /** Texto del tooltip; si no se indica, depende de cuántos comprobantes haya. */
+    readonly label?: string;
+    /** Si no es null el botón queda deshabilitado y el tooltip muestra este motivo. */
+    readonly disabledReason?: string | null;
+    readonly tooltipPlacement?: TooltipPlacement;
 }
 
-function ReceiptAction({ title, receiptUrl, receiptUrls }: ReceiptActionProps): ReactNode {
+export function ReceiptAction({
+    title,
+    receiptUrl,
+    receiptUrls,
+    receiptCaptions,
+    icon = faReceipt,
+    label,
+    disabledReason,
+    tooltipPlacement,
+}: ReceiptActionProps): ReactNode {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
     return (
         <>
             <CardActionButton
-                icon={faReceipt}
-                label={receiptUrls && receiptUrls.length > 1 ? "Ver comprobantes adjuntos" : "Ver comprobante adjunto"}
+                icon={icon}
+                label={label ?? (receiptUrls && receiptUrls.length > 1 ? "Ver comprobantes adjuntos" : "Ver comprobante adjunto")}
                 onClick={() => setIsModalOpen(true)}
+                disabledReason={disabledReason}
+                tooltipPlacement={tooltipPlacement}
             />
             {isModalOpen && (
                 <ReceiptModal
                     title={title}
                     receiptUrl={receiptUrl}
                     receiptUrls={receiptUrls}
+                    receiptCaptions={receiptCaptions}
                     onClose={() => setIsModalOpen(false)}
                 />
             )}

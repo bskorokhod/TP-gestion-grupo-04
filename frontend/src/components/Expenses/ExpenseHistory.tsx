@@ -1,14 +1,15 @@
 import {useEffect, useMemo, useRef, useState, type ReactElement} from "react";
-import {faCheck, faChevronDown} from "@fortawesome/free-solid-svg-icons";
+import {faCheck, faChevronDown, faFileInvoiceDollar} from "@fortawesome/free-solid-svg-icons";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 
 import Button from "@/components/Button.tsx";
+import {ReceiptAction} from "@/components/Expenses/ExpensesCard.tsx";
 import type {SelectOption} from "@/components/Forms/SelectField.tsx";
 import {Avatar} from "@/components/ui/Avatar.tsx";
 import {categoryLabel, EXPENSE_CATEGORIES} from "@/constants/expenseCategories.ts";
 import {categoryBadgeClass} from "@/lib/colors.ts";
 import {formatCurrency, formatDate, MONTHS_FULL} from "@/lib/format.ts";
-import type {ExpenseCategory, ExpenseMember} from "@/models/Expense.ts";
+import type {ExpenseCategory, ExpenseMember, PaymentReceipt} from "@/models/Expense.ts";
 import {useGetPaidExpenses, useGetSettledExpenses} from "@/services/BalanceServices.ts";
 import {useGetGroupMembers} from "@/services/GroupServices.ts";
 
@@ -18,7 +19,8 @@ const ALL = "ALL";
 
 /**
  * Fila del historial, igual para las dos fuentes. `date` es la fecha de creación del gasto o la del pago, y `amount` el
- * total del gasto o lo que pagué yo, según la fuente.
+ * total del gasto o lo que pagué yo, según la fuente. `receiptUrl` es el comprobante de creación del gasto y `payments` los
+ * comprobantes de pago: los de todos los miembros en `GROUP`, solo los propios en `MINE`.
  */
 interface HistoryExpense {
     readonly id: number;
@@ -27,6 +29,8 @@ interface HistoryExpense {
     readonly category: ExpenseCategory;
     readonly creditor: ExpenseMember;
     readonly amount: number;
+    readonly receiptUrl?: string | null;
+    readonly payments: readonly PaymentReceipt[];
 }
 
 /**
@@ -69,7 +73,7 @@ function useHistoryExpenses(groupId: number, source: ExpenseHistorySource): read
     );
 }
 
-const HISTORY_GRID = "grid grid-cols-[7.5rem_9rem_minmax(0,1fr)_12rem_7rem] items-center gap-x-4 pr-6";
+const HISTORY_GRID = "grid grid-cols-[7.5rem_9rem_minmax(0,1fr)_12rem_7rem_4.5rem] items-center gap-x-4 pr-6";
 
 function visiblePages(current: number, total: number): number[] {
     const length = Math.min(VISIBLE_PAGE_BUTTONS, total);
@@ -236,13 +240,14 @@ function ExpenseHistoryTable({
         <>
             {/* En pantallas angostas el grid conserva su ancho mínimo y se desplaza horizontalmente. */}
             <div className="overflow-x-auto">
-                <div className="min-w-[50rem]">
+                <div className="min-w-[58rem]">
                     <div className={`${HISTORY_GRID} whitespace-nowrap border-b border-texto-principal py-4 text-sm font-medium`}>
                         <p>{dateHeader}</p>
                         <p>Categoría</p>
                         <p>Nombre del gasto</p>
                         <p>A cargo de</p>
                         <p>{amountHeader}</p>
+                        <p className="sr-only">Comprobantes</p>
                     </div>
 
                     {expenses.length === 0 && (
@@ -263,6 +268,25 @@ function ExpenseHistoryTable({
                                 <p className="truncate text-sm font-medium">{expense.creditor.nickname}</p>
                             </div>
                             <p className="text-sm font-semibold">{formatCurrency(expense.amount)}</p>
+                            {/* Tooltips hacia arriba: la tabla scrollea y un tooltip hacia abajo se recortaría en la última fila. */}
+                            <div className="flex items-center justify-end gap-1">
+                                <ReceiptAction
+                                    title={expense.title}
+                                    receiptUrl={expense.receiptUrl}
+                                    label="Ver comprobante de gasto"
+                                    disabledReason={expense.receiptUrl ? null : "Este gasto no tiene comprobante"}
+                                    tooltipPlacement="top"
+                                />
+                                <ReceiptAction
+                                    title={`pagos de ${expense.title}`}
+                                    receiptUrls={expense.payments.map((payment) => payment.receiptUrl)}
+                                    receiptCaptions={expense.payments.map((payment) => payment.payer.nickname)}
+                                    icon={faFileInvoiceDollar}
+                                    label={expense.payments.length > 1 ? "Ver comprobantes de pagos" : "Ver comprobante de pago"}
+                                    disabledReason={expense.payments.length > 0 ? null : "Este gasto no tiene comprobantes de pago"}
+                                    tooltipPlacement="top"
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>

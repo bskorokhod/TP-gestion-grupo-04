@@ -69,7 +69,7 @@ class ExpenseRestController {
     }
 
     @GetMapping(value = "/settled", produces = "application/json")
-    @Operation(summary = "Historial: gastos aprobados de todo el grupo en los que nadie debe nada, del más nuevo al más viejo; solo trae los campos que muestra el historial")
+    @Operation(summary = "Historial: gastos aprobados de todo el grupo en los que nadie debe nada, del más nuevo al más viejo; cada fila incluye el comprobante de creación y los comprobantes de todos los pagos (con quién los subió), visibles para cualquier miembro del grupo")
     @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
     List<SettledExpenseDTO> settled(
             @PathVariable Long groupId,
@@ -79,7 +79,7 @@ class ExpenseRestController {
     }
 
     @GetMapping(value = "/paid-by-me", produces = "application/json")
-    @Operation(summary = "Historial personal: gastos aprobados donde el caller tenía una parte y ya la pagó por completo (aunque el gasto no esté saldado para todos), con lo que pagó, a quién y cuándo (la fecha de su último pago, no la de creación del gasto); sin devoluciones ni gastos eliminados, del pago más nuevo al más viejo")
+    @Operation(summary = "Historial personal: gastos aprobados donde el caller tenía una parte y ya la pagó por completo (aunque el gasto no esté saldado para todos), con lo que pagó, a quién y cuándo (la fecha de su último pago, no la de creación del gasto), el comprobante de creación y los comprobantes de sus propios pagos; sin devoluciones ni gastos eliminados, del pago más nuevo al más viejo")
     @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
     List<PaidExpenseDTO> paidByMe(
             @PathVariable Long groupId,
