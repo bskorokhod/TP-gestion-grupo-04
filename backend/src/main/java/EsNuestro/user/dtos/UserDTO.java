@@ -3,6 +3,7 @@ package EsNuestro.user.dtos;
 import EsNuestro.user.User;
 
 public record UserDTO(
+        Long id,
         String role,
         String name,
         String surname,
@@ -11,6 +12,6 @@ public record UserDTO(
         String cvu
 ) {
     public UserDTO(User user) {
-        this(user.getRole(), user.getName(), user.getSurname(), user.getEmail(), user.getPhotoUrl(), user.getCvu());
+        this(user.getId(), user.getRole(), user.getName(), user.getSurname(), user.getEmail(), user.getPhotoUrl(), user.getCvu());
     }
 }

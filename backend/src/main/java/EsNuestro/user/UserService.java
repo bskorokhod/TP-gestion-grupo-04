@@ -102,4 +102,25 @@ public class UserService implements UserDetailsService {
                 });
     }
 
+    /**
+     * El email es el identificador de login (subject del JWT). Si se cambia hay que reemitir los
+     * tokens en el momento -- igual que hace login/signup/refresh -- para que la sesión actual no
+     * quede con un access token que ya no resuelve a ningún usuario hasta que expire solo.
+     * Optional.empty() significa que el email nuevo ya lo usa otra cuenta (conflicto, no error 500).
+     */
+    public Optional<TokenDTO> updateEmail(String currentEmail, String newEmail) {
+        User user = userRepository.findByEmail(currentEmail).orElseThrow();
+
+        boolean emailTakenByAnotherUser = userRepository.findByEmail(newEmail)
+                .filter(existing -> !existing.getId().equals(user.getId()))
+                .isPresent();
+        if (emailTakenByAnotherUser) {
+            return Optional.empty();
+        }
+
+        user.setEmail(newEmail);
+        userRepository.save(user);
+        return Optional.of(generateTokens(user));
+    }
+
 }

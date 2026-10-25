@@ -5,8 +5,13 @@ import {
     UserProfileSchema,
     UserPhotoUpdate,
     UserPhotoUpdateSchema,
+    Email,
+    EmailSchema,
+    AuthResponse,
+    AuthResponseSchema,
 } from "@/models/User";
 import { useApiClient } from "@/hooks/useApiClient";
+import { useToken } from "@/contexts/TokenContext.tsx";
 
 export function useGetUserProfile() {
     const api = useApiClient();
@@ -46,6 +51,29 @@ export function useUpdatePhoto() {
             return api.patch<void>("/users/profile", parsed);
         },
         onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["userProfile"] });
+        },
+    });
+}
+
+/**
+ * El email es el identificador de login: el backend reemite accessToken/refreshToken en la misma
+ * respuesta (igual que login/signup/refresh) para que la sesión actual no quede con un token viejo.
+ * Por eso actualiza el TokenContext acá mismo en vez de dejar que el próximo 401 lo resuelva solo.
+ */
+export function useUpdateEmail() {
+    const api = useApiClient();
+    const [, setToken] = useToken();
+    const qc = useQueryClient();
+
+    return useMutation<AuthResponse, Error, Email>({
+        mutationFn: async (req): Promise<AuthResponse> => {
+            const parsed = EmailSchema.parse(req);
+            const data = await api.patch("/users/profile/email", parsed);
+            return AuthResponseSchema.parse(data);
+        },
+        onSuccess: (tokens): void => {
+            setToken({ state: "LOGGED_IN", tokens });
             void qc.invalidateQueries({ queryKey: ["userProfile"] });
         },
     });
