@@ -33,9 +33,9 @@ export function ChevronDownIcon() {
     );
 }
 
-export function UserIcon() {
+export function UserIcon({className}: {className?: string} = {}) {
     return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg className={className ?? "size-5"} viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8"/>
             <path d="M4.5 19.5c1.6-3.3 4.4-5 7.5-5s5.9 1.7 7.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
         </svg>

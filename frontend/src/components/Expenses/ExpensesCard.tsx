@@ -1,9 +1,9 @@
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Button from "@/components/Button.tsx";
 import { ReceiptModal } from "@/components/modals/ReceiptModal.tsx";
 import { Avatar } from "@/components/ui/Avatar";
+import { CardActionButton } from "@/components/ui/CardActionButton";
 import type { MemberColor } from "@/models/Group";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFlag, faPenToSquare, faReceipt } from "@fortawesome/free-solid-svg-icons";
 import {BALANCE_COLORS, PAYMENT_STATUS_CONFIG, TRANSACTION_VARIANTS, type BalanceStatus, type PaymentStatus, type TransactionVariant,} from "@/constants/expenses.ts";
 
@@ -164,8 +164,6 @@ export function PersonRow({name, color, amount, paidAmount, totalAmount, status 
                 {receiptUrls.length > 0 && (
                     <ReceiptAction title={`pago de ${name}`} receiptUrls={receiptUrls} />
                 )}
-                {/* TODO: Decidir qué hacer al reclamar un pago */}
-                {/* {action === "claim" && (<CardActionButton icon={faFlag} label="Reclamar pago" onClick={onAction} tone="danger"/>)} */}
             </div>
         </div>
     );
