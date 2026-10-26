@@ -1,3 +1,5 @@
+import { parseAmount } from "@/lib/format.ts";
+
 export type ExpenseFieldsValidation =
     | { readonly isValid: true; readonly amount: number }
     | { readonly isValid: false; readonly message: string };
@@ -8,11 +10,11 @@ export interface ExpenseFieldsInput {
     readonly participantCount: number;
 }
 
-/** Acepta coma o punto decimal; null si está vacío o no es un número. */
+/** Acepta notación argentina o punto decimal, con hasta 2 decimales (mismas reglas que parseAmount); null si no es válido. */
 export function parseExpenseAmount(rawAmount: string): number | null {
     if (rawAmount.trim() === "") return null;
 
-    const parsed = Number(rawAmount.replace(",", "."));
+    const parsed = parseAmount(rawAmount);
     return Number.isFinite(parsed) ? parsed : null;
 }
 

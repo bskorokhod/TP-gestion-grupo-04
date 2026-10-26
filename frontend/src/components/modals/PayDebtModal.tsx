@@ -16,11 +16,6 @@ export interface PayDebtModalProps {
     onPaid?: () => void;
 }
 
-function maskAmount(raw: string): string {
-    const digits = raw.replace(/\D/g, "");
-    return digits === "" ? "" : Number(digits).toLocaleString("es-AR");
-}
-
 export function PayDebtModal({groupId, expenseId, debtId, debtAmount, onClose, onPaid,}: PayDebtModalProps) {
     const [receipt, setReceipt] = useState<File | null>(null);
     const [receiptError, setReceiptError] = useState(false);
@@ -29,7 +24,7 @@ export function PayDebtModal({groupId, expenseId, debtId, debtAmount, onClose, o
     const markAsPaid = useMarkDebtAsPaid();
 
     const handleAmountChange = (event: ChangeEvent<HTMLInputElement>) => {
-        setPaymentValue(maskAmount(event.target.value));
+        setPaymentValue(event.target.value.replace(/[^\d.,]/g, ""));
         setAmountError(null);
     };
 
@@ -38,10 +33,10 @@ export function PayDebtModal({groupId, expenseId, debtId, debtAmount, onClose, o
 
         const amount = parseAmount(paymentValue);
         if (!Number.isFinite(amount) || amount <= 0) {
-            setAmountError("Ingresá un monto válido.");
+            setAmountError("Ingresá un monto válido, con hasta 2 decimales.");
             return;
         }
-        if (amount > debtAmount) {
+        if (Math.round(amount * 100) > Math.round(debtAmount * 100)) {
             setAmountError(`El monto no puede superar $${formatAmount(debtAmount)}.`);
             return;
         }
@@ -82,6 +77,7 @@ export function PayDebtModal({groupId, expenseId, debtId, debtAmount, onClose, o
                 name="paymentAmount"
                 type="text"
                 inputMode="decimal"
+                step="0.01"
                 label="Monto a pagar"
                 hint="Podés pagar un monto menor o igual al total de la deuda actual."
                 placeholder="$ 0"

@@ -6,7 +6,7 @@ import { NewExpenseModal, ReportExpenseModal } from "@/components/modals";
 import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
 import {isVisibleToCreditor, useGetExpensesIOwe, useGetExpensesOwedToMe, useGetGroupSummary} from "@/services/ExpenseServices.ts";
 import type { Debt, Expense } from "@/models/Expense.ts";
-import {formatCurrency} from "@/lib/format.ts";
+import {formatCurrency, roundCents} from "@/lib/format.ts";
 import {useIsGroupStopped} from "@/contexts/GroupContext.tsx";
 import {GROUP_STOPPED_EXPENSE_TITLE} from "@/constants/group.ts";
 import {REFUND_OF_CANCELLED_EXPENSE_TAG, REFUND_TAG, REPORT_IN_PROGRESS_TITLE,} from "@/constants/expenses.ts";
@@ -188,7 +188,7 @@ function ExpenseAsDebtCard({ expense, myMemberId, editDisabledReason, onEdit }: 
             editDisabledReason={editDisabledReason}
         >
             {debtsToShow.map((debt) => {
-                const remaining = debt.amount - debt.paidAmount;
+                const remaining = roundCents(debt.amount - debt.paidAmount);
                 const isPaid = remaining <= 0;
                 const status = isPaid ? ("paid" as const) : debt.paidAmount > 0 ? ("partial" as const) : ("pending" as const);
 
@@ -230,7 +230,7 @@ function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onRepor
     return (
         <>
             {myDebts.map((myDebt) => {
-                const remaining = myDebt.amount - myDebt.paidAmount;
+                const remaining = roundCents(myDebt.amount - myDebt.paidAmount);
                 const isRefund = myDebt.kind === "REFUND";
                 const total = formatCurrency(expense.details.totalAmount);
 
