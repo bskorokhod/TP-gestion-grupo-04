@@ -21,30 +21,23 @@ export const ExpensesGroupScreen = () => {
 
     const owes = summary?.owes ?? 0;
     const owed = summary?.owed ?? 0;
-    const pendingCount = summary?.pendingExpenses ?? 0;
 
     return (
         <CommonLayout className="min-h-screen bg-background font-poppins text-foreground flex flex-col">
             <GroupNavbar>
                 <div
-                    className="grid grid-cols-3 divide-x divide-brand/20 rounded-full bg-panel px-6 py-4 text-foreground shadow-panel sm:px-8">
+                    className="grid grid-cols-2 divide-x divide-brand/20 rounded-full bg-panel px-6 py-4 text-foreground shadow-panel sm:px-8">
                     <div className="pr-5">
                         <strong className="block text-xl font-black text-group-danger sm:text-2xl">
                             {formatCurrency(owes)}
                         </strong>
                         <span className="text-xs font-medium uppercase text-brand"> Debés </span>
                     </div>
-                    <div className="px-5">
+                    <div className="pl-5">
                         <strong className="block text-xl font-black text-group-green sm:text-2xl">
                             {formatCurrency(owed)}
                         </strong>
                         <span className="text-xs font-medium uppercase text-brand"> Te deben </span>
-                    </div>
-                    <div className="pl-5">
-                        <strong className="block text-xl font-black text-brand sm:text-2xl">
-                            {pendingCount}
-                        </strong>
-                        <span className="text-xs font-medium uppercase text-brand"> Gastos propuestos </span>
                     </div>
                 </div>
             </GroupNavbar>
