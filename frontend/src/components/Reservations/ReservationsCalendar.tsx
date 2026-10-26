@@ -26,7 +26,7 @@ export function ReservationsCalendar({ calendar }: { readonly calendar: Reservat
           : `Inicio: ${formatDate(range.start)} · elegí la fecha de fin`;
 
     const legend = [
-        ...members.slice(0, 4).map((member) => ({ dot: memberColorClass(member.color), label: member.nickname })),
+        ...members.map((member) => ({ dot: memberColorClass(member.color), label: member.nickname })),
         { dot: "bg-panel ring-1 ring-black/10", label: "Disponible" },
         { dot: "bg-background ring-1 ring-black/10", label: "No disponible para reservar" },
     ];
