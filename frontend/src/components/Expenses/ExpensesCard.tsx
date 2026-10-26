@@ -191,14 +191,14 @@ export function TransactionRow({name, amount, variant = "credit", action = "read
     );
 }
 
-export function PersonBalanceCard({name, color, balance, balanceStatus, items, }: PersonBalanceCardProps): ReactNode {
+export function PersonBalanceCard({name, color, balance, balanceStatus, items, photoUrl}: PersonBalanceCardProps): ReactNode {
     const balanceColor = BALANCE_COLORS[balanceStatus];
 
     return (
         <ExpenseCard className="flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <Avatar color={color} name={name} />
+                    <Avatar color={color} name={name} photoUrl={photoUrl}/>
                     <h3 className="text-base font-semibold">{name}</h3>
                 </div>
                 <p className={`text-sm font-bold ${balanceColor}`}>{balance}</p>
