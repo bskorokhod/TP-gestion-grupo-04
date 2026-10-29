@@ -19,7 +19,7 @@ import type {ConfigChangeCreate} from "@/models/Vote.ts";
 import {useCreateConfigChangeVote} from "@/services/VoteServices.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faPercent, faCopy, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
+import {faPercent, faCopy, faArrowRight, faPenToSquare, faStar} from "@fortawesome/free-solid-svg-icons";
 import {Avatar} from "@/components/ui/Avatar.tsx";
 import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
@@ -61,8 +61,11 @@ function ModalSettingRow({ item, settings, disabled = false, onRequestChange }: 
                     aria-label={`${MODIFY_CONFIG_LABEL}: ${item.title}`}
                     disabled={disabled}
                     onClick={() => onRequestChange(item.kind)}
+                    // TODO: cambiar lo que se muestra según si es o no un grupo premium
+                    className="bg-amber/10 hover:bg-amber/20"
                 >
                     <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" aria-hidden />
+                    <FontAwesomeIcon icon={faStar} className="h-4 w-4 text-amber" aria-hidden />
                 </Button>
             </div>
         </div>
@@ -518,6 +521,10 @@ export const ConfigurationScreen = () => {
 
     const configBasePath = location.replace(/\/$/, "");
 
+    // Flag para verificar si el usuario es premium
+    // TODO: Reemplazarlo por el valor real desde context o custom hook (ej.: const { isPremium } = useAuth();)
+    const isPremium = false;
+
     return (
         <CommonLayout>
             <GroupNavbar>
@@ -547,7 +554,7 @@ export const ConfigurationScreen = () => {
                         />
 
                         <p className="text-3xl font-extrabold text-brand-hover">
-                            Ajustes disponibles
+                            { isPremium ? "Ajustes disponibles" : "Ajustes disponibles (Solo para grupos premium)" }
                         </p>
 
                         <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
@@ -582,6 +589,7 @@ export const ConfigurationScreen = () => {
                             </div>
                             )}
 
+                            // TODO: cambiar el botón de la fila según si es un grupo premium o no
                             {SETTINGS_INFO.map((item) => (
                                 <ModalSettingRow
                                     key={item.kind}
