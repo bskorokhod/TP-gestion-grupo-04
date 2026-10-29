@@ -61,15 +61,25 @@ const SOURCE_COPY: Record<ExpenseHistorySource, {
 };
 
 /** Las filas de la fuente elegida; la consulta de la otra queda apagada. */
-function useHistoryExpenses(groupId: number, source: ExpenseHistorySource): readonly HistoryExpense[] {
+function useHistoryExpenses(groupId: number | undefined, source: ExpenseHistorySource, mocked: boolean): readonly HistoryExpense[] {
     const {data: groupExpenses} = useGetSettledExpenses(source === "GROUP" ? groupId : undefined);
     const {data: paidExpenses} = useGetPaidExpenses(source === "MINE" ? groupId : undefined);
 
     return useMemo(
-        () => source === "GROUP"
+        () => mocked
+            ? [{
+                id: 1,
+                date: "2026-10-12T12:00:00Z",
+                title: "Mantenimiento general",
+                category: "MANTENIMIENTO",
+                creditor: {id: 1, nickname: "Alex", color: "BLUE"},
+                amount: 125000,
+                payments: [],
+            }]
+            : source === "GROUP"
             ? groupExpenses.map(({createdAt, totalAmount, ...expense}) => ({...expense, date: createdAt, amount: totalAmount}))
             : paidExpenses.map(({paidAt, paidAmount, ...expense}) => ({...expense, date: paidAt, amount: paidAmount})),
-        [source, groupExpenses, paidExpenses],
+        [mocked, source, groupExpenses, paidExpenses],
     );
 }
 
@@ -318,6 +328,7 @@ function ExpenseHistoryTable({
 
 interface ExpenseHistoryPanelProps {
     readonly groupId: number;
+    readonly mocked?: boolean;
     /** Qué gastos se listan; define también el título, los encabezados de fecha y monto y el texto del estado vacío. */
     readonly source: ExpenseHistorySource;
     /**
@@ -328,11 +339,11 @@ interface ExpenseHistoryPanelProps {
 }
 
 /** Historial de gastos del grupo: título, filtros, tabla y paginador. */
-export function ExpenseHistoryPanel({groupId, source, period}: ExpenseHistoryPanelProps): ReactElement {
+export function ExpenseHistoryPanel({groupId, source, period, mocked = false}: ExpenseHistoryPanelProps): ReactElement {
     const copy = SOURCE_COPY[source];
-    const expenses = useHistoryExpenses(groupId, source);
+    const expenses = useHistoryExpenses(mocked ? undefined : groupId, source, mocked);
     // Sin `status` el backend devuelve todas las membresías, también las de quienes ya salieron o se están yendo.
-    const {data: members = []} = useGetGroupMembers(groupId);
+    const {data: members = []} = useGetGroupMembers(mocked ? undefined : groupId);
 
     const today = useMemo(() => new Date(), []);
     const currentYear = today.getFullYear();

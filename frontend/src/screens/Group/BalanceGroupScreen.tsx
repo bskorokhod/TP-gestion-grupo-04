@@ -14,6 +14,7 @@ import {categoryChartColor, categoryDotClass, memberChartColor} from "@/lib/colo
 import {type SpendingScope, useGetCategorySpending, useGetMonthlySpending} from "@/services/BalanceServices.ts";
 import Footer from "@/components/Footer.tsx";
 import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
+import type {ExpenseCategory} from "@/models/Expense.ts";
 
 const LINE_COLOR = memberChartColor("GREEN");
 
@@ -54,6 +55,15 @@ interface Slice {
     readonly dot: string;
 }
 
+const MOCK_SLICES: readonly Slice[] = [
+    {name: "Mantenimiento", amount: 125000, fill: categoryChartColor("MANTENIMIENTO"), dot: categoryDotClass("MANTENIMIENTO")},
+    {name: "Servicios", amount: 78000, fill: categoryChartColor("SERVICIOS"), dot: categoryDotClass("SERVICIOS")},
+    {name: "Compras", amount: 42000, fill: categoryChartColor("COMPRAS"), dot: categoryDotClass("COMPRAS")},
+];
+
+const MOCK_MONTHLY_SPENDING = [42000, 65000, 58000, 92000, 78000, 115000, 85000, 99000, 74000, 125000, 0, 0]
+    .map((amount, index) => ({month: index + 1, amount}));
+
 export const BalanceGroupScreen = () => {
     const group = useCurrentGroup();
 
@@ -83,13 +93,18 @@ export const BalanceGroupScreen = () => {
     };
 
     const {data: breakdown, isLoading: loadingBreakdown} = useGetCategorySpending(
-        group.id, period.year, period.month + 1, scope,
+        isPremium ? group.id : undefined, period.year, period.month + 1, scope,
     );
-    const {data: monthlySpending, isLoading: loadingMonthly} = useGetMonthlySpending(group.id, period.year, scope);
+    const {data: monthlySpending, isLoading: loadingMonthly} = useGetMonthlySpending(
+        isPremium ? group.id : undefined, period.year, scope,
+    );
 
     const slices = useMemo<Slice[]>(
         () =>
-            (breakdown?.categories ?? [])
+            (isPremium ? breakdown?.categories ?? [] : MOCK_SLICES.map(({name, amount}) => ({
+                category: name === "Mantenimiento" ? "MANTENIMIENTO" : name === "Servicios" ? "SERVICIOS" : "COMPRAS" as ExpenseCategory,
+                amount,
+            })))
                 .map(({category: slice, amount}) => ({
                     name: categoryLabel(slice),
                     amount,
@@ -97,22 +112,23 @@ export const BalanceGroupScreen = () => {
                     dot: categoryDotClass(slice),
                 }))
                 .sort((a, b) => b.amount - a.amount),
-        [breakdown],
+        [breakdown, isPremium],
     );
 
-    const monthTotal = breakdown?.total ?? 0;
+    const monthTotal = isPremium ? breakdown?.total ?? 0 : MOCK_SLICES.reduce((total, slice) => total + slice.amount, 0);
 
     // Los meses que todavía no llegaron no se grafican: un cero ahí se leería como "no se gastó nada".
     const monthlyPoints = useMemo(
         () =>
             MONTHS_SHORT.map((label, index) => {
                 const isFuture = period.year === currentYear && index > currentMonth;
-                const amount = monthlySpending?.find((entry) => entry.month === index + 1)?.amount ?? 0;
+                const amount = (isPremium ? monthlySpending ?? [] : MOCK_MONTHLY_SPENDING)
+                    .find((entry) => entry.month === index + 1)?.amount ?? 0;
                 return {month: label, total: isFuture ? null : amount};
             }),
-        [monthlySpending, period.year, currentYear, currentMonth],
+        [monthlySpending, period.year, currentYear, currentMonth, isPremium],
     );
-    const monthlyHasData = (monthlySpending ?? []).some((entry) => entry.amount > 0);
+    const monthlyHasData = (isPremium ? monthlySpending ?? [] : MOCK_MONTHLY_SPENDING).some((entry) => entry.amount > 0);
 
     const personal = scope === "ME";
 
@@ -260,6 +276,7 @@ export const BalanceGroupScreen = () => {
                         groupId={group.id}
                         source="GROUP"
                         period={{firstYear: firstPeriod.year}}
+                        mocked={!isPremium}
                     />
                 </main>
 
