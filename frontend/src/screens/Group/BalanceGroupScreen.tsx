@@ -1,6 +1,6 @@
 import {useMemo, useState} from "react";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faChevronLeft, faChevronRight, faStar} from "@fortawesome/free-solid-svg-icons";
+import {faChevronLeft, faChevronRight} from "@fortawesome/free-solid-svg-icons";
 import {CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
 import Navbar from "@/components/Navbar.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
@@ -13,6 +13,7 @@ import {formatCurrency, MONTHS_FULL, MONTHS_SHORT} from "@/lib/format.ts";
 import {categoryChartColor, categoryDotClass, memberChartColor} from "@/lib/colors.ts";
 import {type SpendingScope, useGetCategorySpending, useGetMonthlySpending} from "@/services/BalanceServices.ts";
 import Footer from "@/components/Footer.tsx";
+import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
 
 const LINE_COLOR = memberChartColor("GREEN");
 
@@ -56,9 +57,7 @@ interface Slice {
 export const BalanceGroupScreen = () => {
     const group = useCurrentGroup();
 
-    // Flag para verificar si el usuario es premium
-    // TODO: Reemplazarlo por el valor real desde context o custom hook (ej.: const { isPremium } = useAuth();)
-    const isPremium = false;
+    const isPremium = group.isPremium;
 
     const today = useMemo(() => new Date(), []);
     const currentYear = today.getFullYear();
@@ -264,26 +263,8 @@ export const BalanceGroupScreen = () => {
                     />
                 </main>
 
-                {/* Overlay de bloqueo */}
                 {!isPremium && (
-                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/50 backdrop-blur-md p-4">
-                        <div className="flex max-w-sm flex-col items-center rounded-3xl bg-panel p-8 text-center shadow-2xl">
-                            <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-amber/10 text-amber">
-                                <FontAwesomeIcon icon={faStar} className="size-5"/>
-                            </div>
-
-                            <h3 className="text-xl font-bold text-texto-principal">Contenido premium</h3>
-
-                            <p className="mt-2 text-sm leading-relaxed text-texto-principal/70">
-                                El acceso a gráficos avanzados, reportes por categoría e historial del grupo solo está
-                                disponible para grupos premium.
-                            </p>
-
-                            <Button size="lg" variant="default" className="mt-6 text-sm font-semibold bg-amber/90 hover:bg-amber">
-                                Comenzar prueba gratuita
-                            </Button>
-                        </div>
-                    </div>
+                    <PremiumContentModal groupCode={group.joinCode} contained lockScroll={false} dimBackground={false}/>
                 )}
             </div>
 

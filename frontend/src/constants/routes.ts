@@ -13,3 +13,4 @@ export const groupExpensesPath = (groupCode: string) => `/grupos/${groupCode}/ga
 export const groupConfigPath = (groupCode: string) => `/grupos/${groupCode}/configuracion`;
 export const groupVotesPath = (groupCode: string) => `/grupos/${groupCode}/votaciones`;
 export const groupPercentagesPath = (groupCode: string) => `/grupos/${groupCode}/configuracion/porcentajes`;
+export const groupPremiumApplicationPath = (groupCode: string) => `/grupos/${groupCode}/premium`;

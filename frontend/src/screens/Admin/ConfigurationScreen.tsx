@@ -23,6 +23,7 @@ import {faPercent, faCopy, faArrowRight, faPenToSquare, faStar} from "@fortaweso
 import {Avatar} from "@/components/ui/Avatar.tsx";
 import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
+import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
 
 
 const CONFIG_BLOCKED_WHEN_STOPPED_LABEL =
@@ -32,10 +33,17 @@ interface ModalSettingRowProps {
     readonly item: ModalSettingItem;
     readonly settings: GroupSettings;
     readonly disabled?: boolean;
+    readonly isPremium: boolean;
     readonly onRequestChange: (kind: ConfigChangeKind) => void;
 }
 
-function ModalSettingRow({ item, settings, disabled = false, onRequestChange }: ModalSettingRowProps) {
+function ModalSettingRow({
+    item,
+    settings,
+    disabled = false,
+    isPremium,
+    onRequestChange,
+}: ModalSettingRowProps) {
     return (
         <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
             <div className="flex flex-row gap-5 items-center">
@@ -61,11 +69,9 @@ function ModalSettingRow({ item, settings, disabled = false, onRequestChange }: 
                     aria-label={`${MODIFY_CONFIG_LABEL}: ${item.title}`}
                     disabled={disabled}
                     onClick={() => onRequestChange(item.kind)}
-                    // TODO: cambiar lo que se muestra según si es o no un grupo premium
-                    className="bg-amber/10 hover:bg-amber/20"
+                    className={isPremium ? "bg-brand/10 hover:bg-brand/20" : "bg-amber/10 hover:bg-amber/20"}
                 >
-                    <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" aria-hidden />
-                    <FontAwesomeIcon icon={faStar} className="h-4 w-4 text-amber" aria-hidden />
+                    <FontAwesomeIcon icon={isPremium ? faPenToSquare : faStar} className={`h-4 w-4 ${isPremium ? "text-brand" : "text-amber"}`} aria-hidden />
                 </Button>
             </div>
         </div>
@@ -490,6 +496,7 @@ export const ConfigurationScreen = () => {
     const [location] = useLocation();
     const group = useCurrentGroup();
     const [pendingChange, setPendingChange] = useState<ConfigChangeKind | null>(null);
+    const [showPremiumModal, setShowPremiumModal] = useState(false);
     const createConfigChange = useCreateConfigChangeVote(group.id);
     const { showApiError, showSuccessToast, showErrorToast } = useFormToasts();
 
@@ -521,9 +528,7 @@ export const ConfigurationScreen = () => {
 
     const configBasePath = location.replace(/\/$/, "");
 
-    // Flag para verificar si el usuario es premium
-    // TODO: Reemplazarlo por el valor real desde context o custom hook (ej.: const { isPremium } = useAuth();)
-    const isPremium = false;
+    const isPremium = group.isPremium;
 
     return (
         <CommonLayout>
@@ -589,14 +594,15 @@ export const ConfigurationScreen = () => {
                             </div>
                             )}
 
-                            // TODO: cambiar el botón de la fila según si es un grupo premium o no
+                            {/* TODO: cambiar el botón de la fila según si es un grupo premium o no */}
                             {SETTINGS_INFO.map((item) => (
                                 <ModalSettingRow
                                     key={item.kind}
                                     item={item}
                                     settings={group.settings}
                                     disabled={isStopped}
-                                    onRequestChange={setPendingChange}
+                                    isPremium={isPremium}
+                                    onRequestChange={(kind) => isPremium ? setPendingChange(kind) : setShowPremiumModal(true)}
                                 />
                             ))}
                         </div>
@@ -616,6 +622,14 @@ export const ConfigurationScreen = () => {
                     settings={group.settings}
                     onClose={() => setPendingChange(null)}
                     onSubmit={handleConfigChangeSubmit}
+                />
+            )}
+            {showPremiumModal && (
+                <PremiumContentModal
+                    groupCode={group.joinCode}
+                    title="Ajustes premium"
+                    description="Las modificaciones de configuración solo están disponibles para grupos premium."
+                    onClose={() => setShowPremiumModal(false)}
                 />
             )}
         </CommonLayout>

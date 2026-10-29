@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 /** Comportamiento común de los modales: se cierran con Escape y bloquean el scroll de la página. */
-export function useDismissibleModal(onClose?: () => void): void {
+export function useDismissibleModal(onClose?: () => void, lockScroll = true): void {
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape" && onClose) {
@@ -13,10 +13,12 @@ export function useDismissibleModal(onClose?: () => void): void {
     }, [onClose]);
 
     useEffect(() => {
+        if (!lockScroll) return;
+
         const originalOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
         return () => {
             document.body.style.overflow = originalOverflow;
         };
-    }, []);
+    }, [lockScroll]);
 }

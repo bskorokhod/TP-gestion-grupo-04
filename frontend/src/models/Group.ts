@@ -129,6 +129,7 @@ export const GroupSchema = z.object({
     name: z.string(),
     description: z.string(),
     createdAt: z.string(),
+    isPremium: z.boolean().default(false),
     memberCount: z.number(),
     joinCode: z.string(),
     myStatus: MembershipStatusSchema,

@@ -1,5 +1,7 @@
 import {useEffect, useRef, useState} from "react";
 import {Link, useRoute} from "wouter";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {faStar} from "@fortawesome/free-solid-svg-icons";
 
 import {ChevronDownIcon} from "@/components/Icons.tsx";
 import {GROUP_ROUTE_PATTERN, groupExpensesPath} from "@/constants/routes.ts";
@@ -54,7 +56,10 @@ export function CurrentGroupSwitcher() {
                 aria-label={`Grupo actual: ${currentGroup.name}. Cambiar de grupo`}
                 className="flex min-w-0 items-center gap-1 text-sm font-medium text-ink transition-colors hover:text-brand sm:text-base"
             >
-                <span className="max-w-32 truncate sm:max-w-60">{currentGroup.name}</span>
+                <span className="flex min-w-0 items-center gap-1">
+                    <span className="max-w-32 truncate sm:max-w-60">{currentGroup.name}</span>
+                    {currentGroup.isPremium && <FontAwesomeIcon icon={faStar} className="size-3.5 text-amber" aria-label="Grupo premium"/>}
+                </span>
                 <ChevronDownIcon/>
             </button>
 
@@ -71,7 +76,10 @@ export function CurrentGroupSwitcher() {
                                 onClick={() => setIsMenuOpen(false)}
                                 className="block truncate px-4 py-2 text-sm text-ink transition-colors hover:bg-muted"
                             >
-                                {group.name}
+                                <span className="flex items-center gap-2">
+                                    {group.name}
+                                    {group.isPremium && <FontAwesomeIcon icon={faStar} className="size-3.5 text-amber" aria-label="Grupo premium"/>}
+                                </span>
                             </Link>
                         ))
                     ) : (
