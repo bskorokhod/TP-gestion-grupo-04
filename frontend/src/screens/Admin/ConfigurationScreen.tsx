@@ -6,6 +6,9 @@ import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {GroupStoppedBanner} from "@/components/GroupStoppedBanner.tsx";
+import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
+import {Avatar} from "@/components/ui/Avatar.tsx";
+import {CopyChip} from "@/components/ui/CopyChip.tsx";
 import {cn} from "@/lib/cn.ts";
 import type {GroupSettings, Member} from "@/models/Group.ts";
 import type {ConfigChangeKind, ConfigChangeRequest, ModalSettingItem} from "@/models/Config.ts";
@@ -20,9 +23,7 @@ import type {ConfigChangeCreate} from "@/models/Vote.ts";
 import {useCreateConfigChangeVote} from "@/services/VoteServices.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faPercent, faCopy, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
-import {Avatar} from "@/components/ui/Avatar.tsx";
-import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
+import {faPercent, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
 
 
@@ -421,54 +422,24 @@ function JoinRequestsSection({ groupId, showPercentages }: JoinRequestsSectionPr
     );
 }
 
-async function copyToClipboard(text: string): Promise<void> {
-    await navigator.clipboard.writeText(text);
-}
-
 interface JoinCodeShareProps {
     readonly joinCode: string;
 }
 
 function JoinCodeShare({ joinCode }: JoinCodeShareProps) {
-    async function handleCopy() {
-        try {
-            await copyToClipboard(joinCode);
-            toast({ title: "Código copiado al portapapeles" });
-        } catch {
-            toast({
-                variant: "destructive",
-                title: "No se pudo copiar el código",
-                description: `Copialo manualmente: ${joinCode}`,
-            });
-        }
-    }
-
     return (
         <div className="flex flex-col items-start gap-1.5 md:items-end">
             <span className="text-xs font-semibold uppercase tracking-wide text-brand-foreground/70">
                 Código de grupo
             </span>
 
-            <div className="inline-flex items-center gap-1 rounded-full bg-modal-surface py-1 pl-5 pr-1 shadow-none">
-                <button
-                    type="button"
-                    onClick={handleCopy}
-                    aria-label={`Copiar código de grupo ${joinCode} al portapapeles`}
-                    title="Copiar al portapapeles"
-                    className="cursor-pointer text-lg font-bold tracking-widest tabular-nums text-modal-ink transition-colors hover:text-modal-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
-                >
-                    {joinCode}
-                </button>
-                <button
-                    type="button"
-                    onClick={handleCopy}
-                    aria-label="Copiar código de grupo al portapapeles"
-                    title="Copiar al portapapeles"
-                    className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-modal-primary transition-colors hover:bg-modal-field focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                    <FontAwesomeIcon icon={faCopy} className="h-4 w-4" aria-hidden />
-                </button>
-            </div>
+            <CopyChip
+                value={joinCode}
+                label="código de grupo"
+                successTitle="Código copiado al portapapeles"
+                errorTitle="No se pudo copiar el código"
+                className="bg-modal-surface"
+            />
 
             <span className="max-w-64 text-xs text-brand-foreground/70 md:text-right">
                 Compartí este código para que otros se unan al grupo.
