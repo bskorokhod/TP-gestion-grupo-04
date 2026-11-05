@@ -15,6 +15,7 @@ import { GROUP_STOPPED_EXPENSE_TITLE } from "@/constants/group.ts";
 interface PayTarget {
     readonly expenseId: number;
     readonly debtId: number;
+    readonly cvu: string | null | undefined;
     readonly amount: number;
 }
 
@@ -52,7 +53,7 @@ export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => 
                             key={balance.member.id}
                             balance={balance}
                             onPay={(expenseId, debtId, amount) =>
-                                setPayTarget({ expenseId, debtId, amount })
+                                setPayTarget({ expenseId, debtId, cvu: balance.member.cvu, amount })
                             }
                         />
                     ))}
@@ -71,6 +72,7 @@ export const PerPersonView = ({ groupId }: PerPersonViewProps): ReactElement => 
                     groupId={groupId}
                     expenseId={payTarget.expenseId}
                     debtId={payTarget.debtId}
+                    cvu={payTarget.cvu}
                     debtAmount={payTarget.amount}
                     onClose={() => setPayTarget(null)}
                     onPaid={() => setPayTarget(null)}

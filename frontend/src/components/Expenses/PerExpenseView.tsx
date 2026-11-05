@@ -18,6 +18,7 @@ interface PerExpenseViewProps {
 interface PayTarget {
     expenseId: number;
     debtId: number;
+    cvu: string | null | undefined;
     amount: number;
 }
 
@@ -121,7 +122,7 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                                 reportDisabledReason={findReportBlockedReason(expense, myMemberId, isGroupStopped)}
                                 onReport={() => setReportTarget(expense)}
                                 onPay={(debtId, amount) =>
-                                    setPayTarget({ expenseId: expense.id, debtId, amount })
+                                    setPayTarget({ expenseId: expense.id, debtId, cvu: expense.creator.cvu, amount })
                                 }
                             />
                         ))}
@@ -149,6 +150,7 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                     groupId={groupId}
                     expenseId={payTarget.expenseId}
                     debtId={payTarget.debtId}
+                    cvu={payTarget.cvu}
                     debtAmount={payTarget.amount}
                     onClose={() => setPayTarget(null)}
                     onPaid={() => setPayTarget(null)}

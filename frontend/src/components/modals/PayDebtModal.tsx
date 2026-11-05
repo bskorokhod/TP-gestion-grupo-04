@@ -4,6 +4,7 @@ import TextField from "@/components/Forms/TextField.tsx";
 import FileField from "@/components/Forms/FileField";
 import { ModalShell } from "./ModalShell";
 
+import { CopyChip } from "@/components/ui/CopyChip.tsx";
 import { formatAmount, parseAmount } from "@/lib/format.ts";
 import { useMarkDebtAsPaid } from "@/services/ExpenseServices.ts";
 
@@ -11,12 +12,13 @@ export interface PayDebtModalProps {
     groupId: number;
     expenseId: number;
     debtId: number;
+    cvu: string | null | undefined;
     debtAmount: number;
     onClose?: () => void;
     onPaid?: () => void;
 }
 
-export function PayDebtModal({groupId, expenseId, debtId, debtAmount, onClose, onPaid,}: PayDebtModalProps) {
+export function PayDebtModal({groupId, expenseId, debtId, cvu, debtAmount, onClose, onPaid}: PayDebtModalProps) {
     const [receipt, setReceipt] = useState<File | null>(null);
     const [receiptError, setReceiptError] = useState(false);
     const [paymentValue, setPaymentValue] = useState<string>(formatAmount(debtAmount));
@@ -70,6 +72,23 @@ export function PayDebtModal({groupId, expenseId, debtId, debtAmount, onClose, o
                 <p className="shrink-0 text-2xl font-medium text-modal-amount">
                     ${formatAmount(debtAmount)}
                 </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <p className="text-base font-medium text-modal-ink">Alias/CVU de la persona a cargo</p>
+                {cvu ? (
+                    <div>
+                        <CopyChip
+                            value={cvu}
+                            label="Alias/CVU"
+                            successTitle="Alias/CVU copiado al portapapeles"
+                            errorTitle="No se pudo copiar el alias/CVU"
+                            className="bg-modal-field rounded-full px-3 py-1"
+                        />
+                    </div>
+                ) : (
+                    <p className="text-sm font-medium text-modal-ink/60">Sin cargar</p>
+                )}
             </div>
 
             <TextField
