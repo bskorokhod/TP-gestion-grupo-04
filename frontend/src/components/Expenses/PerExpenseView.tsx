@@ -121,8 +121,8 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                                 myMemberId={myMemberId}
                                 reportDisabledReason={findReportBlockedReason(expense, myMemberId, isGroupStopped)}
                                 onReport={() => setReportTarget(expense)}
-                                onPay={(debtId, amount) =>
-                                    setPayTarget({ expenseId: expense.id, debtId, cvu: expense.creator.cvu, amount })
+                                onPay={(debtId, amount, cvu) =>
+                                    setPayTarget({ expenseId: expense.id, debtId, cvu, amount })
                                 }
                             />
                         ))}
@@ -217,7 +217,7 @@ interface ExpenseAsOwedCardsProps {
     readonly myMemberId?: number;
     readonly reportDisabledReason: string | null;
     readonly onReport: () => void;
-    readonly onPay: (debtId: number, amount: number) => void;
+    readonly onPay: (debtId: number, amount: number, cvu: string | null | undefined) => void;
 }
 
 /**
@@ -258,7 +258,7 @@ function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onRepor
                         reportDisabledReason={reportDisabledReason}
                         action={{
                             label: "Marcar como pagado",
-                            onClick: () => onPay(myDebt.id, remaining),
+                            onClick: () => onPay(myDebt.id, remaining, myDebt.creditor.cvu),
                             disabledReason: expense.reportInProgress ? REPORT_IN_PROGRESS_TITLE : null,
                         }}
                     />
