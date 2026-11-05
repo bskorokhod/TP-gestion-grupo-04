@@ -105,7 +105,10 @@ function MembersSection({ groupId }: MembersSectionProps) {
     async function handleSaveCvu(cvu: string) {
         try {
             const updated = await updateCvu.mutateAsync({ cvu });
-            showSuccessToast("Alias/CVU actualizado", `Tu alias/CVU en el grupo ahora es "${updated.cvu}".`);
+            showSuccessToast(
+                updated.cvu ? "Alias/CVU actualizado" : "Alias/CVU eliminado",
+                updated.cvu ? `Tu alias/CVU en el grupo ahora es "${updated.cvu}".` : "Ya no tenés un alias/CVU cargado en el grupo.",
+            );
         } catch (error) {
             showApiError(error as BackendError, "No se pudo guardar tu alias/CVU")
             throw error;
@@ -438,7 +441,7 @@ function JoinCodeShare({ joinCode }: JoinCodeShareProps) {
                 label="código de grupo"
                 successTitle="Código copiado al portapapeles"
                 errorTitle="No se pudo copiar el código"
-                className="bg-modal-surface"
+                className="bg-modal-surface text-base tracking-normal"
             />
 
             <span className="max-w-64 text-xs text-brand-foreground/70 md:text-right">

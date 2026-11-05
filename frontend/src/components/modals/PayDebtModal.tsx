@@ -75,7 +75,7 @@ export function PayDebtModal({groupId, expenseId, debtId, cvu, debtAmount, onClo
             </div>
 
             <div className="flex flex-col gap-2">
-                <p className="text-base font-medium text-modal-ink">Alias/CVU de la persona a cargo</p>
+                <p className="text-base font-medium text-modal-ink">Alias/CVU de quien recibe el pago</p>
                 {cvu ? (
                     <div>
                         <CopyChip
@@ -83,7 +83,7 @@ export function PayDebtModal({groupId, expenseId, debtId, cvu, debtAmount, onClo
                             label="Alias/CVU"
                             successTitle="Alias/CVU copiado al portapapeles"
                             errorTitle="No se pudo copiar el alias/CVU"
-                            className="bg-modal-field rounded-full px-3 py-1"
+                            className="bg-modal-field rounded-full px-3 py-1 text-base tracking-normal"
                         />
                     </div>
                 ) : (
