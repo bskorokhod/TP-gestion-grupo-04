@@ -8,10 +8,8 @@ import {useToken} from "@/contexts/TokenContext.tsx";
 export function Brand() {
     return (
         <Link className="inline-flex items-center" aria-label="Es Nuestro, inicio" key="inicio" href="/">
-          <span className="font-display text-[17px] font-extrabold leading-none text-ink sm:text-[19px]">
-            esnuestro
-          </span>
-                <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-brand" aria-hidden="true"/>
+            <span className="font-display text-[17px] font-extrabold leading-none text-ink sm:text-[19px]">esnuestro</span>
+            <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-brand" aria-hidden="true"/>
         </Link>
     );
 }

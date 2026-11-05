@@ -48,6 +48,7 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
         const payload = {
             joinCode: String(data.get("groupCode") ?? ""),
             nickname: String(data.get("nickname") ?? ""),
+            cvu: String(data.get("cvu") ?? ""),
             ...(requiresPercentage && { percentage: parseOptionalNumber(percentage) }),
         };
 
@@ -117,6 +118,16 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
                 required
                 autoComplete="off"
                 maxLength={30}
+            />
+
+            <TextField
+                id="cvu"
+                name="cvu"
+                label="Tu alias o CVU (opcional)"
+                hint="Se lo mostramos a quienes tengan que pagarte. CVU de 22 dígitos o alias de 6 a 20 caracteres."
+                placeholder="Ej. juan.perez.mp"
+                autoComplete="off"
+                maxLength={22}
             />
 
             {requiresPercentage && (

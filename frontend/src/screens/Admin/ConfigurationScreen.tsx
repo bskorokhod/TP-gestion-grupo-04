@@ -12,6 +12,7 @@ import type {ConfigChangeKind, ConfigChangeRequest, ModalSettingItem} from "@/mo
 import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useRejectJoinRequest } from "@/services/GroupServices.ts";
 import {useMyMember} from "@/hooks/useMyMember.ts";
 import {useUpdateMyNickname} from "@/services/NicknameServices.ts";
+import {useUpdateMyCvu} from "@/services/CvuServices.ts";
 import {toast, type BackendError} from "@/hooks/useToast.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import {describeResolvedVote} from "@/lib/votes.ts";
@@ -77,6 +78,7 @@ function MembersSection({ groupId }: MembersSectionProps) {
     const membersQuery = useGetGroupMembers(groupId, "ACTIVE");
     const myMember = useMyMember(groupId);
     const updateNickname = useUpdateMyNickname(groupId);
+    const updateCvu = useUpdateMyCvu(groupId);
     const { showApiError, showSuccessToast } = useFormToasts();
 
     const members = membersQuery.data ?? [];
@@ -95,6 +97,16 @@ function MembersSection({ groupId }: MembersSectionProps) {
             showSuccessToast("Apodo actualizado", `Tu apodo en el grupo ahora es "${updated.nickname}".`);
         } catch (error) {
             showApiError(error as BackendError, "No se pudo guardar tu apodo");
+            throw error;
+        }
+    }
+
+    async function handleSaveCvu(cvu: string) {
+        try {
+            const updated = await updateCvu.mutateAsync({ cvu });
+            showSuccessToast("Alias/CVU actualizado", `Tu alias/CVU en el grupo ahora es "${updated.cvu}".`);
+        } catch (error) {
+            showApiError(error as BackendError, "No se pudo guardar tu alias/CVU")
             throw error;
         }
     }
@@ -133,7 +145,9 @@ function MembersSection({ groupId }: MembersSectionProps) {
                         member={member}
                         isMine={isMine}
                         onSaveNickname={isMine ? handleSaveNickname : undefined}
-                        isSaving={isMine && updateNickname.isPending}
+                        isSavingNickname={isMine && updateNickname.isPending}
+                        onSaveCvu={isMine ? handleSaveCvu : undefined}
+                        isSavingCvu={isMine && updateCvu.isPending}
                     />
                 );
             })}
