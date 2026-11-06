@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MemberCvuSchema } from "@/models/Cvu.ts";
 
 export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
 
@@ -187,6 +188,8 @@ export const JoinGroupSchema = z.object({
         .trim()
         .min(1, "El apodo es obligatorio")
         .max(30, "El apodo no puede superar los 30 caracteres"),
+    /** Alias o CVU para recibir pagos: opcional; vacío = sin cargar. */
+    cvu: MemberCvuSchema.optional(),
     /** Porcentaje que se pide al unirse: obligatorio si el grupo es porcentual, se omite si es equitativo. */
     percentage: OwnershipPercentageSchema.optional(),
 });
@@ -231,6 +234,7 @@ export const MemberSchema = z.object({
     userId: z.number(),
     username: z.string(),
     nickname: z.string(),
+    cvu: z.string().nullish(),
     color: MemberColorSchema,
     status: MembershipStatusSchema,
     percentage: z.number().nullable(),

@@ -7,9 +7,12 @@ public record ExpenseMemberDTO(
         Long id,
         String nickname,
         MemberColor color,
-        String photoUrl
+        String photoUrl,
+        String cvu
 ) {
     public static ExpenseMemberDTO from(GroupMember member) {
-        return new ExpenseMemberDTO(member.getId(), member.getNickname(), member.getColor(), member.getUser().getPhotoUrl());
+        return new ExpenseMemberDTO(
+                member.getId(), member.getNickname(), member.getColor(), member.getUser().getPhotoUrl(), member.getCvu()
+        );
     }
 }

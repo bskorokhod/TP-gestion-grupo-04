@@ -49,6 +49,7 @@ export const ExpenseMemberSchema = z.object({
   nickname: z.string(),
   color: MemberColorSchema,
   photoUrl: z.string().nullable().optional(),
+  cvu: z.string().nullish(),
 });
 export type ExpenseMember = z.infer<typeof ExpenseMemberSchema>;
 

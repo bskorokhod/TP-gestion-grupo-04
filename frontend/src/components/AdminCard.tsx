@@ -1,133 +1,62 @@
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useState, useRef, useEffect, type ChangeEvent } from "react";
+import { faPenToSquare } from "@fortawesome/free-solid-svg-icons";
 
-import type {Member} from "@/models/Group.ts";
+import type { Member } from "@/models/Group.ts";
 import { MemberNicknameSchema } from "@/models/Nickname.ts";
-import { cn } from "@/lib/cn.ts";
-import { memberColorClass } from "@/lib/colors"
-import {Avatar} from "@/components/ui/Avatar.tsx";
-import Button from "@/components/Button.tsx";
+import { MemberCvuSchema } from "@/models/Cvu.ts";
+import { Avatar } from "@/components/ui/Avatar.tsx";
 import { CardActionButton } from "@/components/ui/CardActionButton";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck, faPenToSquare, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
+import { InlineEditForm } from "@/components/Forms/InlineEditForm";
 
 export interface MemberInfoCardProps {
     readonly member: Member;
-    /** Solo la tarjeta del propio miembro puede editar el apodo; el resto se muestra en solo lectura. */
     readonly isMine?: boolean;
-    /** Persiste el nuevo apodo (PATCH al backend). Si rechaza, la tarjeta se queda en edición para reintentar. */
     readonly onSaveNickname?: (nickname: string) => Promise<void>;
-    readonly isSaving?: boolean;
+    readonly isSavingNickname?: boolean;
+    readonly onSaveCvu?: (cvu: string) => Promise<void>;
+    readonly isSavingCvu?: boolean;
 }
 
-export function MemberInfoCard({ member, isMine = false, onSaveNickname, isSaving = false }: MemberInfoCardProps) {
-    const initial = member.nickname.charAt(0).toUpperCase();
-    const percentage = member.percentage !== null ? member.percentage : 0;
-    const hasPhoto = Boolean(member.photoUrl);
+export function MemberInfoCard({
+                                   member,
+                                   isMine = false,
+                                   onSaveNickname,
+                                   isSavingNickname = false,
+                                   onSaveCvu,
+                                   isSavingCvu = false,
+                               }: MemberInfoCardProps) {
+    const percentage = member.percentage ?? 0;
     const canEdit = isMine && Boolean(onSaveNickname);
 
-    const [isEditing, setIsEditing] = useState(false);
-    const [draft, setDraft] = useState(member.nickname);
-
-    // Si el apodo cambia desde afuera (ej. otra pestaña) mientras no se está editando, no queda un draft viejo.
-    useEffect(() => {
-        if (!isEditing) setDraft(member.nickname);
-    }, [member.nickname, isEditing]);
-
-    const validation = MemberNicknameSchema.safeParse(draft);
-    const isDirty = draft.trim() !== member.nickname;
-    const canConfirm = canEdit && validation.success && isDirty && !isSaving;
-
-    function startEditing() {
-        setDraft(member.nickname);
-        setIsEditing(true);
-    }
-
-    function cancelEditing() {
-        setDraft(member.nickname);
-        setIsEditing(false);
-    }
-
-    async function confirmEditing() {
-        if (!canConfirm || !validation.success || !onSaveNickname) return;
-        try {
-            await onSaveNickname(validation.data);
-            setIsEditing(false);
-        } catch {
-            // El error ya se reporta (toast) en el llamador; se mantiene en edición para reintentar o cancelar.
-        }
-    }
-
-    function handleInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            void confirmEditing();
-        } else if (event.key === "Escape") {
-            event.preventDefault();
-            cancelEditing();
-        }
-    }
+    const nicknameEdit = useInlineEdit({
+        initialValue: member.nickname,
+        schema: MemberNicknameSchema,
+        onSave: onSaveNickname,
+        canEdit,
+        isSaving: isSavingNickname,
+    });
 
     return (
         <div className="flex flex-col gap-3 items-start flex-1 bg-panel rounded-2xl border border-field/50 py-6 px-7 overflow-hidden">
             <div className="flex flex-row justify-between items-center gap-3 self-stretch">
                 <div className="flex min-w-0 flex-1 flex-row gap-2.5 items-center">
-                    {hasPhoto ? (
-                        <img
-                            src={member.photoUrl!}
-                            alt={member.nickname}
-                            className="w-11 h-11 rounded-[31px] object-cover shrink-0"
-                        />
-                    ) : (
-                    <div
-                        className={cn(
-                            "flex flex-row justify-center items-center w-11 h-11 rounded-[31px] overflow-hidden shrink-0",
-                            memberColorClass(member.color),
-                        )}
-                    >
-                        <p className="text-lg font-medium text-panel">{initial}</p>
-                    </div>
-                    )}
+                    <Avatar size="lg" name={member.nickname} color={member.color} photoUrl={member.photoUrl} />
 
-                    {isEditing ? (
-                        <div className="flex min-w-0 flex-1 flex-row gap-2 items-center">
-                            <input
-                                type="text"
-                                value={draft}
-                                maxLength={30}
-                                autoFocus
-                                disabled={isSaving}
-                                aria-label="Editar tu apodo en el grupo"
-                                aria-invalid={!validation.success}
-                                onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft(event.target.value)}
-                                onKeyDown={handleInputKeyDown}
-                                className={cn(
-                                    "min-w-0 flex-1 rounded-lg border bg-input-surface px-3 py-1.5 text-lg font-semibold text-ink outline-none",
-                                    validation.success ? "border-brand" : "border-group-danger",
-                                )}
-                            />
-                            <Button
-                                type="button"
-                                variant="success"
-                                size="icon"
-                                title="Confirmar"
-                                aria-label="Confirmar nuevo apodo"
-                                disabled={!canConfirm}
-                                onClick={confirmEditing}
-                            >
-                                <FontAwesomeIcon icon={faCheck} aria-hidden />
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="muted"
-                                size="icon"
-                                title="Cancelar"
-                                aria-label="Cancelar edición del apodo"
-                                disabled={isSaving}
-                                onClick={cancelEditing}
-                            >
-                                <FontAwesomeIcon icon={faXmark} aria-hidden />
-                            </Button>
-                        </div>
+                    {nicknameEdit.isEditing ? (
+                        <InlineEditForm
+                            value={nicknameEdit.draft}
+                            onChange={nicknameEdit.setDraft}
+                            onKeyDown={nicknameEdit.handleKeyDown}
+                            onConfirm={nicknameEdit.confirmEditing}
+                            onCancel={nicknameEdit.cancelEditing}
+                            isValid={nicknameEdit.validation.success}
+                            canConfirm={nicknameEdit.canConfirm}
+                            isSaving={isSavingNickname}
+                            maxLength={30}
+                            ariaLabel="Editar tu apodo en el grupo"
+                            inputClassName="text-lg font-semibold"
+                        />
                     ) : (
                         <div className="flex min-w-0 flex-1 flex-col items-start">
                             <div className="flex h-6.5 min-w-0 max-w-full flex-row items-center gap-2">
@@ -138,7 +67,7 @@ export function MemberInfoCard({ member, isMine = false, onSaveNickname, isSavin
                                     <CardActionButton
                                         icon={faPenToSquare}
                                         label="Editar tu apodo"
-                                        onClick={startEditing}
+                                        onClick={nicknameEdit.startEditing}
                                     />
                                 )}
                             </div>
@@ -148,11 +77,18 @@ export function MemberInfoCard({ member, isMine = false, onSaveNickname, isSavin
                         </div>
                     )}
                 </div>
-                {/* Durante la edición se oculta para que el input y los botones entren sin romper el layout. */}
-                {!isEditing && (
+
+                {!nicknameEdit.isEditing && (
                     <p className="shrink-0 whitespace-nowrap text-2xl font-semibold text-olive">{percentage}%</p>
                 )}
             </div>
+
+            <CvuRow
+                cvu={member.cvu}
+                canEdit={isMine && Boolean(onSaveCvu)}
+                onSave={onSaveCvu}
+                isSaving={isSavingCvu}
+            />
 
             {member.joinedAt && (
                 <p className="text-base text-ink self-stretch">
@@ -168,45 +104,96 @@ export function MemberInfoCard({ member, isMine = false, onSaveNickname, isSavin
     );
 }
 
+export interface CvuRowProps {
+    readonly cvu: string | null | undefined;
+    readonly canEdit: boolean;
+    readonly onSave?: (cvu: string) => Promise<void>;
+    readonly isSaving: boolean;
+}
+
+function CvuRow({ cvu, canEdit, onSave, isSaving }: CvuRowProps) {
+    const current = cvu ?? "";
+    const cvuEdit = useInlineEdit({
+        initialValue: current,
+        schema: MemberCvuSchema,
+        onSave,
+        canEdit,
+        isSaving,
+    });
+
+    if (cvuEdit.isEditing) {
+        return (
+            <InlineEditForm
+                value={cvuEdit.draft}
+                onChange={cvuEdit.setDraft}
+                onKeyDown={cvuEdit.handleKeyDown}
+                onConfirm={cvuEdit.confirmEditing}
+                onCancel={cvuEdit.cancelEditing}
+                isValid={cvuEdit.validation.success}
+                canConfirm={cvuEdit.canConfirm}
+                isSaving={isSaving}
+                maxLength={22}
+                placeholder="CVU o alias"
+                ariaLabel="Editar tu alias o CVU en el grupo"
+                inputClassName="text-base"
+            />
+        );
+    }
+
+    return (
+        <div className="flex min-w-0 flex-row items-center gap-2 self-stretch text-base text-ink">
+            <p className="min-w-0 truncate">
+                <span className="font-semibold">Alias/CVU:</span>{" "}
+                {current || <span className="text-warm-muted">Sin cargar</span>}
+            </p>
+            {canEdit && (
+                <CardActionButton icon={faPenToSquare} label="Editar tu alias o CVU" onClick={cvuEdit.startEditing} />
+            )}
+        </div>
+    );
+}
 
 export interface PercentageCardProps {
     readonly member: Member;
-    /** Porcentaje que se muestra en solo lectura (el guardado en el backend). */
     readonly percentage: number;
-    /** Solo la tarjeta del propio miembro es editable: cada uno modifica únicamente su porcentaje. */
     readonly editable: boolean;
-    /** Valor del input (string, para poder dejarlo vacío). Solo se usa si `editable`. */
     readonly inputValue?: string;
     readonly disabled?: boolean;
     readonly onInputChange?: (value: string) => void;
 }
 
-export function PercentageCard({member, percentage, editable, inputValue = "", disabled = false, onInputChange}: PercentageCardProps) {
+export function PercentageCard({
+                                   member,
+                                   percentage,
+                                   editable,
+                                   inputValue = "",
+                                   disabled = false,
+                                   onInputChange,
+                               }: PercentageCardProps) {
     const [profileOpen, setProfileOpen] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
 
-    // Cerrar el popup de perfil al clickear afuera o presionar Escape.
     useEffect(() => {
         if (!profileOpen) return;
+
         const onPointerDown = (event: MouseEvent) => {
             if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
                 setProfileOpen(false);
             }
         };
+
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") setProfileOpen(false);
         };
+
         document.addEventListener("mousedown", onPointerDown);
         document.addEventListener("keydown", onKeyDown);
+
         return () => {
             document.removeEventListener("mousedown", onPointerDown);
             document.removeEventListener("keydown", onKeyDown);
         };
     }, [profileOpen]);
-
-    const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-        onInputChange?.(event.target.value);
-    };
 
     return (
         <div className="flex flex-col gap-1 items-start self-stretch">
@@ -231,9 +218,7 @@ export function PercentageCard({member, percentage, editable, inputValue = "", d
                 </div>
                 <div className="flex flex-row gap-2 items-center shrink-0">
                     {editable ? (
-                        <div
-                            className="flex flex-row justify-center items-center w-40 h-9 bg-input-surface rounded-xl border border-brand px-3 overflow-hidden"
-                        >
+                        <div className="flex flex-row justify-center items-center w-40 h-9 bg-input-surface rounded-xl border border-brand px-3 overflow-hidden">
                             <input
                                 type="number"
                                 inputMode="decimal"
@@ -243,8 +228,8 @@ export function PercentageCard({member, percentage, editable, inputValue = "", d
                                 value={inputValue}
                                 placeholder="0"
                                 disabled={disabled}
-                                aria-label={`Tu porcentaje de propiedad`}
-                                onChange={handleInputChange}
+                                aria-label="Tu porcentaje de propiedad"
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => onInputChange?.(e.target.value)}
                                 onWheel={(event) => event.currentTarget.blur()}
                                 className="w-full bg-brand-foreground text-base font-normal text-center text-ink outline-none"
                             />
