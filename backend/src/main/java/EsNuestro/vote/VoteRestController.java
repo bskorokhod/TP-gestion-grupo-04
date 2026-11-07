@@ -87,6 +87,9 @@ class VoteRestController {
         return voteService.createExtraordinaryExpenseVote(groupId, data, principal.email());
     }
 
+    // TODO(PREMIUM-ENFORCEMENT): proponer cambios de configuración debería requerir que el grupo sea premium
+    //  (Group#isPremium, 403 si no). Hoy solo lo bloquea el frontend (ConfigurationScreen). Al implementarlo, revisar
+    //  ConfigChangeVoteTest y VoteService#createConfigChangeVote.
     @PostMapping(value = "/config-change", produces = "application/json")
     @Operation(summary = "Proponer el cambio de una configuración del grupo; requiere unanimidad de los miembros activos y se aplica solo si la votación es positiva")
     @ResponseStatus(HttpStatus.CREATED)

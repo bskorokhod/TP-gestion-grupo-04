@@ -129,7 +129,7 @@ export const GroupSchema = z.object({
     name: z.string(),
     description: z.string(),
     createdAt: z.string(),
-    isPremium: z.boolean().default(false),
+    isPremium: z.boolean(),
     memberCount: z.number(),
     joinCode: z.string(),
     myStatus: MembershipStatusSchema,
@@ -142,6 +142,48 @@ export const GroupSchema = z.object({
 });
 
 export type Group = z.infer<typeof GroupSchema>;
+
+// ---- Suscripción premium (pago simulado; espeja PremiumSubscribeDTO / PremiumSubscriptionDTO del backend) ----
+
+function isExpiredCard(expiration: string, today: Date = new Date()): boolean {
+    const [month, year] = expiration.split("/").map(Number);
+    return 2000 + year < today.getFullYear() || (2000 + year === today.getFullYear() && month < today.getMonth() + 1);
+}
+
+export const PremiumSubscribeSchema = z.object({
+    cardholderName: z
+        .string()
+        .trim()
+        .min(1, "El nombre del titular es obligatorio")
+        .max(100, "El nombre del titular no puede superar los 100 caracteres"),
+    cardNumber: z
+        .string()
+        .trim()
+        .refine(
+            (value) => /^\d{13,19}$/.test(value.replace(/[ -]/g, "")) && /^[0-9 -]+$/.test(value),
+            "El número de tarjeta debe tener entre 13 y 19 dígitos",
+        ),
+    expiration: z
+        .string()
+        .trim()
+        .regex(/^(0[1-9]|1[0-2])\/\d{2}$/, "El vencimiento debe tener el formato MM/AA")
+        .refine((value) => !isExpiredCard(value), "La tarjeta está vencida"),
+    securityCode: z.string().trim().regex(/^\d{3,4}$/, "El código de seguridad debe tener 3 o 4 dígitos"),
+});
+
+export type PremiumSubscribe = z.infer<typeof PremiumSubscribeSchema>;
+
+/** `trial` indica si se otorgó la prueba gratuita (una por usuario y una por grupo). */
+export const PremiumSubscriptionSchema = z.object({
+    groupId: z.number(),
+    trial: z.boolean(),
+    trialEndsAt: z.string().nullish(),
+    startedAt: z.string(),
+    nextBillingAt: z.string(),
+    cardLast4: z.string(),
+});
+
+export type PremiumSubscription = z.infer<typeof PremiumSubscriptionSchema>;
 
 // Formato exigido por el backend: 3 letras - 4 números - 3 letras (ej. ABC-1234-XYZ)
 export const JOIN_CODE_REGEX = /^[A-Za-z]{3}-\d{4}-[A-Za-z]{3}$/;

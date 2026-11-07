@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -51,6 +52,14 @@ public class Group {
     @Embedded
     private GroupSettings settings;
 
+    /**
+     * Si el grupo tiene el plan premium. Es un atributo del grupo, no de sus miembros. Solo cambia por
+     * {@link #activatePremium()}. El default de la base hace que los grupos anteriores a este campo valgan false.
+     */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean premium;
+
     public Group(String name, String description, String joinCode, GroupSettings settings) {
         this.name = name;
         this.description = description;
@@ -58,6 +67,16 @@ public class Group {
         this.settings = settings;
         this.createdAt = Instant.now();
     }
+
+    public void activatePremium() {
+        if (premium) {
+            throw new IllegalStateException("The group is already premium");
+        }
+        this.premium = true;
+    }
+
+    // TODO(PREMIUM-CANCELLATION): agregar deactivatePremium() cuando se implemente la cancelación de suscripciones
+    //  (ver PremiumService). Tiene que apagar este flag y cerrar la PremiumSubscription del grupo en la misma transacción.
 
     public void addMember(GroupMember member) {
         members.add(member);

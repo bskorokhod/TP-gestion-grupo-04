@@ -1,11 +1,14 @@
 import {type FormEvent, useState} from "react";
-import {useLocation} from "wouter";
+import {Redirect, useLocation} from "wouter";
 import Button from "@/components/Button.tsx";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import TextField from "@/components/Forms/TextField.tsx";
 import {TextInput} from "@/components/Forms/TextInput.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
+import type {BackendError} from "@/hooks/useToast.ts";
+import {PremiumSubscribeSchema} from "@/models/Group.ts";
+import {useSubscribeGroupPremium} from "@/services/GroupServices.ts";
 import {groupConfigPath, GROUPS_PATH} from "@/constants/routes.ts";
 
 const TRIAL_DAYS = 7;
@@ -13,19 +16,45 @@ const TRIAL_DAYS = 7;
 export function PremiumApplicationScreen() {
     const group = useCurrentGroup();
     const [, navigate] = useLocation();
-    const {showSuccessToast} = useFormToasts();
+    const {showSuccessToast, showSchemaError, showApiError} = useFormToasts();
+    const subscribe = useSubscribeGroupPremium(group.id);
     const [cardholderName, setCardholderName] = useState("");
     const [cardNumber, setCardNumber] = useState("");
     const [expiration, setExpiration] = useState("");
     const [securityCode, setSecurityCode] = useState("");
 
-    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    // Un grupo que ya es premium no tiene nada que contratar (el backend respondería 409).
+    if (group.isPremium) {
+        return <Redirect href={groupConfigPath(group.joinCode)} replace/>;
+    }
+
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        showSuccessToast(
-            "Prueba premium iniciada",
-            `No se realizará ningún débito durante los primeros ${TRIAL_DAYS} días. Luego se cobrará automáticamente en la tarjeta registrada.`,
-        );
-        navigate(groupConfigPath(group.joinCode));
+
+        const parsed = PremiumSubscribeSchema.safeParse({cardholderName, cardNumber, expiration, securityCode});
+        if (!parsed.success) {
+            showSchemaError(parsed.error.issues[0].message);
+            return;
+        }
+
+        try {
+            const subscription = await subscribe.mutateAsync(parsed.data);
+            if (subscription.trial) {
+                showSuccessToast(
+                    "Prueba premium iniciada",
+                    `No se realizará ningún débito durante los primeros ${TRIAL_DAYS} días. Luego se cobrará automáticamente en la tarjeta registrada.`,
+                );
+            } else {
+                // Ya usaste tu prueba gratuita en otro grupo: la suscripción arranca sin período de prueba.
+                showSuccessToast(
+                    "Plan premium activado",
+                    `Tu suscripción mensual quedó registrada con la tarjeta terminada en ${subscription.cardLast4}. Ya usaste tu prueba gratuita en otro grupo, por eso no hay período de prueba.`,
+                );
+            }
+            navigate(groupConfigPath(group.joinCode));
+        } catch (error) {
+            showApiError(error as BackendError, "No se pudo activar el plan premium");
+        }
     }
 
     return (
@@ -40,9 +69,14 @@ export function PremiumApplicationScreen() {
                             Comenzar prueba premium
                         </h1>
                     </div>
+                    {/* TODO(PREMIUM-TRIAL-ELIGIBILITY): este texto siempre ofrece la prueba gratuita, pero el backend solo
+                        la otorga una vez por usuario y una vez por grupo. Ver PremiumService en el backend. */}
                     <p className="mt-3 text-base text-warm-muted">
                         Probá las funciones premium gratis durante {TRIAL_DAYS} días. Después se debitará automáticamente
                         el plan en la tarjeta que registres.
+                    </p>
+                    <p className="mt-2 text-sm text-warm-muted">
+                        Pago simulado: no se realiza ningún cobro real. No ingreses datos de una tarjeta real.
                     </p>
 
                     <div className="mt-8 flex flex-col gap-6">
@@ -107,8 +141,8 @@ export function PremiumApplicationScreen() {
                         <Button type="button" variant="modalSecondary" size="modal" onClick={() => navigate(GROUPS_PATH)}>
                             Cancelar
                         </Button>
-                        <Button type="submit" variant="default" size="modal">
-                            Comenzar prueba gratuita
+                        <Button type="submit" variant="default" size="modal" disabled={subscribe.isPending}>
+                            {subscribe.isPending ? "Procesando..." : "Comenzar prueba gratuita"}
                         </Button>
                     </div>
                 </form>

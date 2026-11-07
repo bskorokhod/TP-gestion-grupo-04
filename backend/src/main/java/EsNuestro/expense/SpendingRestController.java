@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+// TODO(PREMIUM-ENFORCEMENT): estos endpoints deberían responder 403 si el grupo no es premium (Group#isPremium).
+//  Hoy el balance solo se bloquea en el frontend (BalanceGroupScreen muestra datos mock a los no premium).
 @RestController
 @RequestMapping("/groups/{groupId}/expenses/balance")
 @Tag(name = "4 - Expenses")

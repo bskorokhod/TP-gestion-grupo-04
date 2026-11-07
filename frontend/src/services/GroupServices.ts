@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import {useMutation, useQueries, useQuery, useQueryClient,} from "@tanstack/react-query";
 import { useApiClient } from "@/hooks/useApiClient";
 import { useToken } from "@/contexts/TokenContext.tsx";
-import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus,} from "@/models/Group.ts";
+import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema,} from "@/models/Group.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
 import { TokenService } from "@/services/TokenService";
 import { GROUP_PREVIEW_STALE_TIME_MS, MAX_QUERY_RETRIES } from "@/constants/services.ts";
@@ -216,6 +216,26 @@ export function useJoinGroup() {
         onSuccess: (): void => {
             void qc.invalidateQueries({ queryKey: ["groups"] });
             void qc.invalidateQueries({ queryKey: ["join-requests", "mine"] });
+        },
+    });
+}
+
+/**
+ * Suscribe el grupo a premium con los datos de pago (simulado: el backend no cobra, solo los registra). Al terminar
+ * se invalidan los grupos para que `isPremium` llegue del backend, que es la única fuente de ese estado.
+ */
+export function useSubscribeGroupPremium(groupId: number) {
+    const api = useApiClient();
+    const qc = useQueryClient();
+
+    return useMutation<PremiumSubscription, Error, PremiumSubscribe>({
+        mutationFn: async (payload): Promise<PremiumSubscription> => {
+            const validated = PremiumSubscribeSchema.parse(payload);
+            const response = await api.post(`/groups/${groupId}/premium`, validated);
+            return PremiumSubscriptionSchema.parse(response);
+        },
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups"] });
         },
     });
 }
