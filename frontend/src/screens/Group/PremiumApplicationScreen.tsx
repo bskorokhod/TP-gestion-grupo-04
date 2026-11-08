@@ -1,62 +1,134 @@
-import {type FormEvent, useState} from "react";
-import {Redirect, useLocation} from "wouter";
+import {type FormEvent, type ReactNode, useMemo, useState} from "react";
+import {useLocation, useSearch} from "wouter";
 import Button from "@/components/Button.tsx";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
+import SelectField from "@/components/Forms/SelectField.tsx";
 import TextField from "@/components/Forms/TextField.tsx";
 import {TextInput} from "@/components/Forms/TextInput.tsx";
-import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import type {BackendError} from "@/hooks/useToast.ts";
 import {PremiumSubscribeSchema} from "@/models/Group.ts";
 import {getTrialOffer, type TrialOffer} from "@/lib/premium.ts";
-import {useGetPremiumEligibility, useSubscribeGroupPremium} from "@/services/GroupServices.ts";
+import {
+    useGetGroups,
+    useGetPremiumEligibility,
+    useGetPremiumPlan,
+    useSubscribeGroupPremium,
+} from "@/services/GroupServices.ts";
 import {groupConfigPath, GROUPS_PATH} from "@/constants/routes.ts";
 
-const TRIAL_DAYS = 7;
+interface OfferCopy {
+    title: string;
+    description: string;
+    submitLabel: string;
+}
 
-const TRIAL_OFFER_COPY: Record<TrialOffer, { title: string; description: string; submitLabel: string }> = {
-    checking: {
+function offerCopy(offer: TrialOffer, trialDays: number): OfferCopy {
+    switch (offer) {
+        case "checking":
+            return {
+                title: "Plan premium",
+                description: "Verificando si te corresponde la prueba gratuita...",
+                submitLabel: "Verificando...",
+            };
+        case "available":
+            return {
+                title: "Comenzar prueba premium",
+                description: `Probá las funciones premium gratis durante ${trialDays} días. Después se debitará automáticamente el plan en la tarjeta que registres.`,
+                submitLabel: "Comenzar prueba gratuita",
+            };
+        case "unavailable":
+            return {
+                title: "Activar plan premium",
+                description: "La prueba gratuita ya se usó (en tu cuenta o en este grupo), así que el plan se debitará en la tarjeta que registres desde que lo actives.",
+                submitLabel: "Activar plan premium",
+            };
+        case "unknown":
+            return {
+                title: "Plan premium",
+                description: "No pudimos verificar si te corresponde la prueba gratuita. Si te corresponde se aplicará al activar el plan; si no, el plan se debitará en la tarjeta que registres desde que lo actives.",
+                submitLabel: "Activar plan premium",
+            };
+    }
+}
+
+/** Mientras no hay grupo elegido no se consulta la elegibilidad, así que no se promete ni se descarta la prueba. */
+function noGroupCopy(trialDays: number): OfferCopy {
+    return {
         title: "Plan premium",
-        description: "Verificando si te corresponde la prueba gratuita...",
-        submitLabel: "Verificando...",
-    },
-    available: {
-        title: "Comenzar prueba premium",
-        description: `Probá las funciones premium gratis durante ${TRIAL_DAYS} días. Después se debitará automáticamente el plan en la tarjeta que registres.`,
-        submitLabel: "Comenzar prueba gratuita",
-    },
-    unavailable: {
-        title: "Activar plan premium",
-        description: "La prueba gratuita ya se usó (en tu cuenta o en este grupo), así que el plan se debitará en la tarjeta que registres desde que lo actives.",
+        description: `Elegí el grupo en el que querés activar Premium. Si te corresponde, tenés ${trialDays} días de prueba gratuita; si no, el plan se debitará en la tarjeta que registres desde que lo actives.`,
         submitLabel: "Activar plan premium",
-    },
-    unknown: {
-        title: "Plan premium",
-        description: "No pudimos verificar si te corresponde la prueba gratuita. Si te corresponde se aplicará al activar el plan; si no, el plan se debitará en la tarjeta que registres desde que lo actives.",
-        submitLabel: "Activar plan premium",
-    },
-};
+    };
+}
+
+function CenteredMessage({children}: { children: ReactNode }) {
+    return (
+        <CommonLayout className="login-backdrop flex min-h-screen flex-col">
+            <div className="flex flex-1 flex-col items-center justify-center gap-6 px-5 py-10 text-center text-ink sm:px-10">
+                {children}
+            </div>
+        </CommonLayout>
+    );
+}
 
 export function PremiumApplicationScreen() {
-    const group = useCurrentGroup();
     const [, navigate] = useLocation();
+    const search = useSearch();
     const {showSuccessToast, showSchemaError, showApiError} = useFormToasts();
-    const subscribe = useSubscribeGroupPremium(group.id);
-    const eligibility = useGetPremiumEligibility(group.id);
-    const trialOffer = getTrialOffer(eligibility);
-    const copy = TRIAL_OFFER_COPY[trialOffer];
+    const plan = useGetPremiumPlan();
+    const groups = useGetGroups();
+    const [chosenCode, setChosenCode] = useState<string | null>(null);
     const [cardholderName, setCardholderName] = useState("");
     const [cardNumber, setCardNumber] = useState("");
     const [expiration, setExpiration] = useState("");
     const [securityCode, setSecurityCode] = useState("");
 
-    // Un grupo que ya es premium no tiene nada que contratar (el backend respondería 409).
-    if (group.isPremium) {
-        return <Redirect href={groupConfigPath(group.joinCode)} replace/>;
+    // Solo se puede activar premium en grupos donde el usuario es miembro activo y que todavía no son premium.
+    const eligibleGroups = useMemo(
+        () => (groups.data ?? []).filter((group) => !group.isPremium && group.myStatus === "ACTIVE"),
+        [groups.data],
+    );
+
+    // Preselección opcional (?grupo=ABC-1234-XYZ), por ejemplo desde el modal de contenido premium. Si no es elegible, se ignora.
+    const requestedCode = new URLSearchParams(search).get("grupo")?.toUpperCase();
+    const selectedCode = chosenCode ?? requestedCode;
+    const selectedGroup = eligibleGroups.find((group) => group.joinCode.toUpperCase() === selectedCode?.toUpperCase());
+
+    const subscribe = useSubscribeGroupPremium(selectedGroup?.id ?? 0);
+    const eligibility = useGetPremiumEligibility(selectedGroup?.id ?? 0);
+
+    if (plan.isLoading || groups.isLoading) {
+        return <CenteredMessage><p>Cargando...</p></CenteredMessage>;
     }
+
+    if (plan.isError || !plan.data || groups.isError) {
+        return <CenteredMessage><p>No pudimos cargar la información para activar Premium.</p></CenteredMessage>;
+    }
+
+    const trialDays = plan.data.trialDays;
+
+    if (eligibleGroups.length === 0) {
+        return (
+            <CenteredMessage>
+                <p>No tenés grupos en los que puedas activar Premium: todos tus grupos ya son premium o todavía no sos miembro de ninguno.</p>
+                <Button type="button" variant="modalSecondary" size="modal" onClick={() => navigate(GROUPS_PATH)}>
+                    Ir a mis grupos
+                </Button>
+            </CenteredMessage>
+        );
+    }
+
+    const trialOffer = getTrialOffer(eligibility);
+    const copy = selectedGroup ? offerCopy(trialOffer, trialDays) : noGroupCopy(trialDays);
+    const checking = selectedGroup !== undefined && trialOffer === "checking";
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+
+        if (!selectedGroup) {
+            showSchemaError("Elegí el grupo en el que querés activar Premium");
+            return;
+        }
 
         const parsed = PremiumSubscribeSchema.safeParse({cardholderName, cardNumber, expiration, securityCode});
         if (!parsed.success) {
@@ -69,7 +141,7 @@ export function PremiumApplicationScreen() {
             if (subscription.trial) {
                 showSuccessToast(
                     "Prueba premium iniciada",
-                    `No se realizará ningún débito durante los primeros ${TRIAL_DAYS} días. Luego se cobrará automáticamente en la tarjeta registrada.`,
+                    `No se realizará ningún débito durante los primeros ${trialDays} días. Luego se cobrará automáticamente en la tarjeta registrada.`,
                 );
             } else {
                 // La prueba gratuita ya se usó (en tu cuenta o en este grupo): la suscripción arranca sin período de prueba.
@@ -78,7 +150,7 @@ export function PremiumApplicationScreen() {
                     `Tu suscripción mensual quedó registrada con la tarjeta terminada en ${subscription.cardLast4}. La prueba gratuita ya se usó (en tu cuenta o en este grupo), por eso no hay período de prueba.`,
                 );
             }
-            navigate(groupConfigPath(group.joinCode));
+            navigate(groupConfigPath(selectedGroup.joinCode));
         } catch (error) {
             showApiError(error as BackendError, "No se pudo activar el plan premium");
         }
@@ -101,11 +173,13 @@ export function PremiumApplicationScreen() {
                     </p>
 
                     <div className="mt-8 flex flex-col gap-6">
-                        <TextField
-                            id="premium-group-name"
+                        <SelectField
+                            id="premium-group"
                             label="Grupo"
-                            value={group.name}
-                            readOnly
+                            placeholder="Elegí un grupo"
+                            options={eligibleGroups.map((group) => ({value: group.joinCode, label: group.name}))}
+                            value={selectedGroup?.joinCode ?? ""}
+                            onChange={setChosenCode}
                         />
                         <TextField
                             id="premium-cardholder-name"
@@ -162,7 +236,7 @@ export function PremiumApplicationScreen() {
                         <Button type="button" variant="modalSecondary" size="modal" onClick={() => navigate(GROUPS_PATH)}>
                             Cancelar
                         </Button>
-                        <Button type="submit" variant="default" size="modal" disabled={subscribe.isPending || trialOffer === "checking"}>
+                        <Button type="submit" variant="default" size="modal" disabled={subscribe.isPending || checking}>
                             {subscribe.isPending ? "Procesando..." : copy.submitLabel}
                         </Button>
                     </div>

@@ -19,6 +19,7 @@ import {PremiumGroupCreationScreen} from "@/screens/Group/PremiumGroupCreationSc
 import {GroupGuard} from "@/components/GroupGuard.tsx";
 import {RequireGroupAction} from "@/components/RequireGroupAction.tsx";
 import {
+    ACTIVATE_PREMIUM_PATH,
     CREATE_PREMIUM_GROUP_PATH,
     GROUP_UNAVAILABLE_PATH,
     GROUPS_PATH,
@@ -88,9 +89,6 @@ const GroupArea = () => {
                         <PercentageConfigScreen/>
                     </RequireGroupAction>
                 </Route>
-                <Route path="/grupos/:code/premium">
-                    <PremiumApplicationScreen/>
-                </Route>
 
                 {/* /grupos/:code y subrutas desconocidas: el usuario ya es miembro, va a la vista de gastos */}
                 <Route>
@@ -139,8 +137,15 @@ const PrivateRoutes = () => (
         <Route path={GROUPS_PATH}>
             <GroupSelectionScreen/>
         </Route>
+        {/* Antes de /grupos/:code: si no, "activar-premium" se tomaría como código de grupo. */}
+        <Route path={ACTIVATE_PREMIUM_PATH}>
+            <PremiumApplicationScreen/>
+        </Route>
         <Route path={CREATE_PREMIUM_GROUP_PATH}>
             <PremiumGroupCreationScreen/>
+        </Route>
+        <Route path={PREMIUM_PATH}>
+            <PremiumPlansScreen/>
         </Route>
 
         <Route path="/perfil">

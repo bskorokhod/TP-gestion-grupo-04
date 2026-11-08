@@ -10,6 +10,7 @@ import EsNuestro.member.GroupMember;
 import EsNuestro.premium.dtos.PremiumEligibilityDTO;
 import EsNuestro.premium.dtos.PremiumGroupCreateDTO;
 import EsNuestro.premium.dtos.PremiumNoticeDTO;
+import EsNuestro.premium.dtos.PremiumPlanDTO;
 import EsNuestro.premium.dtos.PremiumStatusDTO;
 import EsNuestro.premium.dtos.PremiumSubscribeDTO;
 import EsNuestro.premium.dtos.PremiumSubscriptionDTO;
@@ -183,6 +184,11 @@ public class PremiumService {
         notice(group, wasTrial ? PremiumNoticeType.TRIAL_CANCELLED : PremiumNoticeType.PLAN_CANCELLED,
                 member.getUser(), subscription.getPayer(), subscription.getEndsAt());
         return PremiumSubscriptionDTO.from(subscription);
+    }
+
+    /** Oferta del plan (precio y días de prueba): no depende de ningún grupo ni usuario. */
+    PremiumPlanDTO plan() {
+        return new PremiumPlanDTO(MONTHLY_PRICE, PremiumSubscription.TRIAL_DAYS);
     }
 
     /**

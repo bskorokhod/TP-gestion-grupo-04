@@ -3,7 +3,7 @@ import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faStar} from "@fortawesome/free-solid-svg-icons";
 import {Link, useLocation, useRoute} from "wouter";
 
-import {GROUP_ROUTE_PATTERN, groupPremiumPlansPath} from "@/constants/routes.ts";
+import {GROUP_ROUTE_PATTERN, PREMIUM_PATH} from "@/constants/routes.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import type {BackendError} from "@/hooks/useToast.ts";
 import {getTrialOffer} from "@/lib/premium.ts";
@@ -60,7 +60,7 @@ export function PremiumNavbarItem() {
         <div className="relative border-r border-header-line pr-4 sm:pr-6" ref={menuRef}>
             <button
                 type="button"
-                onClick={() => isPremium ? setIsMenuOpen((prev) => !prev) : navigate(groupPremiumPlansPath(currentGroup.joinCode))}
+                onClick={() => isPremium ? setIsMenuOpen((prev) => !prev) : navigate(PREMIUM_PATH)}
                 aria-label={isPremium ? "Opciones de Premium" : label}
                 className="flex items-center gap-2 text-sm font-semibold text-brand transition-opacity hover:opacity-80 sm:text-base"
             >
@@ -74,7 +74,7 @@ export function PremiumNavbarItem() {
             {isPremium && isMenuOpen && (
                 <div className="absolute right-0 top-9 z-50 min-w-48 rounded-lg border border-border bg-panel py-2 shadow-panel">
                     <Link
-                        href={groupPremiumPlansPath(currentGroup.joinCode)}
+                        href={PREMIUM_PATH}
                         onClick={() => setIsMenuOpen(false)}
                         className="block px-4 py-2 text-sm text-ink hover:bg-muted"
                     >

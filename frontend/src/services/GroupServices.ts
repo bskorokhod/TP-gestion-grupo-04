@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import {useMutation, useQueries, useQuery, useQueryClient,} from "@tanstack/react-query";
 import { useApiClient } from "@/hooks/useApiClient";
 import { useToken } from "@/contexts/TokenContext.tsx";
-import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumEligibility, PremiumEligibilitySchema, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema, PremiumStatus, PremiumStatusSchema, PremiumNotice, PremiumNoticeSchema,} from "@/models/Group.ts";
+import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumEligibility, PremiumEligibilitySchema, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema, PremiumStatus, PremiumStatusSchema, PremiumNotice, PremiumNoticeSchema, PremiumPlan, PremiumPlanSchema,} from "@/models/Group.ts";
+import { ApiService } from "@/services/ApiServices.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
 import { TokenService } from "@/services/TokenService";
 import { GROUP_PREVIEW_STALE_TIME_MS, MAX_QUERY_RETRIES } from "@/constants/services.ts";
@@ -295,6 +296,21 @@ export function useGetPremiumStatus(groupId: number) {
         queryFn: async (): Promise<PremiumStatus> => {
             const data = await api.get(`/groups/${groupId}/premium`);
             return PremiumStatusSchema.parse(data);
+        },
+    });
+}
+
+/**
+ * Oferta del plan premium (precio mensual y días de prueba). Es pública y no depende de ningún grupo ni usuario: va sin
+ * token (`ApiService.get`, no el cliente autenticado) para poder consultarse sin sesión.
+ */
+export function useGetPremiumPlan() {
+    return useQuery({
+        queryKey: ["premium-plan"] as const,
+        retry: retryUnlessClientError,
+        queryFn: async (): Promise<PremiumPlan> => {
+            const data = await ApiService.get("/groups/premium/plan");
+            return PremiumPlanSchema.parse(data);
         },
     });
 }

@@ -235,6 +235,14 @@ export const PremiumStatusSchema = z.object({
 
 export type PremiumStatus = z.infer<typeof PremiumStatusSchema>;
 
+/** Oferta del plan premium, independiente de cualquier grupo o usuario (espeja PremiumPlanDTO). */
+export const PremiumPlanSchema = z.object({
+    monthlyPrice: z.number(),
+    trialDays: z.number(),
+});
+
+export type PremiumPlan = z.infer<typeof PremiumPlanSchema>;
+
 export const PremiumNoticeTypeSchema = z.enum([
     "TRIAL_STARTED",
     "PLAN_ACTIVATED",

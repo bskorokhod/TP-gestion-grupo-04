@@ -5,6 +5,7 @@ import EsNuestro.config.security.JwtUserDetails;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.premium.dtos.PremiumEligibilityDTO;
 import EsNuestro.premium.dtos.PremiumGroupCreateDTO;
+import EsNuestro.premium.dtos.PremiumPlanDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -39,6 +40,12 @@ class PremiumGroupCreationRestController {
     @Operation(summary = "Indica si al caller le corresponde la prueba gratuita al crear un grupo premium (una por usuario); el grupo es nuevo, así que solo cuenta si el usuario ya usó la suya")
     PremiumEligibilityDTO eligibility(@AuthenticationPrincipal JwtUserDetails principal) {
         return premiumService.eligibilityForNewGroup(principal.email());
+    }
+
+    @GetMapping(value = "/plan", produces = "application/json")
+    @Operation(summary = "Oferta del plan premium (precio mensual y días de prueba). Es público: no depende de ningún grupo ni usuario")
+    PremiumPlanDTO plan() {
+        return premiumService.plan();
     }
 
     @PostMapping(produces = "application/json")

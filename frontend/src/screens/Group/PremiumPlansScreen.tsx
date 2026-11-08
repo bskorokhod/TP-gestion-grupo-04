@@ -6,13 +6,10 @@ import premiumIllustration from "@/assets/premium.svg";
 
 import Button from "@/components/Button.tsx";
 import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
-import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
-import {useFormToasts} from "@/hooks/useFormToasts.ts";
-import type {BackendError} from "@/hooks/useToast.ts";
+import {useToken} from "@/contexts/TokenContext.tsx";
 import {cn} from "@/lib/cn.ts";
-import {groupPremiumApplicationPath, groupReservationsPath} from "@/constants/routes.ts";
-import {getTrialOffer} from "@/lib/premium.ts";
-import {useCancelGroupPremium, useGetPremiumStatus} from "@/services/GroupServices.ts";
+import {ACTIVATE_PREMIUM_PATH, GROUPS_PATH, LOGIN_PATH} from "@/constants/routes.ts";
+import {useGetPremiumPlan} from "@/services/GroupServices.ts";
 
 const benefits: ReadonlyArray<{ icon: IconDefinition; title: string; copy: string }> = [
     {icon: faGear, title: "Personalizá tu grupo", copy: "Accedé a las configuraciones exclusivas que mejor se adaptan a tu bien"},
@@ -36,41 +33,15 @@ function TrialLegend({price, trialLabel, className}: { price: string; trialLabel
     );
 }
 
-function PriceLegend({price, className}: { price: string; className?: string }) {
-    return (
-        <p className={cn("text-xs leading-snug text-ink-soft", className)}>
-            Cuesta {price} ARS*** al mes. Se debita al activar el plan.<br/>
-            {/* TODO: completar el destino del link de Términos y condiciones */}
-            Se aplican <a href="#" className="underline">Términos y condiciones</a>.<br/>
-            *** + impuestos aplicables.
-        </p>
-    );
-}
-
-interface PlanLegendProps {
-    showTrial: boolean;
-    price: string;
-    trialLabel: string;
-    className?: string;
-}
-
-function PlanLegend({showTrial, price, trialLabel, className}: PlanLegendProps) {
-    return showTrial
-        ? <TrialLegend price={price} trialLabel={trialLabel} className={className}/>
-        : <PriceLegend price={price} className={className}/>;
-}
-
 interface PlanActionsProps {
-    label: string;
-    pending: boolean;
     onPrimary: () => void;
 }
 
-function PlanActions({label, pending, onPrimary}: PlanActionsProps) {
+function PlanActions({onPrimary}: PlanActionsProps) {
     return (
         <>
-            <Button type="button" variant="proposal" className="h-14 px-8 text-base font-bold" onClick={onPrimary} disabled={pending}>
-                {pending ? "Cancelando..." : label}
+            <Button type="button" variant="proposal" className="h-14 px-8 text-base font-bold" onClick={onPrimary}>
+                Activar
             </Button>
             <Button type="button" variant="outline" className="h-14 rounded-full border-ink-soft bg-transparent px-8 text-base text-ink-soft shadow-none" onClick={scrollToPlans}>
                 Comparar planes
@@ -90,14 +61,13 @@ interface PlanCardProps {
     name: string;
     actionLabel: string;
     onAction: () => void;
-    actionDisabled?: boolean;
     price: string;
     priceNote?: string;
     features: ReactNode[];
     footer?: ReactNode;
 }
 
-function PlanCard({tone, icon, name, actionLabel, onAction, actionDisabled, price, priceNote, features, footer}: PlanCardProps) {
+function PlanCard({tone, icon, name, actionLabel, onAction, price, priceNote, features, footer}: PlanCardProps) {
     const styles = planTones[tone];
 
     return (
@@ -119,7 +89,6 @@ function PlanCard({tone, icon, name, actionLabel, onAction, actionDisabled, pric
                 variant={styles.button}
                 className="mt-auto h-12 w-full rounded-full text-lg font-bold shadow-none"
                 onClick={onAction}
-                disabled={actionDisabled}
             >
                 {actionLabel}
             </Button>
@@ -129,36 +98,33 @@ function PlanCard({tone, icon, name, actionLabel, onAction, actionDisabled, pric
 }
 
 export function PremiumPlansScreen() {
-    const group = useCurrentGroup();
+    const [tokenState] = useToken();
     const [, navigate] = useLocation();
-    const {showSuccessToast, showApiError} = useFormToasts();
-    const status = useGetPremiumStatus(group.id);
-    const cancel = useCancelGroupPremium(group.id);
-    const premium = status.data?.premium ?? group.isPremium;
-    const price = status.data?.monthlyPrice?.toLocaleString("es-AR") ?? "4.499";
-    const trialDays = status.data?.trialDays ?? 7;
-    const trialLabel = trialDays === 1 ? "1 día" : `${trialDays} días`;
-    // La prueba solo se promete si el backend confirma que al usuario y al grupo les corresponde; mientras no se sabe
-    // o si la consulta falla, no se promete nada.
-    const showTrial = !premium && getTrialOffer(status) === "available";
+    const plan = useGetPremiumPlan();
 
-    async function handleCancel() {
-        try {
-            const result = await cancel.mutateAsync();
-            showSuccessToast(
-                result.trial ? "Prueba cancelada" : "Premium cancelado",
-                result.endsAt
-                    ? `El grupo conserva Premium hasta el ${new Date(result.endsAt).toLocaleDateString("es-AR")}.`
-                    : "El grupo volvió al plan gratuito.",
-            );
-            void status.refetch();
-        } catch (error) {
-            showApiError(error as BackendError, "No se pudo cancelar Premium");
-        }
+    if (plan.isLoading) {
+        return (
+            <CommonLayout className="min-h-screen bg-background text-foreground">
+                <p className="grid min-h-[60vh] place-items-center text-ink">Cargando...</p>
+            </CommonLayout>
+        );
     }
 
-    const primaryAction = premium ? handleCancel : () => navigate(groupPremiumApplicationPath(group.joinCode));
-    const primaryLabel = premium ? "Cancelar premium" : showTrial ? `Probá ${trialLabel} por 0 ARS` : "Activá Premium";
+    if (plan.isError || !plan.data) {
+        return (
+            <CommonLayout className="min-h-screen bg-background text-foreground">
+                <p className="grid min-h-[60vh] place-items-center text-ink">No pudimos cargar el plan Premium.</p>
+            </CommonLayout>
+        );
+    }
+
+    const price = plan.data.monthlyPrice.toLocaleString("es-AR");
+    const trialDays = plan.data.trialDays;
+    const trialLabel = trialDays === 1 ? "1 día" : `${trialDays} días`;
+
+    const hasSession = tokenState.state !== "LOGGED_OUT";
+    const goToActivate = () => navigate(hasSession ? ACTIVATE_PREMIUM_PATH : LOGIN_PATH);
+    const goToStandard = () => navigate(hasSession ? GROUPS_PATH : LOGIN_PATH);
 
     return (
         <CommonLayout className="min-h-screen bg-background text-foreground">
@@ -170,9 +136,9 @@ export function PremiumPlansScreen() {
                             El mejor lugar<br/>para<br/><em className="font-extrabold">compartir</em>
                         </h1>
                         <div className="mt-10 flex flex-wrap gap-4">
-                            <PlanActions label={primaryLabel} pending={cancel.isPending} onPrimary={primaryAction}/>
+                            <PlanActions onPrimary={goToActivate}/>
                         </div>
-                        <PlanLegend showTrial={showTrial} price={price} trialLabel={trialLabel} className="mt-4"/>
+                        <TrialLegend price={price} trialLabel={trialLabel} className="mt-4"/>
                     </div>
 
                     <div className="justify-center content-center basis-1/3">
@@ -198,9 +164,9 @@ export function PremiumPlansScreen() {
                     ))}
                 </div>
                 <div className="mt-8 flex flex-wrap justify-center gap-4">
-                    <PlanActions label={primaryLabel} pending={cancel.isPending} onPrimary={primaryAction}/>
+                    <PlanActions onPrimary={goToActivate}/>
                 </div>
-                <PlanLegend showTrial={showTrial} price={price} trialLabel={trialLabel} className="mt-4"/>
+                <TrialLegend price={price} trialLabel={trialLabel} className="mt-4"/>
             </section>
 
             <section id="planes" className="login-backdrop px-12 py-24">
@@ -219,14 +185,14 @@ export function PremiumPlansScreen() {
                                 "Gestión de gastos",
                             ]}
                             actionLabel="Empezá ahora gratis"
-                            onAction={() => navigate(groupReservationsPath(group.joinCode))}
+                            onAction={goToStandard}
                         />
                         <PlanCard
                             tone="amber"
                             icon={faStar}
                             name="Premium"
-                            price={showTrial ? `0 ARS por ${trialLabel}` : `${price} ARS*** al mes`}
-                            priceNote={showTrial ? `Después, cuesta ${price} ARS*** al mes` : undefined}
+                            price={`0 ARS por ${trialLabel}`}
+                            priceNote={`Después, cuesta ${price} ARS*** al mes`}
                             features={[
                                 <>Un grupo <strong>Premium</strong></>,
                                 "Gestión de reservas",
@@ -235,10 +201,9 @@ export function PremiumPlansScreen() {
                                 "Personalización de configuraciones",
                                 "Cancelá cuando quieras",
                             ]}
-                            actionLabel={cancel.isPending ? "Cancelando..." : primaryLabel}
-                            onAction={primaryAction}
-                            actionDisabled={cancel.isPending}
-                            footer={<PlanLegend showTrial={showTrial} price={price} trialLabel={trialLabel} className="mt-6 text-center"/>}
+                            actionLabel="Activar"
+                            onAction={goToActivate}
+                            footer={<TrialLegend price={price} trialLabel={trialLabel} className="mt-6 text-center"/>}
                         />
                     </div>
                 </div>
