@@ -6,9 +6,10 @@ import EsNuestro.premium.PremiumSubscriptionStatus;
 import java.time.Instant;
 
 /**
- * Estado de la suscripción premium de un grupo, devuelto al suscribir y al cancelar. {@code trial} indica si la
- * suscripción vigente arrancó con la prueba gratuita (una por usuario y una por grupo); si no, {@code nextBillingAt}
- * es el momento del primer cobro. Una suscripción cancelada no tiene {@code nextBillingAt} ni {@code trialEndsAt}.
+ * Resultado de suscribir, mejorar o cancelar. {@code trial} indica si la suscripción está en su prueba gratuita (una
+ * por usuario y una por grupo); en ese caso {@code trialEndsAt} es cuándo termina y {@code nextBillingAt} cuándo se
+ * debita el primer mes. Una suscripción cancelada no tiene {@code nextBillingAt} y trae {@code endsAt}: hasta cuándo el
+ * grupo conserva el premium (el momento de la cancelación si era una prueba).
  */
 public record PremiumSubscriptionDTO(
         Long groupId,
@@ -18,19 +19,21 @@ public record PremiumSubscriptionDTO(
         Instant startedAt,
         Instant nextBillingAt,
         Instant cancelledAt,
+        Instant endsAt,
         String cardLast4
 ) {
     public static PremiumSubscriptionDTO from(PremiumSubscription subscription) {
-        boolean trial = subscription.startedWithTrial();
+        boolean trial = subscription.isOnTrial();
         boolean active = subscription.isActive();
         return new PremiumSubscriptionDTO(
                 subscription.getGroup().getId(),
                 subscription.getStatus(),
                 trial,
-                active && trial ? subscription.getTrialEndsAt() : null,
+                trial ? subscription.getTrialEndsAt() : null,
                 subscription.getStartedAt(),
                 active ? subscription.getNextBillingAt() : null,
                 subscription.getCancelledAt(),
+                subscription.getEndsAt(),
                 subscription.getCardLast4()
         );
     }

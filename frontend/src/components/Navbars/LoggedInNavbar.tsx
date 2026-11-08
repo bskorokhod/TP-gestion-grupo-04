@@ -5,6 +5,7 @@ import {ChevronDownIcon, UserIcon} from "@/components/Icons.tsx";
 import {EDIT_PROFILE_LINK, GROUPS_LINK} from "@/constants/navbar.ts";
 import {useLogout} from "@/services/AuthServices.ts";
 import {useGetUserProfile} from "@/services/UserServices.ts";
+import {PremiumNavbarItem} from "@/components/Navbars/PremiumNavbarItem.tsx";
 
 export function LoggedInNavbar() {
     const logOut = useLogout();
@@ -29,6 +30,7 @@ export function LoggedInNavbar() {
 
     return (
         <div className="relative flex items-center gap-3" ref={menuRef}>
+            <PremiumNavbarItem/>
             <span className="hidden text-base font-medium text-ink sm:inline">{greeting}</span>
 
             <button

@@ -15,6 +15,7 @@ interface DropdownSelectProps {
     readonly "aria-label"?: string;
     readonly disabled?: boolean;
     readonly className?: string;
+    readonly buttonClassName?: string;
 }
 
 export function DropdownSelect({
@@ -26,6 +27,7 @@ export function DropdownSelect({
     "aria-label": ariaLabel,
     disabled = false,
     className,
+    buttonClassName,
 }: DropdownSelectProps): ReactElement {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -105,7 +107,10 @@ export function DropdownSelect({
                 aria-expanded={isOpen}
                 disabled={disabled}
                 onClick={() => setIsOpen((current) => !current)}
-                className="flex h-14 w-full items-center justify-between gap-3 rounded-xl border border-field bg-input-surface px-5 text-left text-base text-ink shadow-sm transition hover:border-brand/50 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-60"
+                className={cn(
+                    "flex h-14 w-full items-center justify-between gap-3 rounded-xl border border-field bg-input-surface px-5 text-left text-base text-ink shadow-sm transition hover:border-brand/50 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-60",
+                    buttonClassName,
+                )}
             >
                 <span className="truncate">{selectedLabel}</span>
                 <FontAwesomeIcon icon={faChevronDown} className={`size-3 shrink-0 text-texto-principal/60 transition-transform ${isOpen ? "rotate-180" : ""}`} />

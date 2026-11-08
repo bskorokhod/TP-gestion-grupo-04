@@ -75,12 +75,18 @@ public class Group {
         this.premium = true;
     }
 
-    /** Cancelación de la suscripción: el grupo deja de ser premium. Lo orquesta {@code PremiumService#cancel}. */
+    /**
+     * Fin del premium (se terminó el período pagado, se canceló la prueba o falló el débito): el grupo deja de ser
+     * premium y sus configuraciones exclusivas vuelven a los valores por defecto (reparto equitativo, reservas
+     * equitativas y mayoría simple). Si el reparto cambia, los porcentajes se recalculan en partes iguales. Lo orquesta
+     * {@code PremiumService}.
+     */
     public void deactivatePremium() {
         if (!premium) {
             throw new IllegalStateException("The group is not premium");
         }
         this.premium = false;
+        changeSettings(settings.revertedToDefaults());
     }
 
     public void addMember(GroupMember member) {

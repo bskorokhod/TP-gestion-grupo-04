@@ -12,3 +12,25 @@ export function getTrialOffer(eligibility: {
     if (eligibility.data) return eligibility.data.trialAvailable ? "available" : "unavailable";
     return eligibility.isError ? "unknown" : "checking";
 }
+
+export const PREMIUM_GROUP_DRAFT_STORAGE_KEY = "esnuestro-premium-group-draft";
+
+export function savePremiumGroupDraft(group: GroupCreate): void {
+    sessionStorage.setItem(PREMIUM_GROUP_DRAFT_STORAGE_KEY, JSON.stringify(group));
+}
+
+export function readPremiumGroupDraft(): GroupCreate | null {
+    const raw = sessionStorage.getItem(PREMIUM_GROUP_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw) as GroupCreate;
+    } catch {
+        sessionStorage.removeItem(PREMIUM_GROUP_DRAFT_STORAGE_KEY);
+        return null;
+    }
+}
+
+export function clearPremiumGroupDraft(): void {
+    sessionStorage.removeItem(PREMIUM_GROUP_DRAFT_STORAGE_KEY);
+}
+import type {GroupCreate} from "@/models/Group.ts";

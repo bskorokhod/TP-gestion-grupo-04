@@ -9,8 +9,14 @@ import java.util.regex.Pattern;
 /**
  * Lo único de la tarjeta que se guarda: titular, últimos 4 dígitos y vencimiento. El número completo y el código de
  * seguridad se validan acá y se descartan; no hay forma de persistirlos desde este tipo.
+ * <p>
+ * Como el cobro es simulado, {@code declines} marca las tarjetas de prueba que la "pasarela" rechaza siempre: las que
+ * terminan en {@value #DECLINED_CARD_SUFFIX}. Permite demostrar el pago rechazado (al activar o mejorar el plan, no
+ * cambia nada) y el débito fallido (al terminar la prueba o renovar, el grupo vuelve al plan gratuito).
  */
-record PaymentCard(String holderName, String last4, int expirationMonth, int expirationYear) {
+record PaymentCard(String holderName, String last4, int expirationMonth, int expirationYear, boolean declines) {
+
+    static final String DECLINED_CARD_SUFFIX = "0002";
 
     private static final Pattern NUMBER_SEPARATORS = Pattern.compile("[ -]");
     private static final Pattern DIGITS = Pattern.compile("[0-9]{13,19}");
@@ -39,7 +45,8 @@ record PaymentCard(String holderName, String last4, int expirationMonth, int exp
                 data.cardholderName().strip(),
                 number.substring(number.length() - 4),
                 expiration.getMonthValue(),
-                expiration.getYear()
+                expiration.getYear(),
+                number.endsWith(DECLINED_CARD_SUFFIX)
         );
     }
 }

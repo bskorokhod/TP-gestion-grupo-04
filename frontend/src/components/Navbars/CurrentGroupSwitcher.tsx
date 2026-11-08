@@ -12,9 +12,10 @@ const sameCode = (a: string, b: string) => a.toUpperCase() === b.toUpperCase();
 export function CurrentGroupSwitcher() {
     const [, routeParams] = useRoute(GROUP_ROUTE_PATTERN);
     const {data: groups, isLoading} = useGetGroups();
-
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const currentGroupCode = routeParams?.code ?? "";
+    const currentGroup = groups?.find((group) => currentGroupCode && sameCode(group.joinCode, currentGroupCode));
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -37,9 +38,6 @@ export function CurrentGroupSwitcher() {
             </div>
         );
     }
-
-    const currentGroupCode = routeParams.code;
-    const currentGroup = groups?.find((group) => sameCode(group.joinCode, currentGroupCode));
 
     if (!currentGroup) {
         return null;

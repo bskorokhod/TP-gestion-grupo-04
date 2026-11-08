@@ -14,9 +14,15 @@ import {ConfigurationScreen} from "@/screens/Admin/ConfigurationScreen.tsx";
 import {PercentageConfigScreen} from "@/screens/Admin/PercentageConfigScreen.tsx";
 import {ProfileScreen} from "@/screens/Profile/ProfileScreen.tsx";
 import {PremiumApplicationScreen} from "@/screens/Group/PremiumApplicationScreen.tsx";
+import {PremiumPlansScreen} from "@/screens/Group/PremiumPlansScreen.tsx";
+import {PremiumGroupCreationScreen} from "@/screens/Group/PremiumGroupCreationScreen.tsx";
 import {GroupGuard} from "@/components/GroupGuard.tsx";
 import {RequireGroupAction} from "@/components/RequireGroupAction.tsx";
-import {GROUP_UNAVAILABLE_PATH, GROUPS_PATH, HOME_PATH, LOGIN_PATH, SIGNUP_PATH, groupReservationsPath} from "@/constants/routes.ts";
+import {CREATE_PREMIUM_GROUP_PATH, GROUP_UNAVAILABLE_PATH, GROUPS_PATH, HOME_PATH, LOGIN_PATH, SIGNUP_PATH, groupReservationsPath} from "@/constants/routes.ts";
+import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
+import {useGetPremiumNotices, useMarkPremiumNoticesSeen} from "@/services/GroupServices.ts";
+import {useFormToasts} from "@/hooks/useFormToasts.ts";
+import {useEffect} from "react";
 
 /** Sin sesión: solo home, login y signup. Cualquier otra ruta lleva a login. */
 const PublicRoutes = () => (
@@ -47,6 +53,7 @@ const GroupArea = () => {
 
     return (
         <GroupGuard>
+            <PremiumNotices/>
             <Switch>
                 <Route path="/grupos/:code/reservas">
                     <ReservationsGroupScreen/>
@@ -72,6 +79,9 @@ const GroupArea = () => {
                 <Route path="/grupos/:code/premium">
                     <PremiumApplicationScreen/>
                 </Route>
+                <Route path="/grupos/:code/planes">
+                    <PremiumPlansScreen/>
+                </Route>
 
                 {/* /grupos/:code y subrutas desconocidas: el usuario ya es miembro, va a la vista de gastos */}
                 <Route>
@@ -81,6 +91,29 @@ const GroupArea = () => {
         </GroupGuard>
     );
 };
+
+function PremiumNotices() {
+    const group = useCurrentGroup();
+    const notices = useGetPremiumNotices(group.id);
+    const markSeen = useMarkPremiumNoticesSeen(group.id);
+    const {showSuccessToast, showErrorToast} = useFormToasts();
+
+    useEffect(() => {
+        if (!notices.data?.length) return;
+        notices.data.forEach((notice) => {
+            const title = notice.type === "PAYMENT_FAILED" ? "No se pudo cobrar Premium" : "Actualización de Premium";
+            const description = notice.until
+                ? `El grupo conserva Premium hasta el ${new Date(notice.until).toLocaleDateString("es-AR")}.`
+                : notice.type === "TRIAL_ENDING" ? "A tu prueba gratuita le quedan pocos días." : "Hay una novedad sobre el plan premium del grupo.";
+            if (notice.type === "PAYMENT_FAILED") showErrorToast(title, description);
+            else showSuccessToast(title, description);
+        });
+        void markSeen.mutateAsync();
+        // Los callbacks de toast y la mutación se recrean en cada render; los avisos deben procesarse una sola vez por respuesta.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [notices.data]);
+    return null;
+}
 
 /** Con sesión (o refrescándola): login y signup no tienen sentido, se lleva a /grupos. */
 const PrivateRoutes = () => (
@@ -96,6 +129,9 @@ const PrivateRoutes = () => (
         </Route>
         <Route path={GROUPS_PATH}>
             <GroupSelectionScreen/>
+        </Route>
+        <Route path={CREATE_PREMIUM_GROUP_PATH}>
+            <PremiumGroupCreationScreen/>
         </Route>
 
         <Route path="/perfil">

@@ -190,6 +190,8 @@ export const PremiumSubscriptionSchema = z.object({
     startedAt: z.string(),
     nextBillingAt: z.string().nullish(),
     cancelledAt: z.string().nullish(),
+    /** Hasta cuándo el grupo conserva el premium tras cancelar (el momento de cancelar si era una prueba). */
+    endsAt: z.string().nullish(),
     cardLast4: z.string(),
 });
 
@@ -204,6 +206,78 @@ export const PremiumEligibilitySchema = z.object({
 });
 
 export type PremiumEligibility = z.infer<typeof PremiumEligibilitySchema>;
+
+/**
+ * En qué punto del plan premium está el grupo. NEVER: nunca tuvo premium ni prueba. TRIAL: en prueba gratuita. ACTIVE: premium
+ * pago que se renueva. CANCELLED_IN_FORCE: cancelado pero vigente hasta el fin del período pagado. EXPIRED: tuvo premium
+ * (o prueba) y ya no.
+ */
+export const PremiumStateSchema = z.enum(["NEVER", "TRIAL", "ACTIVE", "CANCELLED_IN_FORCE", "EXPIRED"]);
+
+export type PremiumState = z.infer<typeof PremiumStateSchema>;
+
+/** Estado del plan del grupo para cualquier miembro activo (espeja PremiumStatusDTO). Las fechas vienen solo si aplican. */
+export const PremiumStatusSchema = z.object({
+    state: PremiumStateSchema,
+    premium: z.boolean(),
+    /** Si al usuario le corresponde la prueba gratuita al suscribir (siempre false si el grupo ya es premium). */
+    trialAvailable: z.boolean(),
+    trialEndsAt: z.string().nullish(),
+    trialDaysLeft: z.number().nullish(),
+    nextBillingAt: z.string().nullish(),
+    endsAt: z.string().nullish(),
+    payerName: z.string().nullish(),
+    youArePayer: z.boolean(),
+    cardLast4: z.string().nullish(),
+    monthlyPrice: z.number(),
+    trialDays: z.number(),
+});
+
+export type PremiumStatus = z.infer<typeof PremiumStatusSchema>;
+
+export const PremiumNoticeTypeSchema = z.enum([
+    "TRIAL_STARTED",
+    "PLAN_ACTIVATED",
+    "PLAN_UPGRADED",
+    "PLAN_REACTIVATED",
+    "TRIAL_CANCELLED",
+    "PLAN_CANCELLED",
+    "TRIAL_ENDING",
+    "TRIAL_CONVERTED",
+    "PAYMENT_FAILED",
+    "PLAN_ENDED",
+]);
+
+export type PremiumNoticeType = z.infer<typeof PremiumNoticeTypeSchema>;
+
+/** Aviso sobre el plan premium que el usuario todavía no vio; se muestra como toast al entrar al grupo. */
+export const PremiumNoticeSchema = z.object({
+    id: z.number(),
+    type: PremiumNoticeTypeSchema,
+    actorName: z.string().nullish(),
+    payerName: z.string().nullish(),
+    youArePayer: z.boolean(),
+    until: z.string().nullish(),
+    occurredAt: z.string(),
+});
+
+export type PremiumNotice = z.infer<typeof PremiumNoticeSchema>;
+
+/** Valores por defecto de las tres configuraciones exclusivas de premium (espeja GroupSettings del backend). */
+export const DEFAULT_DISTRIBUTION_MODE: DistributionMode = "EQUAL";
+export const DEFAULT_VOTING_MODEL: VotingModel = "SIMPLE_MAJORITY";
+export const DEFAULT_RESERVATION_LIMIT_POLICY: ReservationLimitPolicy = "EQUAL";
+
+/** Personalizar el reparto, las votaciones o las reservas es premium; cualquier otra combinación es la predeterminada. */
+export function usesDefaultPremiumSettings(settings: {
+    distributionMode: DistributionMode;
+    votingModel: VotingModel;
+    reservationLimitPolicy: ReservationLimitPolicy;
+}): boolean {
+    return settings.distributionMode === DEFAULT_DISTRIBUTION_MODE
+        && settings.votingModel === DEFAULT_VOTING_MODEL
+        && settings.reservationLimitPolicy === DEFAULT_RESERVATION_LIMIT_POLICY;
+}
 
 // Formato exigido por el backend: 3 letras - 4 números - 3 letras (ej. ABC-1234-XYZ)
 export const JOIN_CODE_REGEX = /^[A-Za-z]{3}-\d{4}-[A-Za-z]{3}$/;

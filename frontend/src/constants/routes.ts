@@ -14,3 +14,9 @@ export const groupConfigPath = (groupCode: string) => `/grupos/${groupCode}/conf
 export const groupVotesPath = (groupCode: string) => `/grupos/${groupCode}/votaciones`;
 export const groupPercentagesPath = (groupCode: string) => `/grupos/${groupCode}/configuracion/porcentajes`;
 export const groupPremiumApplicationPath = (groupCode: string) => `/grupos/${groupCode}/premium`;
+
+/** Dashboard de premium (beneficios, precio y prueba): al que lleva el botón "Probá Premium" del navbar. */
+export const groupPremiumPlansPath = (groupCode: string) => `/grupos/${groupCode}/planes`;
+
+/** Pago de un grupo premium que todavía no existe: se crea junto con la suscripción. */
+export const CREATE_PREMIUM_GROUP_PATH = "/crear-grupo-premium";

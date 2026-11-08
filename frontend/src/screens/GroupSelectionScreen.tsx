@@ -3,7 +3,7 @@ import GroupCard, {
     type GroupCardIcon,
     type GroupCardProps,
 } from "@/components/GroupCard.tsx";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { CommonLayout } from "@/components/CommonLayout/CommonLayout.tsx";
 import { useState } from "react";
 import { CreateGroupModal, JoinGroupModal } from "@/components/modals";
@@ -18,6 +18,8 @@ import type { Group, GroupCreate, JoinGroup } from "@/models/Group.ts";
 import { useFormToasts } from "@/hooks/useFormToasts";
 import type { BackendError } from "@/hooks/useToast";
 import {groupReservationsPath} from "@/constants/routes.ts";
+import {savePremiumGroupDraft} from "@/lib/premium.ts";
+import {usesDefaultPremiumSettings} from "@/models/Group.ts";
 
 type ModalType = "crear" | "unirme" | null;
 
@@ -29,6 +31,7 @@ function iconForGroup(group: Group): GroupCardIcon {
 
 export const GroupSelectionScreen = () => {
     const [modalAbierto, setModalAbierto] = useState<ModalType>(null);
+    const [, navigate] = useLocation();
 
     const { showSuccessToast, showApiError } = useFormToasts();
 
@@ -46,6 +49,12 @@ export const GroupSelectionScreen = () => {
     const pendingApprovals = pendingApprovalsQuery.data;
 
     async function handleCreateGroup(data: GroupCreate) {
+        if (!usesDefaultPremiumSettings(data.settings)) {
+            savePremiumGroupDraft(data);
+            setModalAbierto(null);
+            navigate("/crear-grupo-premium");
+            return;
+        }
         try {
             const group = await createGroupMutation.mutateAsync(data);
             showSuccessToast(

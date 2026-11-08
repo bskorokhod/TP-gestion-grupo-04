@@ -15,6 +15,7 @@ export interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectEl
     placeholder: string;
     hint?: string;
     className?: string;
+    buttonClassName?: string;
     value?: string;
     onChange?: (value: string) => void;
 }
@@ -27,6 +28,7 @@ export default function SelectField({
     placeholder,
     hint,
     className = "",
+    buttonClassName,
     ...selectProps
 }: SelectFieldProps) {
     return (
@@ -41,6 +43,7 @@ export default function SelectField({
                 value={selectProps.value?.toString() ?? ""}
                 onChange={(value) => selectProps.onChange?.(value)}
                 disabled={selectProps.disabled}
+                buttonClassName={buttonClassName}
                 className="mt-3"
             />
         </div>

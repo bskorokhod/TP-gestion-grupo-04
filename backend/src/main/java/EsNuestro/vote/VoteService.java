@@ -11,6 +11,7 @@ import EsNuestro.group.GroupService;
 import EsNuestro.group.GroupSettings;
 import EsNuestro.group.MemberJoinedEvent;
 import EsNuestro.group.MemberLeftEvent;
+import EsNuestro.group.PremiumEndedEvent;
 import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
 import EsNuestro.reservation.CancellationRequest;
@@ -276,6 +277,19 @@ class VoteService {
         voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
                 .filter(vote -> vote.hasBallotOf(event.memberId()))
                 .forEach(this::evaluate);
+    }
+
+    /**
+     * Cuando el grupo deja de ser premium, las votaciones de configuración exclusivas de premium que seguían abiertas se
+     * cierran como rechazadas, sin aplicar el cambio (las configuraciones ya volvieron a los valores por defecto). La del
+     * monto extraordinario no es exclusiva de premium y sigue su curso. Corre en la transacción de
+     * {@code PremiumService}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onPremiumEnded(PremiumEndedEvent event) {
+        voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
+                .filter(vote -> vote instanceof ConfigChangeVote change && change.getSetting().requiresPremium())
+                .forEach(vote -> reject(vote, "The group is no longer premium"));
     }
 
     /**

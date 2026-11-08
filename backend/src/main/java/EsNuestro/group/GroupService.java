@@ -58,7 +58,22 @@ public class GroupService {
         this.eventPublisher = eventPublisher;
     }
 
+    /**
+     * Crea un grupo con las configuraciones por defecto. Personalizarlas (reparto, votaciones, reservas) es exclusivo de
+     * premium: para eso se usa {@code POST /groups/premium}, que crea el grupo y lo suscribe en el mismo paso.
+     */
     GroupDTO createGroup(GroupCreateDTO data, String founderEmail) {
+        if (!data.settings().toEntity().usesDefaultPremiumSettings()) {
+            throw new AccessDeniedException("Customizing the group settings requires a premium group");
+        }
+        return createGroupAllowingCustomSettings(data, founderEmail);
+    }
+
+    /**
+     * Crea el grupo sin exigir las configuraciones por defecto. Solo lo usa el alta de un grupo premium, que en la misma
+     * transacción lo suscribe: si el pago falla, el grupo no se crea.
+     */
+    public GroupDTO createGroupAllowingCustomSettings(GroupCreateDTO data, String founderEmail) {
         User founder = requireUser(founderEmail);
 
         BigDecimal founderPercentage = data.settings().distributionMode().hasOwnershipPercentages()

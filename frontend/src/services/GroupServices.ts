@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import {useMutation, useQueries, useQuery, useQueryClient,} from "@tanstack/react-query";
 import { useApiClient } from "@/hooks/useApiClient";
 import { useToken } from "@/contexts/TokenContext.tsx";
-import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumEligibility, PremiumEligibilitySchema, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema,} from "@/models/Group.ts";
+import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumEligibility, PremiumEligibilitySchema, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema, PremiumStatus, PremiumStatusSchema, PremiumNotice, PremiumNoticeSchema,} from "@/models/Group.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
 import { TokenService } from "@/services/TokenService";
 import { GROUP_PREVIEW_STALE_TIME_MS, MAX_QUERY_RETRIES } from "@/constants/services.ts";
@@ -261,13 +261,10 @@ export function useSubscribeGroupPremium(groupId: number) {
 }
 
 /**
- * Cancela la suscripción premium del grupo, con efecto inmediato (el backend responde 409 si el grupo no es premium). Al
- * terminar se invalidan los grupos para que `isPremium` llegue del backend, igual que al suscribir. La prueba gratuita
- * consumida no se recupera, y volver a suscribir es `useSubscribeGroupPremium`.
- *
- * TODO(PREMIUM-CANCELLATION-UI): este service todavía no se usa en ninguna pantalla. Falta ubicar en la UI (por ejemplo en
- *  ConfigurationScreen, solo para grupos premium) el control para cancelar, con confirmación previa y toasts de
- *  éxito/error (`useFormToasts`). Lo puede hacer cualquier miembro activo, como al contratar.
+ * Cancela el plan premium del grupo. Una prueba termina en el acto y no se puede reactivar; un plan pago deja de renovarse
+ * y el grupo lo conserva hasta el fin del período ya pagado, sin reembolso (el backend responde 409 si el grupo no es
+ * premium o ya está cancelado). Al terminar se invalidan los grupos para que `isPremium` y el estado del plan lleguen del
+ * backend, igual que al suscribir. Lo dispara el menú de la estrella del navbar (`PremiumNavbarItem`).
  */
 export function useCancelGroupPremium(groupId: number) {
     const api = useApiClient();
@@ -277,6 +274,98 @@ export function useCancelGroupPremium(groupId: number) {
         mutationFn: async (): Promise<PremiumSubscription> => {
             const response = await api.del(`/groups/${groupId}/premium`);
             return PremiumSubscriptionSchema.parse(response);
+        },
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups"] });
+        },
+    });
+}
+
+/**
+ * Estado del plan premium del grupo (nunca tuvo, en prueba, activo, cancelado pero vigente o terminado), con fechas, pagador
+ * y precio. Lo usan el botón del navbar y el dashboard. Cuelga de `["groups"]`, así que suscribir, mejorar o cancelar lo
+ * refresca.
+ */
+export function useGetPremiumStatus(groupId: number) {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["groups", groupId, "premium-status"] as const,
+        enabled: Number.isFinite(groupId) && groupId > 0,
+        retry: retryUnlessClientError,
+        queryFn: async (): Promise<PremiumStatus> => {
+            const data = await api.get(`/groups/${groupId}/premium`);
+            return PremiumStatusSchema.parse(data);
+        },
+    });
+}
+
+/**
+ * Avisos premium que el usuario todavía no vio en este grupo (se muestran como toasts al entrar). Sin caché ni refetch
+ * automático: cada entrada al grupo pregunta una vez, y marcar como vistos (`useMarkPremiumNoticesSeen`) los vacía.
+ */
+export function useGetPremiumNotices(groupId: number) {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["premium-notices", groupId] as const,
+        enabled: Number.isFinite(groupId) && groupId > 0,
+        gcTime: 0,
+        staleTime: 0,
+        retry: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        queryFn: async (): Promise<PremiumNotice[]> => {
+            const data = await api.get(`/groups/${groupId}/premium/notices`);
+            return PremiumNoticeSchema.array().parse(data);
+        },
+    });
+}
+
+/** Marca como vistos los avisos premium del grupo hasta este momento. */
+export function useMarkPremiumNoticesSeen(groupId: number) {
+    const api = useApiClient();
+
+    return useMutation<void, Error, void>({
+        mutationFn: async (): Promise<void> => {
+            await api.post(`/groups/${groupId}/premium/notices/seen`);
+        },
+    });
+}
+
+/** Si al usuario le corresponde la prueba gratuita al crear un grupo premium (el grupo es nuevo: solo cuenta su prueba). */
+export function useGetNewPremiumGroupEligibility() {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["premium-eligibility", "new-group"] as const,
+        gcTime: 0,
+        retry: retryUnlessClientError,
+        queryFn: async (): Promise<PremiumEligibility> => {
+            const data = await api.get("/groups/premium/eligibility");
+            return PremiumEligibilitySchema.parse(data);
+        },
+    });
+}
+
+export interface PremiumGroupCreate {
+    readonly group: GroupCreate;
+    readonly payment: PremiumSubscribe;
+}
+
+/**
+ * Crea un grupo premium: el grupo, con la configuración elegida, y su suscripción en un solo paso. Si el pago es rechazado
+ * (402) no se crea nada. El pago es simulado: una tarjeta terminada en 0002 siempre es rechazada.
+ */
+export function useCreatePremiumGroup() {
+    const api = useApiClient();
+    const qc = useQueryClient();
+
+    return useMutation<Group, Error, PremiumGroupCreate>({
+        mutationFn: async (payload): Promise<Group> => {
+            const body = {
+                group: GroupCreateSchema.parse(payload.group),
+                payment: PremiumSubscribeSchema.parse(payload.payment),
+            };
+            const response = await api.post("/groups/premium", body);
+            return GroupSchema.parse(response);
         },
         onSuccess: (): void => {
             void qc.invalidateQueries({ queryKey: ["groups"] });
