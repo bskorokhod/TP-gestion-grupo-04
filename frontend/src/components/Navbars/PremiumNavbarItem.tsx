@@ -6,6 +6,7 @@ import {Link, useLocation, useRoute} from "wouter";
 import {GROUP_ROUTE_PATTERN, groupPremiumPlansPath} from "@/constants/routes.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import type {BackendError} from "@/hooks/useToast.ts";
+import {getTrialOffer} from "@/lib/premium.ts";
 import {useCancelGroupPremium, useGetGroups, useGetPremiumStatus} from "@/services/GroupServices.ts";
 
 const sameCode = (a: string, b: string) => a.toUpperCase() === b.toUpperCase();
@@ -34,9 +35,11 @@ export function PremiumNavbarItem() {
     if (!currentGroup) return null;
 
     const isPremium = premiumStatus.data?.premium ?? currentGroup.isPremium;
-    const label = premiumStatus.data?.state === "EXPIRED"
-        ? "Potenciá tu grupo con Premium"
-        : "Probá Premium";
+    // Solo se promete la prueba si el backend confirma que al usuario y al grupo les corresponde; mientras no se sabe
+    // o si la consulta falla, no se promete nada.
+    const label = getTrialOffer(premiumStatus) === "available"
+        ? "Probá Premium"
+        : "Potenciá tu grupo con Premium";
 
     async function handleCancelPremium() {
         try {

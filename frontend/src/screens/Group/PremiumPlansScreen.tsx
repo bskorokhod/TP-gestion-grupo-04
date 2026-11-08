@@ -11,6 +11,7 @@ import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import type {BackendError} from "@/hooks/useToast.ts";
 import {cn} from "@/lib/cn.ts";
 import {groupPremiumApplicationPath, groupReservationsPath} from "@/constants/routes.ts";
+import {getTrialOffer} from "@/lib/premium.ts";
 import {useCancelGroupPremium, useGetPremiumStatus} from "@/services/GroupServices.ts";
 
 const benefits: ReadonlyArray<{ icon: IconDefinition; title: string; copy: string }> = [
@@ -33,6 +34,30 @@ function TrialLegend({price, trialLabel, className}: { price: string; trialLabel
             *** + impuestos aplicables.
         </p>
     );
+}
+
+function PriceLegend({price, className}: { price: string; className?: string }) {
+    return (
+        <p className={cn("text-xs leading-snug text-ink-soft", className)}>
+            Cuesta {price} ARS*** al mes. Se debita al activar el plan.<br/>
+            {/* TODO: completar el destino del link de Términos y condiciones */}
+            Se aplican <a href="#" className="underline">Términos y condiciones</a>.<br/>
+            *** + impuestos aplicables.
+        </p>
+    );
+}
+
+interface PlanLegendProps {
+    showTrial: boolean;
+    price: string;
+    trialLabel: string;
+    className?: string;
+}
+
+function PlanLegend({showTrial, price, trialLabel, className}: PlanLegendProps) {
+    return showTrial
+        ? <TrialLegend price={price} trialLabel={trialLabel} className={className}/>
+        : <PriceLegend price={price} className={className}/>;
 }
 
 interface PlanActionsProps {
@@ -113,6 +138,9 @@ export function PremiumPlansScreen() {
     const price = status.data?.monthlyPrice?.toLocaleString("es-AR") ?? "4.499";
     const trialDays = status.data?.trialDays ?? 7;
     const trialLabel = trialDays === 1 ? "1 día" : `${trialDays} días`;
+    // La prueba solo se promete si el backend confirma que al usuario y al grupo les corresponde; mientras no se sabe
+    // o si la consulta falla, no se promete nada.
+    const showTrial = !premium && getTrialOffer(status) === "available";
 
     async function handleCancel() {
         try {
@@ -130,7 +158,7 @@ export function PremiumPlansScreen() {
     }
 
     const primaryAction = premium ? handleCancel : () => navigate(groupPremiumApplicationPath(group.joinCode));
-    const primaryLabel = premium ? "Cancelar premium" : `Probá ${trialLabel} por 0 ARS`;
+    const primaryLabel = premium ? "Cancelar premium" : showTrial ? `Probá ${trialLabel} por 0 ARS` : "Activá Premium";
 
     return (
         <CommonLayout className="min-h-screen bg-background text-foreground">
@@ -144,7 +172,7 @@ export function PremiumPlansScreen() {
                         <div className="mt-10 flex flex-wrap gap-4">
                             <PlanActions label={primaryLabel} pending={cancel.isPending} onPrimary={primaryAction}/>
                         </div>
-                        <TrialLegend price={price} trialLabel={trialLabel} className="mt-4"/>
+                        <PlanLegend showTrial={showTrial} price={price} trialLabel={trialLabel} className="mt-4"/>
                     </div>
 
                     <div className="justify-center content-center basis-1/3">
@@ -172,7 +200,7 @@ export function PremiumPlansScreen() {
                 <div className="mt-8 flex flex-wrap justify-center gap-4">
                     <PlanActions label={primaryLabel} pending={cancel.isPending} onPrimary={primaryAction}/>
                 </div>
-                <TrialLegend price={price} trialLabel={trialLabel} className="mt-4"/>
+                <PlanLegend showTrial={showTrial} price={price} trialLabel={trialLabel} className="mt-4"/>
             </section>
 
             <section id="planes" className="login-backdrop px-12 py-24">
@@ -197,8 +225,8 @@ export function PremiumPlansScreen() {
                             tone="amber"
                             icon={faStar}
                             name="Premium"
-                            price={`0 ARS por ${trialLabel}`}
-                            priceNote={`Después, cuesta ${price} ARS*** al mes`}
+                            price={showTrial ? `0 ARS por ${trialLabel}` : `${price} ARS*** al mes`}
+                            priceNote={showTrial ? `Después, cuesta ${price} ARS*** al mes` : undefined}
                             features={[
                                 <>Un grupo <strong>Premium</strong></>,
                                 "Gestión de reservas",
@@ -210,7 +238,7 @@ export function PremiumPlansScreen() {
                             actionLabel={cancel.isPending ? "Cancelando..." : primaryLabel}
                             onAction={primaryAction}
                             actionDisabled={cancel.isPending}
-                            footer={<TrialLegend price={price} trialLabel={trialLabel} className="mt-6 text-center"/>}
+                            footer={<PlanLegend showTrial={showTrial} price={price} trialLabel={trialLabel} className="mt-6 text-center"/>}
                         />
                     </div>
                 </div>
