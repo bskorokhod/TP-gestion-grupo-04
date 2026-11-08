@@ -5,6 +5,7 @@ import EsNuestro.common.time.AppTime;
 import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
 import EsNuestro.member.GroupMember;
+import EsNuestro.premium.dtos.PremiumEligibilityDTO;
 import EsNuestro.premium.dtos.PremiumSubscribeDTO;
 import EsNuestro.premium.dtos.PremiumSubscriptionDTO;
 import EsNuestro.user.User;
@@ -52,8 +53,7 @@ public class PremiumService {
         User payer = member.getUser();
         PaymentCard card = PaymentCard.from(data, AppTime.today());
         Optional<PremiumSubscription> previous = subscriptionRepository.findByGroup_Id(groupId);
-        boolean groupHadTrial = previous.map(PremiumSubscription::hasTrial).orElse(false);
-        boolean withTrial = !groupHadTrial && !subscriptionRepository.existsByTrialUserId(payer.getId());
+        boolean withTrial = isTrialAvailable(previous, payer);
 
         PremiumSubscription subscription;
         if (previous.isPresent()) {
@@ -86,7 +86,26 @@ public class PremiumService {
         return PremiumSubscriptionDTO.from(subscription);
     }
 
-    // TODO(PREMIUM-TRIAL-ELIGIBILITY): el frontend no puede saber de antemano si le corresponde la prueba gratuita
-    //  (PremiumApplicationScreen siempre ofrece "prueba gratuita"). Exponer algo como GET /groups/{id}/premium/eligibility
-    //  o un campo en el usuario, para ajustar el texto del formulario antes de enviarlo.
+    /**
+     * Le dice al frontend si, al suscribir este grupo, al caller le corresponde la prueba gratuita, para que el formulario
+     * no la prometa cuando no va a haberla. Aplica la misma regla que {@link #subscribe}. Solo lectura, y como al
+     * suscribir, solo para miembros activos (404 para el resto).
+     */
+    @Transactional(readOnly = true)
+    PremiumEligibilityDTO eligibility(Long groupId, String callerEmail) throws ItemNotFoundException {
+        GroupMember member = groupService.requireActiveMember(groupId, callerEmail);
+
+        if (member.getGroup().isPremium()) {
+            return new PremiumEligibilityDTO(false);
+        }
+        return new PremiumEligibilityDTO(
+                isTrialAvailable(subscriptionRepository.findByGroup_Id(groupId), member.getUser())
+        );
+    }
+
+    /** La prueba gratuita es una por grupo (aunque cancele y vuelva) y una por usuario (en cualquier grupo). */
+    private boolean isTrialAvailable(Optional<PremiumSubscription> groupSubscription, User payer) {
+        boolean groupHadTrial = groupSubscription.map(PremiumSubscription::hasTrial).orElse(false);
+        return !groupHadTrial && !subscriptionRepository.existsByTrialUserId(payer.getId());
+    }
 }

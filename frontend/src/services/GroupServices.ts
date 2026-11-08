@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import {useMutation, useQueries, useQuery, useQueryClient,} from "@tanstack/react-query";
 import { useApiClient } from "@/hooks/useApiClient";
 import { useToken } from "@/contexts/TokenContext.tsx";
-import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema,} from "@/models/Group.ts";
+import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumEligibility, PremiumEligibilitySchema, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema,} from "@/models/Group.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
 import { TokenService } from "@/services/TokenService";
 import { GROUP_PREVIEW_STALE_TIME_MS, MAX_QUERY_RETRIES } from "@/constants/services.ts";
@@ -216,6 +216,26 @@ export function useJoinGroup() {
         onSuccess: (): void => {
             void qc.invalidateQueries({ queryKey: ["groups"] });
             void qc.invalidateQueries({ queryKey: ["join-requests", "mine"] });
+        },
+    });
+}
+
+/**
+ * Si al usuario le corresponde la prueba gratuita al suscribir el grupo (una por usuario y una por grupo), para que el
+ * formulario de premium no la prometa cuando no va a haberla. Es orientativo: el backend lo vuelve a decidir al
+ * suscribir. Cuelga de `["groups"]`, así que suscribir o cancelar en cualquier grupo lo deja stale. `gcTime: 0` evita mostrar
+ * al volver a la pantalla una respuesta vieja de otra visita: sin caché, siempre arranca esperando la del backend.
+ */
+export function useGetPremiumEligibility(groupId: number) {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["groups", groupId, "premium-eligibility"] as const,
+        enabled: Number.isFinite(groupId) && groupId > 0,
+        gcTime: 0,
+        retry: retryUnlessClientError,
+        queryFn: async (): Promise<PremiumEligibility> => {
+            const data = await api.get(`/groups/${groupId}/premium/eligibility`);
+            return PremiumEligibilitySchema.parse(data);
         },
     });
 }

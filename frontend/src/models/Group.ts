@@ -195,6 +195,16 @@ export const PremiumSubscriptionSchema = z.object({
 
 export type PremiumSubscription = z.infer<typeof PremiumSubscriptionSchema>;
 
+/**
+ * Si al usuario le corresponde la prueba gratuita al suscribir el grupo. Es orientativo: el backend lo vuelve a decidir
+ * al suscribir, y la respuesta de `PremiumSubscription.trial` es la que manda.
+ */
+export const PremiumEligibilitySchema = z.object({
+    trialAvailable: z.boolean(),
+});
+
+export type PremiumEligibility = z.infer<typeof PremiumEligibilitySchema>;
+
 // Formato exigido por el backend: 3 letras - 4 números - 3 letras (ej. ABC-1234-XYZ)
 export const JOIN_CODE_REGEX = /^[A-Za-z]{3}-\d{4}-[A-Za-z]{3}$/;
 

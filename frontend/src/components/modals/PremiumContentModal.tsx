@@ -6,6 +6,9 @@ import {faStar} from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/Button.tsx";
 import {groupPremiumApplicationPath} from "@/constants/routes.ts";
 import {useDismissibleModal} from "@/components/modals/useDismissibleModal.ts";
+import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
+import {getTrialOffer} from "@/lib/premium.ts";
+import {useGetPremiumEligibility} from "@/services/GroupServices.ts";
 
 interface PremiumContentModalProps {
     readonly groupCode: string;
@@ -28,6 +31,12 @@ export function PremiumContentModal({
 }: PremiumContentModalProps) {
     const [, navigate] = useLocation();
     useDismissibleModal(onClose, lockScroll);
+
+    // Solo se promete la prueba gratuita si al usuario y al grupo les corresponde; si no (o mientras no se sabe), se
+    // ofrece activar el plan. La pantalla de destino vuelve a consultarlo, así que no hace falta esperar la respuesta.
+    const group = useCurrentGroup();
+    const trialOffer = getTrialOffer(useGetPremiumEligibility(group.id));
+    const actionLabel = trialOffer === "available" ? "Comenzar prueba gratuita" : "Activar premium";
 
     const modal = (
         <div
@@ -56,7 +65,7 @@ export function PremiumContentModal({
                     className="mt-6 w-full bg-amber text-sm font-semibold text-panel hover:bg-amber/90"
                     onClick={() => navigate(groupPremiumApplicationPath(groupCode))}
                 >
-                    Comenzar prueba gratuita
+                    {actionLabel}
                 </Button>
             </div>
         </div>

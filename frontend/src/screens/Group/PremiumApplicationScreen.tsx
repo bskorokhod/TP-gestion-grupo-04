@@ -8,16 +8,43 @@ import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import type {BackendError} from "@/hooks/useToast.ts";
 import {PremiumSubscribeSchema} from "@/models/Group.ts";
-import {useSubscribeGroupPremium} from "@/services/GroupServices.ts";
+import {getTrialOffer, type TrialOffer} from "@/lib/premium.ts";
+import {useGetPremiumEligibility, useSubscribeGroupPremium} from "@/services/GroupServices.ts";
 import {groupConfigPath, GROUPS_PATH} from "@/constants/routes.ts";
 
 const TRIAL_DAYS = 7;
+
+const TRIAL_OFFER_COPY: Record<TrialOffer, { title: string; description: string; submitLabel: string }> = {
+    checking: {
+        title: "Plan premium",
+        description: "Verificando si te corresponde la prueba gratuita...",
+        submitLabel: "Verificando...",
+    },
+    available: {
+        title: "Comenzar prueba premium",
+        description: `Probá las funciones premium gratis durante ${TRIAL_DAYS} días. Después se debitará automáticamente el plan en la tarjeta que registres.`,
+        submitLabel: "Comenzar prueba gratuita",
+    },
+    unavailable: {
+        title: "Activar plan premium",
+        description: "La prueba gratuita ya se usó (en tu cuenta o en este grupo), así que el plan se debitará en la tarjeta que registres desde que lo actives.",
+        submitLabel: "Activar plan premium",
+    },
+    unknown: {
+        title: "Plan premium",
+        description: "No pudimos verificar si te corresponde la prueba gratuita. Si te corresponde se aplicará al activar el plan; si no, el plan se debitará en la tarjeta que registres desde que lo actives.",
+        submitLabel: "Activar plan premium",
+    },
+};
 
 export function PremiumApplicationScreen() {
     const group = useCurrentGroup();
     const [, navigate] = useLocation();
     const {showSuccessToast, showSchemaError, showApiError} = useFormToasts();
     const subscribe = useSubscribeGroupPremium(group.id);
+    const eligibility = useGetPremiumEligibility(group.id);
+    const trialOffer = getTrialOffer(eligibility);
+    const copy = TRIAL_OFFER_COPY[trialOffer];
     const [cardholderName, setCardholderName] = useState("");
     const [cardNumber, setCardNumber] = useState("");
     const [expiration, setExpiration] = useState("");
@@ -66,14 +93,11 @@ export function PremiumApplicationScreen() {
                 >
                     <div className="flex items-center gap-3">
                         <h1 className="font-display text-3xl font-extrabold leading-none text-ink">
-                            Comenzar prueba premium
+                            {copy.title}
                         </h1>
                     </div>
-                    {/* TODO(PREMIUM-TRIAL-ELIGIBILITY): este texto siempre ofrece la prueba gratuita, pero el backend solo
-                        la otorga una vez por usuario y una vez por grupo. Ver PremiumService en el backend. */}
                     <p className="mt-3 text-base text-warm-muted">
-                        Probá las funciones premium gratis durante {TRIAL_DAYS} días. Después se debitará automáticamente
-                        el plan en la tarjeta que registres.
+                        {copy.description}
                     </p>
 
                     <div className="mt-8 flex flex-col gap-6">
@@ -138,8 +162,8 @@ export function PremiumApplicationScreen() {
                         <Button type="button" variant="modalSecondary" size="modal" onClick={() => navigate(GROUPS_PATH)}>
                             Cancelar
                         </Button>
-                        <Button type="submit" variant="default" size="modal" disabled={subscribe.isPending}>
-                            {subscribe.isPending ? "Procesando..." : "Comenzar prueba gratuita"}
+                        <Button type="submit" variant="default" size="modal" disabled={subscribe.isPending || trialOffer === "checking"}>
+                            {subscribe.isPending ? "Procesando..." : copy.submitLabel}
                         </Button>
                     </div>
                 </form>

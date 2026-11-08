@@ -2,6 +2,7 @@ package EsNuestro.premium;
 
 import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.config.security.JwtUserDetails;
+import EsNuestro.premium.dtos.PremiumEligibilityDTO;
 import EsNuestro.premium.dtos.PremiumSubscribeDTO;
 import EsNuestro.premium.dtos.PremiumSubscriptionDTO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,6 +48,16 @@ class PremiumRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
         return premiumService.subscribe(groupId, data, principal.email());
+    }
+
+    @GetMapping(value = "/eligibility", produces = "application/json")
+    @Operation(summary = "Indica si al caller le corresponde la prueba gratuita al suscribir el grupo (una por usuario y una por grupo); es false si el grupo ya es premium. Solo orienta al formulario: la decisión final se toma al suscribir")
+    @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro activo", content = @Content)
+    PremiumEligibilityDTO eligibility(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return premiumService.eligibility(groupId, principal.email());
     }
 
     @DeleteMapping(produces = "application/json")
