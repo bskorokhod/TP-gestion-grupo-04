@@ -446,4 +446,12 @@ public class GroupService {
             );
         }
     }
+
+    /**
+     * Devuelve todos los grupos del sistema.
+     * Solo para uso interno de Jobs u otros servicios de sistema.
+     */
+    public List<Group> findAllGroups() {
+        return groupRepository.findAll();
+    }
 }

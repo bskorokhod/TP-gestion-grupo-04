@@ -50,6 +50,12 @@ export const COPY: Record<ConfigChangeKind, { title: string; intro: string; labe
         intro: "La modificación se somete a votación unánime de los miembros del grupo.",
         label: "Nuevo modo de repartición",
     },
+    voteDeadline: {
+        title: "Plazo de cierre de las votaciones",
+        intro: "La modificación se somete a votación unánime de los miembros del grupo.",
+        label: "Nuevo plazo de cierre (en días)",
+        hint: "Las votaciones que no se deciden antes se rechazan automáticamente.",
+    },
 };
 
 export const VOTING_MODEL_LABEL: Record<VotingModel, string> = {
@@ -68,6 +74,7 @@ export const CONFIG_SETTING_LABEL: Record<ConfigSetting, string> = {
     VOTING_MODEL: "Modo de aprobación de votación",
     RESERVATION_LIMIT_POLICY: "Restricción de reservas",
     EXTRAORDINARY_EXPENSE_THRESHOLD: "Monto de gasto extraordinario",
+    VOTE_DEADLINE_DAYS: "Plazo de cierre de las votaciones",
 };
 
 export const DISTRIBUTION_MODE_LABEL: Record<DistributionMode, string> = {

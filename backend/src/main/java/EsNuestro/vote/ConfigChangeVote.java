@@ -53,6 +53,8 @@ public class ConfigChangeVote extends Vote {
     @Column(precision = 12, scale = 2)
     private BigDecimal proposedExtraordinaryExpenseThreshold;
 
+    private Integer proposedVoteDeadlineDays;
+
     private ConfigChangeVote(Group group, GroupMember proposer, ConfigSetting setting) {
         super(group, proposer, VoteType.CONFIG_CHANGE, VotingModel.UNANIMOUS);
         this.setting = setting;
@@ -87,6 +89,12 @@ public class ConfigChangeVote extends Vote {
         return vote;
     }
 
+    public static ConfigChangeVote ofVoteDeadlineDays(Group group, GroupMember proposer, Integer voteDeadlineDays) {
+        ConfigChangeVote vote = new ConfigChangeVote(group, proposer, ConfigSetting.VOTE_DEADLINE_DAYS);
+        vote.proposedVoteDeadlineDays = voteDeadlineDays;
+        return vote;
+    }
+
     /**
      * La configuración resultante de aplicar el valor propuesto sobre {@code current}. Lanza
      * {@link IllegalArgumentException} si la combinación resultante es incoherente.
@@ -100,6 +108,7 @@ public class ConfigChangeVote extends Vote {
             );
             case EXTRAORDINARY_EXPENSE_THRESHOLD ->
                     current.withExtraordinaryExpenseThreshold(proposedExtraordinaryExpenseThreshold);
+            case VOTE_DEADLINE_DAYS -> current.withVoteDeadlineDays(proposedVoteDeadlineDays);
         };
     }
 
@@ -115,6 +124,7 @@ public class ConfigChangeVote extends Vote {
                             );
             case EXTRAORDINARY_EXPENSE_THRESHOLD ->
                     current.getExtraordinaryExpenseThreshold().compareTo(proposedExtraordinaryExpenseThreshold) == 0;
+            case VOTE_DEADLINE_DAYS -> Objects.equals(current.getVoteDeadlineDays(), proposedVoteDeadlineDays);
         };
     }
 

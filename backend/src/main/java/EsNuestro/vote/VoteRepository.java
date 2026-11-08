@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -28,6 +29,14 @@ interface VoteRepository extends JpaRepository<Vote, Long> {
     List<Long> findGroupIdsWithClaimsOfReservationsStartedBy(
             @Param("status") VoteStatus status, @Param("today") LocalDate today
     );
+
+    /** Grupos con alguna votación en ese estado que todavía no tiene plazo (datos anteriores a esta funcionalidad). */
+    @Query("select distinct v.group.id from Vote v where v.status = :status and v.deadline is null")
+    List<Long> findGroupIdsWithStatusAndDeadlineIsNull(@Param("status") VoteStatus status);
+
+    /** Grupos con alguna votación en ese estado cuyo plazo ya venció. */
+    @Query("select distinct v.group.id from Vote v where v.status = :status and v.deadline < :now")
+    List<Long> findGroupIdsWithStatusAndDeadlineBefore(@Param("status") VoteStatus status, @Param("now") Instant now);
 
     /**
      * Una consulta por tipo y otra sin filtrarlo, en lugar de un {@code :type is null or ...}: con un enum nulo

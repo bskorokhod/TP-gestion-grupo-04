@@ -24,6 +24,7 @@ export const ConfigSettingSchema = z.enum([
   "VOTING_MODEL",
   "RESERVATION_LIMIT_POLICY",
   "EXTRAORDINARY_EXPENSE_THRESHOLD",
+  "VOTE_DEADLINE_DAYS",
 ]);
 export type ConfigSetting = z.infer<typeof ConfigSettingSchema>;
 
@@ -35,6 +36,7 @@ export const ConfigChangeSchema = z.object({
   reservationLimitPolicy: ReservationLimitPolicySchema.nullish(),
   reservationFixedDaysPerMonth: z.number().nullish(),
   extraordinaryExpenseThreshold: z.number().nullish(),
+  voteDeadlineDays: z.number().nullish(),
 });
 export type ConfigChange = z.infer<typeof ConfigChangeSchema>;
 
@@ -47,7 +49,8 @@ export type ConfigChangeCreate =
       readonly reservationLimitPolicy: ReservationLimitPolicy;
       readonly reservationFixedDaysPerMonth?: number; /** Solo con FIXED_DAYS_PER_MONTH. */
     }
-  | { readonly setting: "EXTRAORDINARY_EXPENSE_THRESHOLD"; readonly extraordinaryExpenseThreshold: number };
+  | { readonly setting: "EXTRAORDINARY_EXPENSE_THRESHOLD"; readonly extraordinaryExpenseThreshold: number }
+  | { readonly setting: "VOTE_DEADLINE_DAYS"; readonly voteDeadlineDays: number };
 
 // ─── Vote ───────────────────────────────────────────────────────────────────
 
@@ -101,6 +104,8 @@ export const VoteSchema = z.object({
   failureReason: z.string().nullish(),
   proposer: ExpenseMemberSchema,
   createdAt: z.string(),
+  /** Momento en que se rechaza automáticamente si sigue activa; null en votaciones anteriores a esta funcionalidad. */
+  deadline: z.string().nullish(),
   involved: z.array(ExpenseMemberSchema),
   progress: VoteProgressSchema,
   myChoice: VoteChoiceSchema.nullish(),

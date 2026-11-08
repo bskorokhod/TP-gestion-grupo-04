@@ -4,7 +4,7 @@ import SelectField, { type SelectOption } from "@/components/Forms/SelectField.t
 import TextField from "@/components/Forms/TextField.tsx";
 import { ModalShell } from "@/components/modals/ModalShell.tsx";
 import {useFormToasts} from "@/hooks/useFormToasts";
-import {type DistributionMode, type GroupSettings, GroupSettingsCreateSchema, isReservationPolicyAllowed, isVotingModelAllowed, MAX_FIXED_DAYS_PER_MONTH, MIN_FIXED_DAYS_PER_MONTH, type ReservationLimitPolicy, type VotingModel,} from "@/models/Group.ts";
+import {type DistributionMode, type GroupSettings, GroupSettingsCreateSchema, isReservationPolicyAllowed, isVotingModelAllowed, MAX_FIXED_DAYS_PER_MONTH, MAX_VOTE_DEADLINE_DAYS, MIN_FIXED_DAYS_PER_MONTH, MIN_VOTE_DEADLINE_DAYS, type ReservationLimitPolicy, type VotingModel,} from "@/models/Group.ts";
 import type {ConfigChangeKind, ConfigChangeRequest} from "@/models/Config.ts";
 import {BLOCKED_BY_OWNERSHIP_NOTE, COPY, CURRENT_NOTE, DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS,} from "@/constants/config_modals.ts";
 
@@ -48,6 +48,7 @@ function buildOptions(kind: ConfigChangeKind, settings: GroupSettings): SelectOp
                 return compatible ? null : BLOCKED_BY_OWNERSHIP_NOTE;
             });
         case "threshold":
+        case "voteDeadline":
             return [];
     }
 }
@@ -58,9 +59,11 @@ export const ConfigChangeModal = ({ kind, settings, onClose, onSubmit }: ConfigC
     const [selected, setSelected] = useState("");
     const [fixedDays, setFixedDays] = useState("");
     const [threshold, setThreshold] = useState("");
+    const [voteDeadlineDays, setVoteDeadlineDays] = useState("");
 
     const copy = COPY[kind];
     const showFixedDays = kind === "reservation" && selected === "FIXED_DAYS_PER_MONTH";
+    const usesNumberField = kind === "threshold" || kind === "voteDeadline";
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -71,6 +74,7 @@ export const ConfigChangeModal = ({ kind, settings, onClose, onSubmit }: ConfigC
             reservationLimitPolicy: settings.reservationLimitPolicy,
             reservationFixedDaysPerMonth: settings.reservationFixedDaysPerMonth ?? undefined,
             extraordinaryExpenseThreshold: settings.extraordinaryExpenseThreshold,
+            voteDeadlineDays: settings.voteDeadlineDays,
         };
 
         switch (kind) {
@@ -87,6 +91,9 @@ export const ConfigChangeModal = ({ kind, settings, onClose, onSubmit }: ConfigC
                 break;
             case "threshold":
                 candidate.extraordinaryExpenseThreshold = parseOptionalNumber(threshold) as number;
+                break;
+            case "voteDeadline":
+                candidate.voteDeadlineDays = parseOptionalNumber(voteDeadlineDays) as number;
                 break;
         }
 
@@ -118,6 +125,13 @@ export const ConfigChangeModal = ({ kind, settings, onClose, onSubmit }: ConfigC
                 }
                 await onSubmit({ kind, extraordinaryExpenseThreshold: valid.extraordinaryExpenseThreshold });
                 break;
+            case "voteDeadline":
+                if (valid.voteDeadlineDays === settings.voteDeadlineDays) {
+                    showSchemaError("El plazo ingresado ya es el vigente");
+                    return;
+                }
+                await onSubmit({ kind, voteDeadlineDays: valid.voteDeadlineDays });
+                break;
         }
     }
 
@@ -145,6 +159,21 @@ export const ConfigChangeModal = ({ kind, settings, onClose, onSubmit }: ConfigC
                     onChange={(event) => setThreshold(event.target.value)}
                     required
                 />
+            ) : kind === "voteDeadline" ? (
+                <TextField
+                    id="config-change-vote-deadline"
+                    label={copy.label}
+                    hint={`Valor vigente: ${settings.voteDeadlineDays} días`}
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_VOTE_DEADLINE_DAYS}
+                    max={MAX_VOTE_DEADLINE_DAYS}
+                    step={1}
+                    placeholder="Ej. 14"
+                    value={voteDeadlineDays}
+                    onChange={(event) => setVoteDeadlineDays(event.target.value)}
+                    required
+                />
             ) : (
                 <SelectField
                     id="config-change-select"
@@ -158,7 +187,7 @@ export const ConfigChangeModal = ({ kind, settings, onClose, onSubmit }: ConfigC
                 />
             )}
 
-            {showFixedDays && (
+            {!usesNumberField && showFixedDays && (
                 <TextField
                     id="config-change-fixed-days"
                     label="Días por mes por miembro"

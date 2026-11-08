@@ -101,6 +101,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                     reservationFixedDaysPerMonth: parseOptionalNumber(fixedDays),
                 }),
                 extraordinaryExpenseThreshold: parseOptionalNumber(threshold),
+                voteDeadlineDays: parseOptionalNumber(formData.get("voteDeadlineDays")?.toString() || ""),
             },
         };
 
@@ -173,6 +174,20 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                     disabled={settingsLocked}
                     required
                 />
+
+                <TextField
+                    id="group-vote-deadline"
+                    name="voteDeadlineDays"
+                    type="number"
+                    label="Plazo de votación (días)"
+                    hint="Entre 7 y 30 días. Si no se aprueba en este plazo, se rechaza."
+                    placeholder="Ej. 14"
+                    disabled={settingsLocked}
+                    required
+                    min={7}
+                    max={30}
+                />
+
                 <SelectField
                     id="group-reservation"
                     label="Restricción de reservas"
