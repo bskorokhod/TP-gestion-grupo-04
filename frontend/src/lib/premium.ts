@@ -13,6 +13,12 @@ export function getTrialOffer(eligibility: {
     return eligibility.isError ? "unknown" : "checking";
 }
 
+/** Texto del tiempo que falta a partir de los días completos: "menos de 1 día", "1 día" o "N días". */
+export function formatDaysLeft(days: number): string {
+    if (days <= 0) return "menos de 1 día";
+    return days === 1 ? "1 día" : `${days} días`;
+}
+
 export const PREMIUM_GROUP_DRAFT_STORAGE_KEY = "esnuestro-premium-group-draft";
 
 export function savePremiumGroupDraft(group: GroupCreate): void {

@@ -41,7 +41,7 @@ class PremiumRestController {
     }
 
     @GetMapping(produces = "application/json")
-    @Operation(summary = "Estado del plan premium del grupo (nunca tuvo, en prueba, activo, cancelado pero vigente o terminado), con fechas, pagador y precio; cualquier miembro activo puede consultarlo")
+    @Operation(summary = "Estado del plan premium del grupo (nunca tuvo, en prueba, activo, cancelado pero vigente o terminado), con fechas, pagador (apodo), días restantes y precio; cualquier miembro activo puede consultarlo. Los últimos 4 dígitos y el titular de la tarjeta solo los recibe el pagador, y solo mientras el plan está activo")
     @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro activo", content = @Content)
     PremiumStatusDTO status(
             @PathVariable Long groupId,

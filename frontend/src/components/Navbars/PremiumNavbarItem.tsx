@@ -6,10 +6,59 @@ import {Link, useLocation, useRoute} from "wouter";
 import {GROUP_ROUTE_PATTERN, PREMIUM_PATH} from "@/constants/routes.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import type {BackendError} from "@/hooks/useToast.ts";
-import {getTrialOffer} from "@/lib/premium.ts";
+import {formatDaysLeft, getTrialOffer} from "@/lib/premium.ts";
+import type {PremiumStatus} from "@/models/Group.ts";
 import {useCancelGroupPremium, useGetGroups, useGetPremiumStatus} from "@/services/GroupServices.ts";
 
 const sameCode = (a: string, b: string) => a.toUpperCase() === b.toUpperCase();
+
+/**
+ * Datos del plan en el desplegable. Todos los miembros ven quién lo contrató y cuánto falta; la tarjeta (que el
+ * backend solo envía al pagador) se muestra con una leyenda de privacidad.
+ */
+function PremiumDetails({status}: { status: PremiumStatus }) {
+    const cancelled = status.state === "CANCELLED_IN_FORCE";
+    const showCard = status.youArePayer && Boolean(status.cardLast4 || status.cardholderName);
+    const hasDays = status.daysLeft !== null && status.daysLeft !== undefined;
+
+    if (!status.payerNickname && !hasDays && !showCard) return null;
+
+    return (
+        <div className="space-y-1 border-b border-border px-4 pb-3 pt-1 text-sm text-ink">
+            {status.payerNickname && (
+                <p>
+                    <span className="text-ink-soft">Pagado por: </span>
+                    <span className="font-semibold">{status.payerNickname}</span>
+                </p>
+            )}
+            {hasDays && (
+                <p>
+                    <span className="text-ink-soft">{cancelled ? "Premium vence en: " : "Próximo cobro en: "}</span>
+                    <span className="font-semibold">{formatDaysLeft(status.daysLeft as number)}</span>
+                </p>
+            )}
+            {showCard && (
+                <div className="mt-2 space-y-1 border-t border-border pt-2">
+                    {status.cardLast4 && (
+                        <p>
+                            <span className="text-ink-soft">Tarjeta terminada en: </span>
+                            <span className="font-semibold">{status.cardLast4}</span>
+                        </p>
+                    )}
+                    {status.cardholderName && (
+                        <p>
+                            <span className="text-ink-soft">Titular: </span>
+                            <span className="font-semibold">{status.cardholderName}</span>
+                        </p>
+                    )}
+                    <p className="text-xs leading-snug text-ink-soft">
+                        Esta información es privada: solo vos podés verla.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export function PremiumNavbarItem() {
     const [, routeParams] = useRoute(GROUP_ROUTE_PATTERN);
@@ -72,7 +121,8 @@ export function PremiumNavbarItem() {
             </button>
 
             {isPremium && isMenuOpen && (
-                <div className="absolute right-0 top-9 z-50 min-w-48 rounded-lg border border-border bg-panel py-2 shadow-panel">
+                <div className="absolute right-0 top-9 z-50 min-w-64 max-w-md rounded-lg border border-border bg-panel py-2 shadow-panel">
+                    {premiumStatus.data && <PremiumDetails status={premiumStatus.data}/>}
                     <Link
                         href={PREMIUM_PATH}
                         onClick={() => setIsMenuOpen(false)}

@@ -227,8 +227,14 @@ export const PremiumStatusSchema = z.object({
     nextBillingAt: z.string().nullish(),
     endsAt: z.string().nullish(),
     payerName: z.string().nullish(),
+    /** Apodo del pagador en el grupo; lo ven todos los miembros. */
+    payerNickname: z.string().nullish(),
     youArePayer: z.boolean(),
+    /** Datos privados de la tarjeta: solo llegan al pagador y mientras el plan está activo. */
     cardLast4: z.string().nullish(),
+    cardholderName: z.string().nullish(),
+    /** Días completos hasta el próximo cobro o hasta que termine el premium cancelado (0 = menos de un día). */
+    daysLeft: z.number().nullish(),
     monthlyPrice: z.number(),
     trialDays: z.number(),
 });

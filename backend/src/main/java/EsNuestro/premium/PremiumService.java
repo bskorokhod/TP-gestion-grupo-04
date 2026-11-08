@@ -7,6 +7,7 @@ import EsNuestro.group.GroupService;
 import EsNuestro.group.PremiumEndedEvent;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.member.GroupMember;
+import EsNuestro.member.GroupMemberRepository;
 import EsNuestro.premium.dtos.PremiumEligibilityDTO;
 import EsNuestro.premium.dtos.PremiumGroupCreateDTO;
 import EsNuestro.premium.dtos.PremiumNoticeDTO;
@@ -61,6 +62,7 @@ public class PremiumService {
 
     private final GroupService groupService;
     private final UserRepository userRepository;
+    private final GroupMemberRepository groupMemberRepository;
     private final PremiumSubscriptionRepository subscriptionRepository;
     private final PremiumNoticeRepository noticeRepository;
     private final PremiumNoticeReadRepository noticeReadRepository;
@@ -70,6 +72,7 @@ public class PremiumService {
     PremiumService(
             GroupService groupService,
             UserRepository userRepository,
+            GroupMemberRepository groupMemberRepository,
             PremiumSubscriptionRepository subscriptionRepository,
             PremiumNoticeRepository noticeRepository,
             PremiumNoticeReadRepository noticeReadRepository,
@@ -77,6 +80,7 @@ public class PremiumService {
     ) {
         this.groupService = groupService;
         this.userRepository = userRepository;
+        this.groupMemberRepository = groupMemberRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.noticeRepository = noticeRepository;
         this.noticeReadRepository = noticeReadRepository;
@@ -205,14 +209,24 @@ public class PremiumService {
         PremiumState state = stateOf(group, subscription.orElse(null));
         boolean trialAvailable = !group.isPremium() && isTrialAvailable(subscription, member.getUser());
         if (subscription.isEmpty()) {
-            return new PremiumStatusDTO(state, group.isPremium(), trialAvailable, null, null, null, null, null,
-                    false, null, MONTHLY_PRICE, PremiumSubscription.TRIAL_DAYS);
+            return new PremiumStatusDTO(state, group.isPremium(), trialAvailable, null, null, null, null, null, null,
+                    false, null, null, null, MONTHLY_PRICE, PremiumSubscription.TRIAL_DAYS);
         }
 
         PremiumSubscription sub = subscription.get();
         boolean onTrial = state == PremiumState.TRIAL;
         Integer trialDaysLeft = onTrial ? daysLeft(now, sub.getTrialEndsAt()) : null;
         boolean inForce = state != PremiumState.NEVER && state != PremiumState.EXPIRED;
+        boolean cancelledInForce = state == PremiumState.CANCELLED_IN_FORCE;
+        boolean youArePayer = inForce && sub.getPayer().getId().equals(member.getUser().getId());
+        // Datos de la tarjeta: privados del pagador, y solo mientras se le va a seguir cobrando con ella.
+        boolean showCard = youArePayer && !cancelledInForce;
+        String payerNickname = inForce
+                ? groupMemberRepository.findByGroup_IdAndUser_Id(groupId, sub.getPayer().getId())
+                        .map(GroupMember::getNickname)
+                        .orElse(null)
+                : null;
+        Instant countdownEnd = cancelledInForce ? sub.getEndsAt() : (inForce ? sub.getNextBillingAt() : null);
         return new PremiumStatusDTO(
                 state,
                 group.isPremium(),
@@ -220,10 +234,13 @@ public class PremiumService {
                 onTrial ? sub.getTrialEndsAt() : null,
                 trialDaysLeft,
                 sub.isActive() && inForce ? sub.getNextBillingAt() : null,
-                state == PremiumState.CANCELLED_IN_FORCE ? sub.getEndsAt() : null,
+                cancelledInForce ? sub.getEndsAt() : null,
                 inForce ? sub.getPayer().getName() : null,
-                inForce && sub.getPayer().getId().equals(member.getUser().getId()),
-                inForce ? sub.getCardLast4() : null,
+                payerNickname,
+                youArePayer,
+                showCard ? sub.getCardLast4() : null,
+                showCard ? sub.getCardholderName() : null,
+                countdownEnd == null ? null : wholeDaysLeft(now, countdownEnd),
                 MONTHLY_PRICE,
                 PremiumSubscription.TRIAL_DAYS
         );
@@ -370,6 +387,11 @@ public class PremiumService {
     private int daysLeft(Instant now, Instant end) {
         long hours = Math.max(Duration.between(now, end).toHours(), 0);
         return (int) Math.ceil(hours / 24.0);
+    }
+
+    /** Días completos que faltan (0 = menos de un día); a diferencia de {@link #daysLeft}, no redondea hacia arriba. */
+    private int wholeDaysLeft(Instant now, Instant end) {
+        return (int) Math.max(Duration.between(now, end).toDays(), 0);
     }
 
     /** La prueba gratuita es una por grupo (aunque cancele y vuelva) y una por usuario (en cualquier grupo). */
