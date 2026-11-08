@@ -1,25 +1,107 @@
+import type {ReactNode} from "react";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faCheck, faCrown} from "@fortawesome/free-solid-svg-icons";
-import {Link, useLocation} from "wouter";
+import {faChartSimple, faClock, faGear, faHeart, faStar, type IconDefinition} from "@fortawesome/free-solid-svg-icons";
+import {useLocation} from "wouter";
+import premiumIllustration from "@/assets/premium.svg";
 
+import Button from "@/components/Button.tsx";
+import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import type {BackendError} from "@/hooks/useToast.ts";
+import {cn} from "@/lib/cn.ts";
 import {groupPremiumApplicationPath, groupReservationsPath} from "@/constants/routes.ts";
 import {useCancelGroupPremium, useGetPremiumStatus} from "@/services/GroupServices.ts";
 
-const benefits = [
-    {title: "Potenciá tu grupo", copy: "Personalizá las configuraciones y gestioná tu grupo con más libertad."},
-    {title: "Controlá el balance", copy: "Llevá un control claro de los gastos y del balance de todos."},
-    {title: "Economía e historial", copy: "Consultá el historial y tomá decisiones con toda la información."},
+const benefits: ReadonlyArray<{ icon: IconDefinition; title: string; copy: string }> = [
+    {icon: faGear, title: "Personalizá tu grupo", copy: "Accedé a las configuraciones exclusivas que mejor se adaptan a tu bien"},
+    {icon: faChartSimple, title: "Consultá el balance", copy: "Revisá la evolución de gastos y el desglose por categorías"},
+    {icon: faClock, title: "Examiná el historial", copy: "Inspeccioná el reporte histórico de todos los gastos de tu grupo"},
 ];
 
-const premiumFeatures = [
-    "Configuraciones premium",
-    "Más control sobre tu grupo",
-    "Historial de gastos completo",
-    "Votaciones y reservas avanzadas",
-];
+function scrollToPlans() {
+    document.getElementById("planes")?.scrollIntoView({behavior: "smooth"});
+}
+
+function TrialLegend({price, trialLabel, className}: { price: string; trialLabel: string; className?: string }) {
+    return (
+        <p className={cn("text-xs leading-snug text-ink-soft", className)}>
+            0 ARS por {trialLabel}. Después, cuesta {price} ARS*** al mes.<br/>
+            La oferta solo está disponible si aún no probaste Premium.<br/>
+            {/* TODO: completar el destino del link de Términos y condiciones */}
+            Se aplican <a href="#" className="underline">Términos y condiciones</a>.<br/>
+            *** + impuestos aplicables.
+        </p>
+    );
+}
+
+interface PlanActionsProps {
+    label: string;
+    pending: boolean;
+    onPrimary: () => void;
+}
+
+function PlanActions({label, pending, onPrimary}: PlanActionsProps) {
+    return (
+        <>
+            <Button type="button" variant="proposal" className="h-14 px-8 text-base font-bold" onClick={onPrimary} disabled={pending}>
+                {pending ? "Cancelando..." : label}
+            </Button>
+            <Button type="button" variant="outline" className="h-14 rounded-full border-ink-soft bg-transparent px-8 text-base text-ink-soft shadow-none" onClick={scrollToPlans}>
+                Comparar planes
+            </Button>
+        </>
+    );
+}
+
+const planTones = {
+    brand: {icon: "bg-brand/15 text-brand", accent: "text-brand", button: "default"},
+    amber: {icon: "bg-amber/15 text-amber", accent: "text-amber", button: "proposal"},
+} as const;
+
+interface PlanCardProps {
+    tone: keyof typeof planTones;
+    icon: IconDefinition;
+    name: string;
+    actionLabel: string;
+    onAction: () => void;
+    actionDisabled?: boolean;
+    price: string;
+    priceNote?: string;
+    features: ReactNode[];
+    footer?: ReactNode;
+}
+
+function PlanCard({tone, icon, name, actionLabel, onAction, actionDisabled, price, priceNote, features, footer}: PlanCardProps) {
+    const styles = planTones[tone];
+
+    return (
+        <article className="flex flex-col justify-start rounded-4xl bg-panel p-10 shadow-panel">
+            <span className={cn("mx-auto mb-4 grid size-11 place-items-center rounded-lg", styles.icon)}>
+                <FontAwesomeIcon icon={icon} aria-hidden/>
+            </span>
+            <h3 className="text-3xl font-semibold text-ink">esnuestro <span className={styles.accent}>{name}</span></h3>
+            <p className="text-sm font-bold text-ink">{price}</p>
+
+            {priceNote && <p className="text-xs text-ink-soft">{priceNote}</p>}
+
+            <ul className="my-5 space-y-0.5 border-t border-ink-soft/20 pt-4 text-sm text-ink">
+                {features.map((feature, index) => <li key={index}>• {feature}</li>)}
+            </ul>
+
+            <Button
+                type="button"
+                variant={styles.button}
+                className="mt-auto h-12 w-full rounded-full text-lg font-bold shadow-none"
+                onClick={onAction}
+                disabled={actionDisabled}
+            >
+                {actionLabel}
+            </Button>
+            <div className="md:min-h-24">{footer}</div>
+        </article>
+    );
+}
 
 export function PremiumPlansScreen() {
     const group = useCurrentGroup();
@@ -30,6 +112,7 @@ export function PremiumPlansScreen() {
     const premium = status.data?.premium ?? group.isPremium;
     const price = status.data?.monthlyPrice?.toLocaleString("es-AR") ?? "4.499";
     const trialDays = status.data?.trialDays ?? 7;
+    const trialLabel = trialDays === 1 ? "1 día" : `${trialDays} días`;
 
     async function handleCancel() {
         try {
@@ -47,95 +130,91 @@ export function PremiumPlansScreen() {
     }
 
     const primaryAction = premium ? handleCancel : () => navigate(groupPremiumApplicationPath(group.joinCode));
-    const primaryLabel = premium ? "Cancelar premium" : "Probá premium por 7 días";
+    const primaryLabel = premium ? "Cancelar premium" : `Probá ${trialLabel} por 0 ARS`;
 
     return (
-        <main className="min-h-screen bg-[#f7f6ed] text-[#24332e]">
-            <header className="flex h-14 items-center justify-between border-b border-[#d9ded3] bg-[#f7f6ed] px-5 sm:px-12">
-                <Link href={groupReservationsPath(group.joinCode)} className="font-display text-sm font-black tracking-tight">
-                    esnuestro<span className="ml-1 text-[#4c7a6e]">•</span>
-                </Link>
-                <nav className="flex items-center gap-5 text-[10px] font-semibold sm:gap-9 sm:text-xs">
-                    <a href="#planes" className="hover:text-[#b87317]">Comprar plan</a>
-                    <Link href={groupReservationsPath(group.joinCode)} className="hover:text-[#b87317]">Iniciar sesión</Link>
-                    <Link href={groupReservationsPath(group.joinCode)} className="rounded-full bg-[#416f64] px-4 py-2 text-white hover:bg-[#345d53]">Crear cuenta</Link>
-                </nav>
-            </header>
+        <CommonLayout className="min-h-screen bg-background text-foreground">
+            <section className="login-backdrop">
+                <div className="h-full mx-auto px-6 py-16 md:px-12 pb-0 flex flex-row">
+                    <div className="space-y-6 h-full content-center ps-16 basis-2/3 pb-16">
+                        <p className="text-3xl font-semibold text-ink mb-2">esnuestro <span className="text-amber">Premium</span></p>
+                        <h1 className="max-w-3xl text-5xl font-black leading-none text-footer md:text-8xl">
+                            El mejor lugar<br/>para<br/><em className="font-extrabold">compartir</em>
+                        </h1>
+                        <div className="mt-10 flex flex-wrap gap-4">
+                            <PlanActions label={primaryLabel} pending={cancel.isPending} onPrimary={primaryAction}/>
+                        </div>
+                        <TrialLegend price={price} trialLabel={trialLabel} className="mt-4"/>
+                    </div>
 
-            <section className="bg-gradient-to-br from-[#eef1e8] via-[#f2f1e8] to-[#dce4d9] px-6 py-14 sm:px-16 sm:py-20">
-                <div className="mx-auto max-w-6xl">
-                    <h1 className="max-w-xl text-4xl font-black leading-[.98] tracking-tight sm:text-6xl">
-                        El mejor lugar<br/>para<br/><em className="font-serif font-bold">compartir</em>
-                    </h1>
-                    <p className="mt-5 max-w-sm text-xs leading-relaxed text-[#627069] sm:text-sm">
-                        Todo lo que necesitás para organizar tu grupo y disfrutar más de tu bien compartido.
-                    </p>
-                    <div className="mt-6 flex flex-wrap gap-3">
-                        <button type="button" onClick={primaryAction} disabled={cancel.isPending} className="rounded-full bg-[#c77b18] px-5 py-2 text-xs font-bold text-white hover:bg-[#a9610d]">
-                            {cancel.isPending ? "Cancelando..." : primaryLabel}
-                        </button>
-                        <a href="#planes" className="rounded-full border border-[#9ba79d] px-5 py-2 text-xs font-medium text-[#68766f]">Comparar planes</a>
+                    <div className="justify-center content-center basis-1/3">
+                        <img
+                            className="hidden md:block content-end"
+                            src={premiumIllustration}
+                            alt="EsNuestro Premium"
+                        />
                     </div>
                 </div>
             </section>
 
-            <section className="bg-[#f7f5eb] px-6 py-14 text-center sm:px-16 sm:py-20">
-                <p className="text-xs font-bold text-[#3d665b]">esnuestro <span className="text-[#c77b18]">Premium</span></p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Gestioná sin límites</h2>
-                <div className="mx-auto mt-10 grid max-w-5xl gap-8 text-left sm:grid-cols-3">
-                    {benefits.map((benefit, index) => (
-                        <article key={benefit.title} className="flex gap-3">
-                            <span className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full bg-[#f2dcae] text-[#b87317]">
-                                <FontAwesomeIcon icon={index === 0 ? faCrown : faCheck} className="text-xs"/>
-                            </span>
-                            <div>
-                                <h3 className="text-sm font-extrabold">{benefit.title}</h3>
-                                <p className="mt-1 text-xs leading-relaxed text-[#77827a]">{benefit.copy}</p>
-                            </div>
+            <section className="bg-background px-6 py-24 text-center">
+                <p className="text-3xl font-semibold text-ink">esnuestro <span className="text-amber">Premium</span></p>
+                <h2 className="mt-1 text-4xl font-black text-ink md:text-6xl">Gestioná sin límites</h2>
+                <div className="mx-auto mt-12 grid max-w-4xl gap-8 text-left md:grid-cols-3">
+                    {benefits.map((benefit) => (
+                        <article key={benefit.title} className="space-y-1 text-center">
+                            <FontAwesomeIcon icon={benefit.icon} className="mb-2 text-4xl text-amber" aria-hidden/>
+                            <h3 className="text-xl font-bold text-ink">{benefit.title}</h3>
+                            <p className="text-base leading-relaxed text-ink">{benefit.copy}</p>
                         </article>
                     ))}
                 </div>
-                <div className="mt-8 flex flex-wrap justify-center gap-3">
-                    <button type="button" onClick={primaryAction} disabled={cancel.isPending} className="rounded-full bg-[#c77b18] px-5 py-2 text-xs font-bold text-white">
-                        {cancel.isPending ? "Cancelando..." : primaryLabel}
-                    </button>
-                    <a href="#planes" className="rounded-full border border-[#9ba79d] px-5 py-2 text-xs font-medium text-[#68766f]">Comparar planes</a>
+                <div className="mt-8 flex flex-wrap justify-center gap-4">
+                    <PlanActions label={primaryLabel} pending={cancel.isPending} onPrimary={primaryAction}/>
                 </div>
-                <p className="mt-3 text-[10px] text-[#89938c]">Sin compromiso. Cancelá cuando quieras.</p>
+                <TrialLegend price={price} trialLabel={trialLabel} className="mt-4"/>
             </section>
 
-            <section id="planes" className="bg-[#e6ebdf] px-6 py-14 sm:px-16 sm:py-20">
-                <div className="mx-auto max-w-4xl text-center">
-                    <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Los que saben, gestionan acá</h2>
-                    <p className="mt-2 text-xs text-[#66746c]">Sumate ahora con <span className="font-bold text-[#c77b18]">Premium</span></p>
-                    <div className="mt-10 grid gap-6 text-left sm:grid-cols-2">
-                        <article className="flex min-h-64 flex-col rounded-xl bg-[#faf9f2] p-7 shadow-[0_8px_20px_rgba(54,65,57,.1)]">
-                            <h3 className="text-sm font-bold">esnuestro <span className="text-[#3d665b]">Estándar</span></h3>
-                            <p className="mt-1 text-[10px] text-[#89938c]">El plan simple para empezar.</p>
-                            <ul className="mt-5 space-y-2 text-[10px] text-[#68766f]">
-                                <li>• Grupos y miembros</li><li>• Gastos compartidos</li><li>• Reservas básicas</li>
-                            </ul>
-                            <button type="button" onClick={() => navigate(groupReservationsPath(group.joinCode))} className="mt-auto rounded-full bg-[#3d7065] py-2 text-[10px] font-bold text-white">Empezá ahora gratis</button>
-                        </article>
-                        <article className="relative flex min-h-64 flex-col rounded-xl bg-[#faf9f2] p-7 shadow-[0_8px_20px_rgba(54,65,57,.1)]">
-                            <span className="absolute right-5 top-5 rounded-full bg-[#f2dcae] px-2 py-1 text-[9px] font-bold text-[#b87317]"><FontAwesomeIcon icon={faCrown}/> Premium</span>
-                            <h3 className="text-sm font-bold">esnuestro <span className="text-[#c77b18]">Premium</span></h3>
-                            <p className="mt-1 text-[10px] text-[#89938c]">${price} / mes · {trialDays} días gratis</p>
-                            <ul className="mt-5 space-y-2 text-[10px] text-[#68766f]">
-                                {premiumFeatures.map((feature) => <li key={feature}>• {feature}</li>)}
-                            </ul>
-                            <button type="button" onClick={primaryAction} disabled={cancel.isPending} className="mt-auto rounded-full bg-[#c77b18] py-2 text-[10px] font-bold text-white">
-                                {cancel.isPending ? "Cancelando..." : primaryLabel}
-                            </button>
-                        </article>
+            <section id="planes" className="login-backdrop px-12 py-24">
+                <div className="mx-auto max-w-5xl text-center">
+                    <h2 className="text-4xl font-black text-ink md:text-6xl">Los que saben, gestionan acá</h2>
+                    <p className="mt-4 text-3xl text-ink">Sumate ahora con <span className="font-bold text-amber">Premium</span></p>
+                    <div className="mt-16 grid gap-12 text-left md:grid-cols-2 md:gap-16">
+                        <PlanCard
+                            tone="brand"
+                            icon={faHeart}
+                            name="Estándar"
+                            price="0 ARS, siempre"
+                            features={[
+                                <>Un grupo <strong>Estándar</strong></>,
+                                "Gestión de reservas",
+                                "Gestión de gastos",
+                            ]}
+                            actionLabel="Empezá ahora gratis"
+                            onAction={() => navigate(groupReservationsPath(group.joinCode))}
+                        />
+                        <PlanCard
+                            tone="amber"
+                            icon={faStar}
+                            name="Premium"
+                            price={`0 ARS por ${trialLabel}`}
+                            priceNote={`Después, cuesta ${price} ARS*** al mes`}
+                            features={[
+                                <>Un grupo <strong>Premium</strong></>,
+                                "Gestión de reservas",
+                                "Gestión de gastos",
+                                "Balance e historial",
+                                "Personalización de configuraciones",
+                                "Cancelá cuando quieras",
+                            ]}
+                            actionLabel={cancel.isPending ? "Cancelando..." : primaryLabel}
+                            onAction={primaryAction}
+                            actionDisabled={cancel.isPending}
+                            footer={<TrialLegend price={price} trialLabel={trialLabel} className="mt-6 text-center"/>}
+                        />
                     </div>
                 </div>
             </section>
-
-            <footer className="flex items-center justify-between bg-[#213b35] px-6 py-5 text-[9px] text-white sm:px-12">
-                <strong>esnuestro</strong>
-                <span>© 2026 EsNuestro · Todos los derechos reservados</span>
-            </footer>
-        </main>
+        </CommonLayout>
     );
 }
