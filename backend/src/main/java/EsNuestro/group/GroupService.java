@@ -295,6 +295,16 @@ public class GroupService {
         }
     }
 
+    /**
+     * El balance y la mayoría de los cambios de configuración son exclusivos de grupos premium. Se llama después de
+     * verificar la membresía del caller, igual que {@link #requireRunning}, para no revelar el estado a ajenos.
+     */
+    public void requirePremium(Group group) {
+        if (!group.isPremium()) {
+            throw new AccessDeniedException("The group is not premium");
+        }
+    }
+
     private MemberColor pickColor(Long groupId, String nickname, GroupMember current) {
         List<GroupMember> groupMembers = groupMemberRepository
                 .findByGroup_IdAndStatusIn(groupId, MembershipStatus.IDENTITY_OCCUPYING)

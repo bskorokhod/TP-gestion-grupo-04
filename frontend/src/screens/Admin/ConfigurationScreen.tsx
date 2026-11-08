@@ -26,6 +26,14 @@ import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETT
 import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
 
 
+/**
+ * Espeja `ConfigSetting#requiresPremium` del backend: el monto del gasto extraordinario se puede cambiar en cualquier
+ * grupo; el resto de los ajustes solo en grupos premium (el backend responde 403 si no).
+ */
+function requiresPremium(kind: ConfigChangeKind): boolean {
+    return kind !== "threshold";
+}
+
 const CONFIG_BLOCKED_WHEN_STOPPED_LABEL =
     "No disponible: el grupo está detenido hasta que los porcentajes sumen 100%";
 
@@ -559,7 +567,7 @@ export const ConfigurationScreen = () => {
                         />
 
                         <p className="text-3xl font-extrabold text-brand-hover">
-                            { isPremium ? "Ajustes disponibles" : "Ajustes disponibles (Solo para grupos premium)" }
+                            { isPremium ? "Ajustes disponibles" : "Ajustes disponibles (Algunos solo para grupos premium)" }
                         </p>
 
                         <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
@@ -601,8 +609,8 @@ export const ConfigurationScreen = () => {
                                     item={item}
                                     settings={group.settings}
                                     disabled={isStopped}
-                                    isPremium={isPremium}
-                                    onRequestChange={(kind) => isPremium ? setPendingChange(kind) : setShowPremiumModal(true)}
+                                    isPremium={isPremium || !requiresPremium(item.kind)}
+                                    onRequestChange={(kind) => isPremium || !requiresPremium(kind) ? setPendingChange(kind) : setShowPremiumModal(true)}
                                 />
                             ))}
                         </div>
@@ -628,7 +636,7 @@ export const ConfigurationScreen = () => {
                 <PremiumContentModal
                     groupCode={group.joinCode}
                     title="Ajustes premium"
-                    description="Las modificaciones de configuración solo están disponibles para grupos premium."
+                    description="Esta modificación de configuración solo está disponible para grupos premium."
                     onClose={() => setShowPremiumModal(false)}
                 />
             )}

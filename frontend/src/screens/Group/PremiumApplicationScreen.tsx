@@ -75,9 +75,6 @@ export function PremiumApplicationScreen() {
                         Probá las funciones premium gratis durante {TRIAL_DAYS} días. Después se debitará automáticamente
                         el plan en la tarjeta que registres.
                     </p>
-                    <p className="mt-2 text-sm text-warm-muted">
-                        Pago simulado: no se realiza ningún cobro real. No ingreses datos de una tarjeta real.
-                    </p>
 
                     <div className="mt-8 flex flex-col gap-6">
                         <TextField

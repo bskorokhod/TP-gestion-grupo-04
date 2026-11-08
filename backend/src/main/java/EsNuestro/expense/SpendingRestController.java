@@ -18,8 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// TODO(PREMIUM-ENFORCEMENT): estos endpoints deberían responder 403 si el grupo no es premium (Group#isPremium).
-//  Hoy el balance solo se bloquea en el frontend (BalanceGroupScreen muestra datos mock a los no premium).
 @RestController
 @RequestMapping("/groups/{groupId}/expenses/balance")
 @Tag(name = "4 - Expenses")
@@ -35,6 +33,7 @@ class SpendingRestController {
     @GetMapping(value = "/categories", produces = "application/json")
     @Operation(summary = "Balance de un mes: total y monto por categoría de los gastos saldados, del grupo (GROUP) o lo que le toca al caller (ME)")
     @ApiResponse(responseCode = "400", description = "Año, mes o zona horaria inválidos", content = @Content)
+    @ApiResponse(responseCode = "403", description = "El grupo no es premium, o el caller ya no pertenece al grupo", content = @Content)
     @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
     CategoryBreakdownDTO byCategory(
             @PathVariable Long groupId,
@@ -50,6 +49,7 @@ class SpendingRestController {
     @GetMapping(value = "/monthly", produces = "application/json")
     @Operation(summary = "Balance de un año: total de gastos saldados de cada uno de los 12 meses, del grupo (GROUP) o lo que le toca al caller (ME)")
     @ApiResponse(responseCode = "400", description = "Año o zona horaria inválidos", content = @Content)
+    @ApiResponse(responseCode = "403", description = "El grupo no es premium, o el caller ya no pertenece al grupo", content = @Content)
     @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro", content = @Content)
     List<MonthlySpendingDTO> monthly(
             @PathVariable Long groupId,

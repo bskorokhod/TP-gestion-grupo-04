@@ -104,11 +104,15 @@ class VoteService {
      * Abre la votación para cambiar una configuración del grupo. Siempre es unánime: votan todos los miembros
      * activos al momento de proponerla (el padrón queda fijo) y el voto "sí" de quien propone es automático, así
      * que con un único miembro activo el cambio se aplica en el acto. Se rechaza lo que no cambiaría nada, lo que
-     * dejaría la configuración incoherente y una segunda propuesta activa sobre la misma configuración.
+     * dejaría la configuración incoherente y una segunda propuesta activa sobre la misma configuración. Salvo el monto
+     * del gasto extraordinario, cambiar la configuración requiere que el grupo sea premium.
      */
     VoteDTO createConfigChangeVote(Long groupId, ConfigChangeDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        if (data.setting().requiresPremium()) {
+            groupService.requirePremium(group);
+        }
         groupService.requireRunning(group);
 
         ConfigChangeVote vote = buildConfigChangeVote(group, proposer, data);

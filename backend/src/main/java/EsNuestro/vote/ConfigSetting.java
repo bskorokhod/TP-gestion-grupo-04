@@ -12,5 +12,13 @@ public enum ConfigSetting {
     RESERVATION_LIMIT_POLICY,
 
     /** Monto a partir del cual un gasto es extraordinario. */
-    EXTRAORDINARY_EXPENSE_THRESHOLD
+    EXTRAORDINARY_EXPENSE_THRESHOLD;
+
+    /**
+     * Solo el monto del gasto extraordinario se puede cambiar en cualquier grupo; el resto requiere premium.
+     * Si cambia, actualizar también {@code requiresPremium} en {@code ConfigurationScreen.tsx} del frontend.
+     */
+    public boolean requiresPremium() {
+        return this != EXTRAORDINARY_EXPENSE_THRESHOLD;
+    }
 }
