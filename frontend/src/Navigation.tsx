@@ -18,7 +18,16 @@ import {PremiumPlansScreen} from "@/screens/Group/PremiumPlansScreen.tsx";
 import {PremiumGroupCreationScreen} from "@/screens/Group/PremiumGroupCreationScreen.tsx";
 import {GroupGuard} from "@/components/GroupGuard.tsx";
 import {RequireGroupAction} from "@/components/RequireGroupAction.tsx";
-import {CREATE_PREMIUM_GROUP_PATH, GROUP_UNAVAILABLE_PATH, GROUPS_PATH, HOME_PATH, LOGIN_PATH, SIGNUP_PATH, groupReservationsPath} from "@/constants/routes.ts";
+import {
+    CREATE_PREMIUM_GROUP_PATH,
+    GROUP_UNAVAILABLE_PATH,
+    GROUPS_PATH,
+    HOME_PATH,
+    LOGIN_PATH,
+    SIGNUP_PATH,
+    groupReservationsPath,
+    PREMIUM_PATH
+} from "@/constants/routes.ts";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {useGetPremiumNotices, useMarkPremiumNoticesSeen} from "@/services/GroupServices.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
@@ -35,6 +44,9 @@ const PublicRoutes = () => (
         </Route>
         <Route path={SIGNUP_PATH}>
             <SignupScreen/>
+        </Route>
+        <Route path={PREMIUM_PATH}>
+            <PremiumPlansScreen/>
         </Route>
 
         <Route>
@@ -78,9 +90,6 @@ const GroupArea = () => {
                 </Route>
                 <Route path="/grupos/:code/premium">
                     <PremiumApplicationScreen/>
-                </Route>
-                <Route path="/grupos/:code/planes">
-                    <PremiumPlansScreen/>
                 </Route>
 
                 {/* /grupos/:code y subrutas desconocidas: el usuario ya es miembro, va a la vista de gastos */}
