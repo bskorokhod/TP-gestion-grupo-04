@@ -240,6 +240,30 @@ export function useSubscribeGroupPremium(groupId: number) {
     });
 }
 
+/**
+ * Cancela la suscripción premium del grupo, con efecto inmediato (el backend responde 409 si el grupo no es premium). Al
+ * terminar se invalidan los grupos para que `isPremium` llegue del backend, igual que al suscribir. La prueba gratuita
+ * consumida no se recupera, y volver a suscribir es `useSubscribeGroupPremium`.
+ *
+ * TODO(PREMIUM-CANCELLATION-UI): este service todavía no se usa en ninguna pantalla. Falta ubicar en la UI (por ejemplo en
+ *  ConfigurationScreen, solo para grupos premium) el control para cancelar, con confirmación previa y toasts de
+ *  éxito/error (`useFormToasts`). Lo puede hacer cualquier miembro activo, como al contratar.
+ */
+export function useCancelGroupPremium(groupId: number) {
+    const api = useApiClient();
+    const qc = useQueryClient();
+
+    return useMutation<PremiumSubscription, Error, void>({
+        mutationFn: async (): Promise<PremiumSubscription> => {
+            const response = await api.del(`/groups/${groupId}/premium`);
+            return PremiumSubscriptionSchema.parse(response);
+        },
+        onSuccess: (): void => {
+            void qc.invalidateQueries({ queryKey: ["groups"] });
+        },
+    });
+}
+
 export function useMyMember(groupId?: number): Member | undefined {
     const [tokenState] = useToken();
     const { data: members } = useGetGroupMembers(groupId, "ACTIVE");

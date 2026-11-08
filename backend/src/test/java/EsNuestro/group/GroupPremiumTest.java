@@ -32,4 +32,30 @@ class GroupPremiumTest {
 
         assertThatThrownBy(group::activatePremium).isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void deactivatingPremiumMakesTheGroupNotPremium() {
+        Group group = group();
+        group.activatePremium();
+
+        group.deactivatePremium();
+
+        assertThat(group.isPremium()).isFalse();
+    }
+
+    @Test
+    void aNonPremiumGroupCannotBeDeactivated() {
+        assertThatThrownBy(() -> group().deactivatePremium()).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void aCancelledGroupCanBeActivatedAgain() {
+        Group group = group();
+        group.activatePremium();
+        group.deactivatePremium();
+
+        group.activatePremium();
+
+        assertThat(group.isPremium()).isTrue();
+    }
 }

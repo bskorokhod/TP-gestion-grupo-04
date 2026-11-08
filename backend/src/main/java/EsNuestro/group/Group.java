@@ -75,8 +75,13 @@ public class Group {
         this.premium = true;
     }
 
-    // TODO(PREMIUM-CANCELLATION): agregar deactivatePremium() cuando se implemente la cancelación de suscripciones
-    //  (ver PremiumService). Tiene que apagar este flag y cerrar la PremiumSubscription del grupo en la misma transacción.
+    /** Cancelación de la suscripción: el grupo deja de ser premium. Lo orquesta {@code PremiumService#cancel}. */
+    public void deactivatePremium() {
+        if (!premium) {
+            throw new IllegalStateException("The group is not premium");
+        }
+        this.premium = false;
+    }
 
     public void addMember(GroupMember member) {
         members.add(member);

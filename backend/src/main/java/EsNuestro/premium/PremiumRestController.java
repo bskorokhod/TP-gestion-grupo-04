@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,7 +35,7 @@ class PremiumRestController {
     }
 
     @PostMapping(produces = "application/json")
-    @Operation(summary = "Suscribir el grupo al plan premium con los datos de pago (simulado, sin cobro real); cualquier miembro activo puede hacerlo. Otorga la prueba gratuita si al usuario le corresponde")
+    @Operation(summary = "Suscribir el grupo al plan premium con los datos de pago (simulado, sin cobro real); cualquier miembro activo puede hacerlo. Otorga la prueba gratuita si al usuario y al grupo les corresponde; un grupo que canceló puede volver a suscribirse")
     @ResponseStatus(HttpStatus.CREATED)
     @ApiResponse(responseCode = "400", description = "Datos de tarjeta inválidos o tarjeta vencida", content = @Content)
     @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro activo", content = @Content)
@@ -45,5 +46,16 @@ class PremiumRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException, MethodArgumentNotValidException {
         return premiumService.subscribe(groupId, data, principal.email());
+    }
+
+    @DeleteMapping(produces = "application/json")
+    @Operation(summary = "Cancelar la suscripción premium del grupo, con efecto inmediato; cualquier miembro activo puede hacerlo. La prueba gratuita consumida no se recupera")
+    @ApiResponse(responseCode = "404", description = "Grupo no encontrado o el caller no es miembro activo", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El grupo no es premium", content = @Content)
+    PremiumSubscriptionDTO cancel(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return premiumService.cancel(groupId, principal.email());
     }
 }

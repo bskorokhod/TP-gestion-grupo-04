@@ -45,10 +45,10 @@ export function PremiumApplicationScreen() {
                     `No se realizará ningún débito durante los primeros ${TRIAL_DAYS} días. Luego se cobrará automáticamente en la tarjeta registrada.`,
                 );
             } else {
-                // Ya usaste tu prueba gratuita en otro grupo: la suscripción arranca sin período de prueba.
+                // La prueba gratuita ya se usó (en tu cuenta o en este grupo): la suscripción arranca sin período de prueba.
                 showSuccessToast(
                     "Plan premium activado",
-                    `Tu suscripción mensual quedó registrada con la tarjeta terminada en ${subscription.cardLast4}. Ya usaste tu prueba gratuita en otro grupo, por eso no hay período de prueba.`,
+                    `Tu suscripción mensual quedó registrada con la tarjeta terminada en ${subscription.cardLast4}. La prueba gratuita ya se usó (en tu cuenta o en este grupo), por eso no hay período de prueba.`,
                 );
             }
             navigate(groupConfigPath(group.joinCode));

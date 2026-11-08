@@ -173,13 +173,23 @@ export const PremiumSubscribeSchema = z.object({
 
 export type PremiumSubscribe = z.infer<typeof PremiumSubscribeSchema>;
 
-/** `trial` indica si se otorgó la prueba gratuita (una por usuario y una por grupo). */
+export const PremiumSubscriptionStatusSchema = z.enum(["ACTIVE", "CANCELLED"]);
+
+export type PremiumSubscriptionStatus = z.infer<typeof PremiumSubscriptionStatusSchema>;
+
+/**
+ * Respuesta de suscribir y de cancelar. `trial` indica si la suscripción vigente arrancó con la prueba gratuita (una por
+ * usuario y una por grupo). Una suscripción cancelada no trae `nextBillingAt` ni `trialEndsAt`, y una activa no trae
+ * `cancelledAt`.
+ */
 export const PremiumSubscriptionSchema = z.object({
     groupId: z.number(),
+    status: PremiumSubscriptionStatusSchema,
     trial: z.boolean(),
     trialEndsAt: z.string().nullish(),
     startedAt: z.string(),
-    nextBillingAt: z.string(),
+    nextBillingAt: z.string().nullish(),
+    cancelledAt: z.string().nullish(),
     cardLast4: z.string(),
 });
 
