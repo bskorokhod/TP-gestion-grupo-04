@@ -45,10 +45,10 @@ function FormSection({id, title, description, children}: FormSectionProps) {
     return (
         <section aria-labelledby={id} className="flex flex-col gap-3">
             <div>
-                <h3 id={id} className="text-[10px] font-bold uppercase tracking-wide text-modal-primary">
+                <h3 id={id} className="text-sm font-bold uppercase tracking-wide text-modal-primary">
                     {title}
                 </h3>
-                <p className="mt-0.5 text-[9px] leading-tight text-modal-muted">{description}</p>
+                <p className="mt-0.5 text-sm leading-tight text-modal-muted">{description}</p>
             </div>
             {children}
         </section>
@@ -57,22 +57,19 @@ function FormSection({id, title, description, children}: FormSectionProps) {
 
 interface PremiumSettingProps {
     readonly children: ReactNode;
-    readonly onPremiumClick: () => void;
     readonly label: string;
 }
 
-function PremiumSetting({children, onPremiumClick, label}: PremiumSettingProps) {
+function PremiumSetting({children, label}: PremiumSettingProps) {
     return (
         <div className="flex items-end gap-2">
             <div className="min-w-0 flex-1">{children}</div>
-            <button
-                type="button"
+            <div
                 aria-label={`Personalizar ${label} con Premium`}
-                onClick={onPremiumClick}
                 className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-[#f7ead8] text-[#bd7413] transition hover:bg-[#f1ddc2]"
             >
                 <FontAwesomeIcon icon={faStar} className="text-sm"/>
-            </button>
+            </div>
         </div>
     );
 }
@@ -169,7 +166,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
             submitLabel={isPremiumConfiguration ? "Crear grupo premium" : "Crear grupo"}
             onClose={onClose}
             onSubmit={handleSubmit}
-            modalClassName="max-w-md p-4 sm:p-5 [&_input]:mt-1 [&_input]:h-9 [&_input]:rounded-lg [&_input]:px-3 [&_input]:text-xs [&_label]:text-xs [&_[aria-haspopup=listbox]]:mt-1 [&_[aria-haspopup=listbox]]:h-9 [&_[aria-haspopup=listbox]]:rounded-lg [&_[aria-haspopup=listbox]]:px-3 [&_button[type=submit]]:h-8 [&_button[type=submit]]:px-4 [&_button[type=submit]]:text-xs [&_button[type=button]]:h-8 [&_button[type=button]]:px-4 [&_footer]:mt-3"
+            modalClassName="max-w-3xl p-4 sm:p-5 [&_input]:mt-1 [&_input]:h-9 [&_input]:rounded-lg [&_input]:px-3 [&_input]:text-xs [&_label]:text-xs [&_[aria-haspopup=listbox]]:mt-1 [&_[aria-haspopup=listbox]]:h-9 [&_[aria-haspopup=listbox]]:rounded-lg [&_[aria-haspopup=listbox]]:px-3 [&_button[type=submit]]:h-8 [&_button[type=submit]]:px-4 [&_button[type=submit]]:text-xs [&_footer_button[type=button]]:h-8 [&_footer_button[type=button]]:px-4 [&_footer]:mt-3"
             submitClassName={isPremiumConfiguration ? "border-[#bd7413] bg-[#bd7413] text-white hover:bg-[#a6650d]" : undefined}
             isSubmitting={isSubmitting}
         >
@@ -178,109 +175,115 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                 title="Configuración del grupo"
                 description="Datos y reglas del grupo. Algunas se pueden cambiar después por votación."
             >
-                <TextField
-                    id="group-name"
-                    name="groupName"
-                    label="Nombre del grupo"
-                    placeholder="Ej. Casa de la playa"
-                    required
-                    autoComplete="off"
-                    maxLength={30}
-                />
-                <TextField
-                    id="group-description"
-                    name="description"
-                    label="Descripción"
-                    placeholder="Ej. Gastos compartidos de la casa"
-                    required
-                    autoComplete="off"
-                    maxLength={500}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="flex flex-col gap-3">
+                        <TextField
+                            id="group-name"
+                            name="groupName"
+                            label="Nombre del grupo"
+                            placeholder="Ej. Casa de la playa"
+                            required
+                            autoComplete="off"
+                            maxLength={30}
+                        />
+                        <TextField
+                            id="group-description"
+                            name="description"
+                            label="Descripción"
+                            placeholder="Ej. Gastos compartidos de la casa"
+                            required
+                            autoComplete="off"
+                            maxLength={500}
+                        />
+                        <TextField
+                            id="group-vote-deadline"
+                            name="voteDeadlineDays"
+                            type="number"
+                            label="Plazo de votación (días)"
+                            hint="Entre 7 y 30 días. Si no se aprueba en este plazo, se rechaza."
+                            placeholder="Ej. 14"
+                            disabled={settingsLocked}
+                            required
+                            min={7}
+                            max={30}
+                        />
+                        {reservation === "FIXED_DAYS_PER_MONTH" && (
+                            <TextField
+                                id="group-fixed-days"
+                                label="Días por mes por miembro"
+                                type="number"
+                                inputMode="numeric"
+                                min={MIN_FIXED_DAYS_PER_MONTH}
+                                max={MAX_FIXED_DAYS_PER_MONTH}
+                                step={1}
+                                placeholder="Ej. 7"
+                                value={fixedDays}
+                                onChange={(event) => setFixedDays(event.target.value)}
+                                required
+                            />
+                        )}
+                        <TextField
+                            id="group-extraordinary-threshold"
+                            label="Monto a partir del cual un gasto es extraordinario"
+                            type="number"
+                            inputMode="decimal"
+                            min={0.01}
+                            step={0.01}
+                            placeholder="Ej. 100000"
+                            value={threshold}
+                            onChange={(event) => setThreshold(event.target.value)}
+                            disabled={settingsLocked}
+                            required
+                        />
+                    </div>
 
-                <PremiumSetting label="el reparto del bien" onPremiumClick={() => handleDistributionChange("PERCENTAGE")}>
-                    <SelectField
-                        id="group-distribution"
-                        label="Reparto del bien"
-                        hint="Modo de división del bien compartido"
-                        placeholder="Elegí una opción"
-                        options={DISTRIBUTION_OPTIONS}
-                        value={distribution}
-                        onChange={(value) => handleDistributionChange(value as DistributionMode)}
-                        buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
-                        required
-                    />
-                </PremiumSetting>
-                <PremiumSetting label="la aprobación de votaciones" onPremiumClick={() => setVoting("OWNERSHIP_WEIGHTED_MAJORITY")}>
-                    <SelectField
-                        id="group-voting"
-                        label="Aprobación de votaciones"
-                        hint="Método para alcanzar el quórum de las votaciones"
-                        options={votingOptions}
-                        placeholder="Elegí una opción"
-                        value={voting}
-                        onChange={(value) => setVoting(value as VotingModel)}
-                        disabled={settingsLocked}
-                        buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
-                        required
-                    />
-                </PremiumSetting>
+                    {/* Columna Derecha */}
+                    <div className="flex flex-col gap-3">
+                        <PremiumSetting label="el reparto del bien">
+                            <SelectField
+                                id="group-distribution"
+                                label="Reparto del bien"
+                                hint="Modo de división del bien compartido"
+                                placeholder="Elegí una opción"
+                                options={DISTRIBUTION_OPTIONS}
+                                value={distribution}
+                                onChange={(value) => handleDistributionChange(value as DistributionMode)}
+                                buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
+                                required
+                            />
+                        </PremiumSetting>
 
-                <TextField
-                    id="group-vote-deadline"
-                    name="voteDeadlineDays"
-                    type="number"
-                    label="Plazo de votación (días)"
-                    hint="Entre 7 y 30 días. Si no se aprueba en este plazo, se rechaza."
-                    placeholder="Ej. 14"
-                    disabled={settingsLocked}
-                    required
-                    min={7}
-                    max={30}
-                />
+                        <PremiumSetting label="la aprobación de votaciones">
+                            <SelectField
+                                id="group-voting"
+                                label="Aprobación de votaciones"
+                                hint="Método para alcanzar el quórum de las votaciones"
+                                options={votingOptions}
+                                placeholder="Elegí una opción"
+                                value={voting}
+                                onChange={(value) => setVoting(value as VotingModel)}
+                                disabled={settingsLocked}
+                                buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
+                                required
+                            />
+                        </PremiumSetting>
 
-                <PremiumSetting label="la restricción de reservas" onPremiumClick={() => setReservation("OWNERSHIP_PROPORTIONAL")}>
-                    <SelectField
-                        id="group-reservation"
-                        label="Restricción de reservas"
-                        hint="Máximo de días por mes que un miembro puede reservar el bien"
-                        options={reservationOptions}
-                        placeholder="Elegí una opción"
-                        value={reservation}
-                        onChange={(value) => handleReservationChange(value as ReservationLimitPolicy)}
-                        disabled={settingsLocked}
-                        buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
-                        required
-                    />
-                </PremiumSetting>
-
-                {reservation === "FIXED_DAYS_PER_MONTH" && (
-                    <TextField
-                        id="group-fixed-days"
-                        label="Días por mes por miembro"
-                        type="number"
-                        inputMode="numeric"
-                        min={MIN_FIXED_DAYS_PER_MONTH}
-                        max={MAX_FIXED_DAYS_PER_MONTH}
-                        step={1}
-                        placeholder="Ej. 7"
-                        value={fixedDays}
-                        onChange={(event) => setFixedDays(event.target.value)}
-                        required
-                    />
-                )}
-                <TextField
-                    id="group-extraordinary-threshold"
-                    label="Monto a partir del cual un gasto es extraordinario"
-                    type="number"
-                    inputMode="decimal"
-                    min={0.01}
-                    step={0.01}
-                    placeholder="Ej. 100000"
-                    value={threshold}
-                    onChange={(event) => setThreshold(event.target.value)}
-                    disabled={settingsLocked}
-                    required
-                />
+                        <PremiumSetting label="la restricción de reservas">
+                            <SelectField
+                                id="group-reservation"
+                                label="Restricción de reservas"
+                                hint="Máximo de días por mes que un miembro puede reservar el bien"
+                                options={reservationOptions}
+                                placeholder="Elegí una opción"
+                                value={reservation}
+                                onChange={(value) => handleReservationChange(value as ReservationLimitPolicy)}
+                                disabled={settingsLocked}
+                                buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
+                                required
+                            />
+                        </PremiumSetting>
+                    </div>
+                </div>
             </FormSection>
 
             <hr className="border-modal-border" />
@@ -290,30 +293,32 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                 title="Tu perfil en el grupo"
                 description="Cómo te van a ver los demás miembros y qué parte del bien te corresponde."
             >
-                <TextField
-                    id="founder-nickname"
-                    name="founderNickname"
-                    label="Tu apodo (opcional)"
-                    placeholder="Ej. Juan"
-                    autoComplete="off"
-                    maxLength={30}
-                />
-                {requiresFounderPercentage && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <TextField
-                        id="founder-percentage"
-                        label="Tu porcentaje de propiedad"
-                        hint="El grupo queda detenido hasta que los porcentajes de todos los miembros sumen 100%."
-                        type="number"
-                        inputMode="decimal"
-                        min={0.01}
-                        max={100}
-                        step={0.01}
-                        placeholder="Ej. 50"
-                        value={founderPercentage}
-                        onChange={(event) => setFounderPercentage(event.target.value)}
-                        required
+                        id="founder-nickname"
+                        name="founderNickname"
+                        label="Tu apodo (opcional)"
+                        placeholder="Ej. Juan"
+                        autoComplete="off"
+                        maxLength={30}
                     />
-                )}
+                    {requiresFounderPercentage && (
+                        <TextField
+                            id="founder-percentage"
+                            label="Tu porcentaje de propiedad"
+                            hint="El grupo queda detenido hasta que los porcentajes de todos los miembros sumen 100%."
+                            type="number"
+                            inputMode="decimal"
+                            min={0.01}
+                            max={100}
+                            step={0.01}
+                            placeholder="Ej. 50"
+                            value={founderPercentage}
+                            onChange={(event) => setFounderPercentage(event.target.value)}
+                            required
+                        />
+                    )}
+                </div>
             </FormSection>
         </ModalShell>
     );
