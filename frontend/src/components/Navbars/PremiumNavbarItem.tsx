@@ -130,14 +130,16 @@ export function PremiumNavbarItem() {
                     >
                         Ver Premium
                     </Link>
-                    <button
-                        type="button"
-                        onClick={handleCancelPremium}
-                        disabled={cancelPremium.isPending}
-                        className="block w-full px-4 py-2 text-left text-sm text-destructive hover:bg-muted"
-                    >
-                        {cancelPremium.isPending ? "Cancelando..." : "Cancelar premium"}
-                    </button>
+                    {premiumStatus.data && premiumStatus.data.state !== "CANCELLED_IN_FORCE" && (
+                        <button
+                            type="button"
+                            onClick={handleCancelPremium}
+                            disabled={cancelPremium.isPending}
+                            className="block w-full px-4 py-2 text-left text-sm text-destructive hover:bg-muted"
+                        >
+                            {cancelPremium.isPending ? "Cancelando..." : "Cancelar premium"}
+                        </button>
+                    )}
                 </div>
             )}
         </div>
