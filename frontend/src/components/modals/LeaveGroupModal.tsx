@@ -9,7 +9,7 @@ import { apiErrorCode } from "@/lib/apiErrors.ts";
 import { GROUP_STOPPED_CONSEQUENCE, missingPercentageText } from "@/constants/group.ts";
 import { useFormToasts } from "@/hooks/useFormToasts.ts";
 import { formatCurrency } from "@/lib/format.ts";
-import { useGetLeavePreview, useLeaveGroup } from "@/services/GroupServices.ts";
+import { useGetLeavePreview, useGetPremiumStatus, useLeaveGroup } from "@/services/GroupServices.ts";
 
 const LEAVE_ERROR_OVERRIDES = {
     403: "Ya no formás parte de este grupo.",
@@ -35,6 +35,14 @@ export function LeaveGroupModal({ groupId, groupCode, groupName, onClose }: Leav
     const { showSuccessToast, showErrorToast, showApiError } = useFormToasts();
 
     const data = preview.data;
+    const premiumStatus = useGetPremiumStatus(groupId).data;
+    // Si quien se va es el pagador, su suscripción se cancela sola: el grupo la conserva hasta el fin de la prueba o del período pagado.
+    const premiumEndsAt = premiumStatus?.state === "TRIAL"
+        ? premiumStatus.trialEndsAt
+        : premiumStatus?.state === "ACTIVE" ? premiumStatus.nextBillingAt : null;
+    const premiumNotice = premiumStatus?.youArePayer && premiumEndsAt
+        ? `Se cancelará automáticamente tu suscripción a Premium. El grupo la conserva hasta el ${new Date(premiumEndsAt).toLocaleDateString("es-AR")}.`
+        : null;
 
     function confirmLeave() {
         leave.mutate(undefined, {
@@ -131,6 +139,7 @@ export function LeaveGroupModal({ groupId, groupCode, groupName, onClose }: Leav
             ) : (
                 <p className="text-base text-modal-ink">¿Seguro que querés abandonar {groupName}? Dejás de formar parte del grupo.</p>
             )}
+                {premiumNotice && <p className="text-sm text-modal-ink/70">{premiumNotice}</p>}
                 </>
             )}
         </ModalShell>
