@@ -1,3 +1,5 @@
+
+
 import {useMemo, useState, type ReactNode} from "react";
 import {apiErrorMessage} from "@/lib/apiErrors.ts";
 import {Link, useLocation} from "wouter";
@@ -24,7 +26,7 @@ import type {ConfigChangeCreate} from "@/models/Vote.ts";
 import {useCreateConfigChangeVote} from "@/services/VoteServices.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faStar, faPercent, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
+import {faStar, faPercent, faArrowRight, faPenToSquare, faTriangleExclamation, faRightFromBracket} from "@fortawesome/free-solid-svg-icons";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
 import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
 import {LeaveGroupModal} from "@/components/modals";
@@ -51,12 +53,12 @@ interface ModalSettingRowProps {
 }
 
 function ModalSettingRow({
-    item,
-    settings,
-    disabled = false,
-    isPremium,
-    onRequestChange,
-}: ModalSettingRowProps) {
+                             item,
+                             settings,
+                             disabled = false,
+                             isPremium,
+                             onRequestChange,
+                         }: ModalSettingRowProps) {
     return (
         <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
             <div className="flex flex-row gap-5 items-center">
@@ -603,34 +605,34 @@ export const ConfigurationScreen = () => {
 
                         <SettingsSection title="Ajustes disponibles">
                             {showPercentagesCard && (
-                            <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
-                                <div className="flex flex-row gap-5 items-center">
-                                    <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
-                                        <p className="text-lg font-semibold text-brand">
-                                            <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />
-                                        </p>
+                                <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
+                                    <div className="flex flex-row gap-5 items-center">
+                                        <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
+                                            <p className="text-lg font-semibold text-brand">
+                                                <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col gap-1 items-start max-w-140">
+                                            <p className="text-lg font-semibold text-ink">
+                                                {PERCENTAGES_SETTING.title}
+                                            </p>
+                                            <p className="text-base font-normal text-warm-muted">
+                                                {PERCENTAGES_SETTING.description}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col gap-1 items-start max-w-140">
-                                        <p className="text-lg font-semibold text-ink">
-                                            {PERCENTAGES_SETTING.title}
-                                        </p>
-                                        <p className="text-base font-normal text-warm-muted">
-                                            {PERCENTAGES_SETTING.description}
-                                        </p>
-                                    </div>
+                                    <Link href={`${configBasePath}/porcentajes`}>
+                                        <Button
+                                            type="button"
+                                            variant="modalPrimary"
+                                            size="cardAction"
+                                            title={MODIFY_PERCENTAGES_LABEL}
+                                            aria-label={MODIFY_PERCENTAGES_LABEL}
+                                        >
+                                            <FontAwesomeIcon icon={faArrowRight} aria-hidden />
+                                        </Button>
+                                    </Link>
                                 </div>
-                                <Link href={`${configBasePath}/porcentajes`}>
-                                    <Button
-                                        type="button"
-                                        variant="modalPrimary"
-                                        size="cardAction"
-                                        title={MODIFY_PERCENTAGES_LABEL}
-                                        aria-label={MODIFY_PERCENTAGES_LABEL}
-                                    >
-                                        <FontAwesomeIcon icon={faArrowRight} aria-hidden />
-                                    </Button>
-                                </Link>
-                            </div>
                             )}
 
                             {availableSettings.map(renderSettingRow)}
@@ -650,18 +652,42 @@ export const ConfigurationScreen = () => {
                 )}
 
                 {group.myStatus === "ACTIVE" && (
-                    <div className="flex justify-end mt-4">
-                        <Button
-                            type="button"
-                            variant="dangerOutline"
-                            size="lg"
-                            className="bg-group-danger-soft"
-                            onClick={() => setShowLeaveModal(true)}
-                        >
-                            Abandonar grupo
-                        </Button>
-                    </div>
+                    <section className="flex w-full flex-col gap-3 self-stretch pt-10">
+                        <p className="text-3xl font-extrabold text-group-danger">
+                            Zona de peligro
+                        </p>
+                        <div className="flex flex-col gap-6 items-start self-stretch rounded-4xl bg-panel p-7 shadow-group sm:flex-row sm:items-center sm:justify-between sm:p-8">
+                            <div className="flex flex-row gap-5 items-start">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-group-danger/15 text-group-danger">
+                                    <FontAwesomeIcon icon={faTriangleExclamation} className="h-5 w-5" aria-hidden />
+                                </div>
+                                <div className="flex flex-col gap-1 items-start">
+                                    <p className="text-lg font-semibold text-ink">
+                                        Abandonar el grupo
+                                    </p>
+                                    <p className="text-base font-normal text-warm-muted">
+                                        Vas a perder el acceso a las reservas, los gastos y las votaciones del grupo. <br/>
+                                        Para volver a entrar vas a tener que pedir ingreso de nuevo con el código.
+                                    </p>
+                                    <p className="text-sm font-semibold text-group-danger">
+                                        Esta acción no se puede deshacer.
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="danger"
+                                size="lg"
+                                className="shrink-0 self-center sm:self-auto"
+                                onClick={() => setShowLeaveModal(true)}
+                            >
+                                <FontAwesomeIcon icon={faRightFromBracket} className="me-2" aria-hidden />
+                                Abandonar grupo
+                            </Button>
+                        </div>
+                    </section>
                 )}
+
             </div>
 
             {pendingChange && (
@@ -691,3 +717,4 @@ export const ConfigurationScreen = () => {
         </CommonLayout>
     );
 };
+
