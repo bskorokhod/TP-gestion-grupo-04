@@ -542,6 +542,7 @@ public class ExpenseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The expense needs a title");
         }
         BigDecimal total = requireValidAmount(data.totalAmount());
+        Integer closingDeadlineDays = requireValidClosingDeadlineDays(data.closingDeadlineDays());
         requireSplitMethodAllowed(creator.getGroup(), data.splitMethod());
 
         Map<Long, GroupMember> membersById = groupMemberRepository.findByGroup_Id(groupId).stream()
@@ -567,7 +568,8 @@ public class ExpenseService {
                 : data.description().strip();
 
         ExpenseDetails details = new ExpenseDetails(
-                title, description, data.category(), total, data.splitMethod(), creator, data.receiptUrl().strip(), participants
+                title, description, data.category(), total, data.splitMethod(), creator, data.receiptUrl().strip(),
+                closingDeadlineDays, participants
         );
 
         // Sin participantes no hay nada que repartir: el acreedor se hace cargo de todo, sin deudas.
@@ -599,6 +601,25 @@ public class ExpenseService {
             );
         }
         return amount.setScale(2, RoundingMode.UNNECESSARY);
+    }
+
+    /**
+     * {@code ExpenseDataDTO} ya lo valida con {@code @Min}/{@code @Max}, pero esa validación de bean solo corre
+     * cuando el DTO llega por {@code @Valid} en un controller: el reporte de un gasto (ver
+     * {@code buildDetailsForReport}, usado por {@code VoteService}) pasa por acá sin pasar por ahí, igual que
+     * {@link #requireValidAmount}.
+     */
+    private Integer requireValidClosingDeadlineDays(Integer closingDeadlineDays) {
+        if (closingDeadlineDays == null
+                || closingDeadlineDays < Expense.MIN_CLOSING_DEADLINE_DAYS
+                || closingDeadlineDays > Expense.MAX_CLOSING_DEADLINE_DAYS) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "The closing deadline must be between " + Expense.MIN_CLOSING_DEADLINE_DAYS
+                            + " and " + Expense.MAX_CLOSING_DEADLINE_DAYS + " days"
+            );
+        }
+        return closingDeadlineDays;
     }
 
     private GroupMember requireActiveGroupMember(Map<Long, GroupMember> membersById, Long memberId) throws ItemNotFoundException {

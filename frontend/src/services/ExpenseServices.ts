@@ -115,6 +115,11 @@ function isOpenDebt(debt: Debt): boolean {
   return debt.status === "ACTIVE" && debt.paidAmount < debt.amount;
 }
 
+/** Para ordenar por urgencia de vencimiento: vencido hace más tiempo primero, sin plazo conocido al final. */
+function closingDeadlineSortKey(expense: Expense): number {
+  return expense.closingDeadline ? new Date(expense.closingDeadline).getTime() : Number.POSITIVE_INFINITY;
+}
+
 /**
  * Qué filas de deuda muestra la tarjeta de "Gastos que me deben" de un gasto que ya está en la lista: las abiertas y, en
  * un gasto aprobado, también las que ya tienen un pago declarado, para ver quién pagó y revisar el comprobante. No decide
@@ -200,16 +205,20 @@ export function useGetExpensesOwedToMe(groupId?: number): DerivedExpensesResult 
   };
 }
 
-/** Reemplazable por GET /groups/:id/expenses/i-owe cuando exista. */
+/**
+ * Reemplazable por GET /groups/:id/expenses/i-owe cuando exista. Ordenados por urgencia de vencimiento (vencidos
+ * primero, ordenados entre sí por hace cuánto; después los que faltan vencer, de más cerca a más lejos; al final los
+ * que no tienen plazo asignado).
+ */
 export function useGetExpensesIOwe(groupId?: number): DerivedExpensesResult {
   const query = useGetExpenses(groupId);
   const me = useMyMember(groupId);
 
   const data = useMemo<Expense[]>(() => {
     if (!me || !query.data) return [];
-    return query.data.filter(
-        (e) => hasLiveDebts(e) && e.debts.some((d) => d.debtor.id === me.id && isOpenDebt(d)),
-    );
+    return query.data
+        .filter((e) => hasLiveDebts(e) && e.debts.some((d) => d.debtor.id === me.id && isOpenDebt(d)))
+        .sort((a, b) => closingDeadlineSortKey(a) - closingDeadlineSortKey(b));
   }, [query.data, me]);
 
   return {

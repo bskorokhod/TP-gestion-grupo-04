@@ -11,6 +11,8 @@ import java.util.List;
  * gasto aprobado (null si no hay). {@code lastResolution} es la última aprobación o rechazo.
  * {@code hasPayments} es si alguien ya pagó algo (con pagos, modificar o eliminar el gasto exige una votación) y
  * {@code reportInProgress} si hay una votación de reporte en curso sobre este gasto (bloquea pagos, ediciones y reportes).
+ * {@code closingDeadline} es el momento a partir del cual el gasto se considera vencido para quien todavía debe su
+ * parte (null en gastos anteriores a esta funcionalidad); no implica que el gasto se haya cerrado ni modificado.
  */
 public record ExpenseDTO(
         Long id,
@@ -23,7 +25,8 @@ public record ExpenseDTO(
         List<DebtDTO> debts,
         boolean hasPayments,
         boolean reportInProgress,
-        Instant createdAt
+        Instant createdAt,
+        Instant closingDeadline
 ) {
 
     public record Details(
@@ -34,6 +37,7 @@ public record ExpenseDTO(
             SplitMethod splitMethod,
             ExpenseMemberDTO creditor,
             String receiptUrl,
+            Integer closingDeadlineDays,
             List<Participant> participants
     ) {
         public static Details from(ExpenseDetails details) {
@@ -48,6 +52,7 @@ public record ExpenseDTO(
                     details.getSplitMethod(),
                     ExpenseMemberDTO.from(details.getCreditor()),
                     details.getReceiptUrl(),
+                    details.getClosingDeadlineDays(),
                     details.getParticipants().stream().map(Participant::from).toList()
             );
         }
@@ -84,7 +89,8 @@ public record ExpenseDTO(
                 expense.getDebts().stream().map(DebtDTO::from).toList(),
                 expense.hasPayments(),
                 expense.isReportInProgress(),
-                expense.getCreatedAt()
+                expense.getCreatedAt(),
+                expense.getClosingDeadline()
         );
     }
 }

@@ -35,7 +35,7 @@ class ExpenseCostForTest {
         debtorB = member(3L);
         ExpenseDetails details = new ExpenseDetails(
                 "Techo", null, ExpenseCategory.MANTENIMIENTO, new BigDecimal("100.00"), SplitMethod.EQUAL,
-                creditor, "https://receipt", List.of()
+                creditor, "https://receipt", 10, List.of()
         );
         expense = Expense.register(creditor, details);
     }

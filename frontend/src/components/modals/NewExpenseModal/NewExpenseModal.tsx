@@ -7,7 +7,7 @@ import type { BackendError } from "@/hooks/useToast.ts";
 import { formatCurrency } from "@/lib/format.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
 import { describeResolvedVote, reachesExtraordinaryThreshold } from "@/lib/votes.ts";
-import { DEFAULT_EXPENSE_CATEGORY, type SplitMethod } from "@/models/Expense.ts";
+import { DEFAULT_EXPENSE_CATEGORY, MAX_CLOSING_DEADLINE_DAYS, type SplitMethod } from "@/models/Expense.ts";
 import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
 import { useCreateExpense } from "@/services/ExpenseServices.ts";
 import { useCreateExtraordinaryExpenseVote } from "@/services/VoteServices.ts";
@@ -43,6 +43,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
         category: DEFAULT_EXPENSE_CATEGORY,
         amount: "",
         splitMethod: "PROPORTIONAL",
+        closingDeadlineDays: String(MAX_CLOSING_DEADLINE_DAYS),
         participantIds: new Set<number>(),
     });
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -62,6 +63,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
         const validation = validateExpenseFields({
             title: form.title,
             rawAmount: form.amount,
+            rawClosingDeadlineDays: form.closingDeadlineDays,
             participantCount: participants.length,
         });
         if (!validation.isValid) {
@@ -91,6 +93,7 @@ export function NewExpenseModal({groupId, onClose,}: NewExpenseModalProps): Reac
                 splitMethod: effectiveSplitMethod,
                 participants: participants.map((member) => ({ memberId: member.id })),
                 receiptUrl,
+                closingDeadlineDays: validation.closingDeadlineDays,
             };
 
             if (reachesExtraordinaryThreshold(validation.amount, threshold)) {

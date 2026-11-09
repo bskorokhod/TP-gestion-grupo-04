@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -30,6 +31,9 @@ import java.util.Set;
 @NoArgsConstructor
 @Getter
 public class Expense {
+
+    public static final int MIN_CLOSING_DEADLINE_DAYS = 7;
+    public static final int MAX_CLOSING_DEADLINE_DAYS = 30;
 
     @Id
     @GeneratedValue
@@ -79,12 +83,22 @@ public class Expense {
     @Column(name = "report_in_progress")
     private Boolean reportInProgress = false;
 
+    /**
+     * Momento a partir del cual el gasto se considera vencido para quien todavía debe su parte: no dispara ninguna
+     * acción automática (nada se cierra ni se borra), solo habilita avisos al deudor. Se calcula a partir de
+     * {@link ExpenseDetails#getClosingDeadlineDays()} y se recalcula desde "ahora" en cada edición directa o
+     * ejecución de un reporte (ver {@link #applyEdit}), así que el plazo se reinicia con cada cambio. Es nullable
+     * en la base porque los gastos anteriores a esta funcionalidad no tienen un plazo asignado.
+     */
+    private Instant closingDeadline;
+
     private Expense(GroupMember creator, ExpenseDetails details) {
         this.group = creator.getGroup();
         this.creator = creator;
         this.details = details;
         this.status = ExpenseStatus.PENDING_APPROVAL;
         this.createdAt = Instant.now();
+        this.closingDeadline = closingDeadlineFrom(details, this.createdAt);
     }
 
     /** Nace pendiente y sin deudas; si lo registra un admin, el servicio lo aprueba de inmediato. */
@@ -145,10 +159,12 @@ public class Expense {
 
     /**
      * Aplica una modificación a un gasto aprobado (directa del creador sin pagos, o aprobada por votación): reemplaza
-     * los datos vigentes y concilia las deudas con lo ya pagado. Quien pagó de más queda con una devolución a favor.
+     * los datos vigentes, reinicia el plazo de cierre desde ahora con los días propuestos, y concilia las deudas con
+     * lo ya pagado. Quien pagó de más queda con una devolución a favor.
      */
     public void applyEdit(ExpenseDetails newDetails) {
         details = newDetails;
+        closingDeadline = closingDeadlineFrom(details, Instant.now());
         reconcileDebts(currentShares());
     }
 
@@ -222,6 +238,12 @@ public class Expense {
         this.lastResolvedBy = resolver;
         this.lastOutcome = outcome;
         this.lastResolvedAt = Instant.now();
+    }
+
+    /** {@code null} si los datos no traen plazo (gastos anteriores a esta funcionalidad); si no, {@code from} + los días. */
+    private static Instant closingDeadlineFrom(ExpenseDetails details, Instant from) {
+        Integer days = details.getClosingDeadlineDays();
+        return days == null ? null : from.plus(days, ChronoUnit.DAYS);
     }
 
     /**

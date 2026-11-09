@@ -70,6 +70,8 @@ export const ExpenseDetailsSchema = z.object({
   splitMethod: SplitMethodSchema,
   creditor: ExpenseMemberSchema,
   receiptUrl: z.string().nullable().optional(),
+  /** Días desde la creación o última edición/reporte hasta el vencimiento. Null en gastos anteriores a esta funcionalidad. */
+  closingDeadlineDays: z.number().nullish(),
   participants: z.array(ExpenseParticipantSchema),
 });
 export type ExpenseDetails = z.infer<typeof ExpenseDetailsSchema>;
@@ -119,10 +121,15 @@ export const ExpenseSchema = z.object({
   /** Hay una votación para modificar o eliminar el gasto: no se puede pagar, editar ni reportar hasta que termine. */
   reportInProgress: z.boolean(),
   createdAt: z.string(),
+  /** Momento a partir del cual se considera vencido para quien todavía debe su parte. Null en gastos viejos. */
+  closingDeadline: z.string().nullish(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
 // ─── Payload de creación/edición ────────────────────────────────────────────
+
+export const MIN_CLOSING_DEADLINE_DAYS = 7;
+export const MAX_CLOSING_DEADLINE_DAYS = 30;
 
 export const ExpenseDataSchema = z.object({
   title: z.string().trim().min(1).max(150),
@@ -133,6 +140,11 @@ export const ExpenseDataSchema = z.object({
   splitMethod: SplitMethodSchema,
   participants: z.array(z.object({ memberId: z.number() })).nonempty(),
   receiptUrl: z.url().max(2048),
+  closingDeadlineDays: z
+    .number({ error: "Indicá el plazo de cierre" })
+    .int("El plazo debe ser un número entero de días")
+    .min(MIN_CLOSING_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_CLOSING_DEADLINE_DAYS} y ${MAX_CLOSING_DEADLINE_DAYS} días`)
+    .max(MAX_CLOSING_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_CLOSING_DEADLINE_DAYS} y ${MAX_CLOSING_DEADLINE_DAYS} días`),
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;
 
