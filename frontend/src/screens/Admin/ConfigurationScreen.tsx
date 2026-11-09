@@ -1,4 +1,5 @@
 import {useMemo, useState} from "react";
+import {apiErrorMessage} from "@/lib/apiErrors.ts";
 import {Link, useLocation} from "wouter";
 import {MemberInfoCard} from "@/components/AdminCard";
 import Button from "@/components/Button.tsx";
@@ -26,6 +27,7 @@ import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faStar, faPercent, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
 import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
+import {LeaveGroupModal} from "@/components/modals";
 
 
 /**
@@ -288,8 +290,7 @@ function JoinRequestsSection({ groupId, showPercentages }: JoinRequestsSectionPr
             try {
                 await mutate(id);
             } catch (error) {
-                const message =
-                    error instanceof Error ? error.message : "Error desconocido";
+                const message = apiErrorMessage(error);
                 toast({
                     variant: "destructive",
                     title: `${errorPrefix}: operación abortada`,
@@ -493,6 +494,7 @@ export const ConfigurationScreen = () => {
     const group = useCurrentGroup();
     const [pendingChange, setPendingChange] = useState<ConfigChangeKind | null>(null);
     const [showPremiumModal, setShowPremiumModal] = useState(false);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
     const createConfigChange = useCreateConfigChangeVote(group.id);
     const { showApiError, showSuccessToast, showErrorToast } = useFormToasts();
 
@@ -609,6 +611,20 @@ export const ConfigurationScreen = () => {
                         esta configuración.
                     </p>
                 )}
+
+                {group.myStatus === "ACTIVE" && (
+                    <div className="flex justify-end mt-4">
+                        <Button
+                            type="button"
+                            variant="dangerOutline"
+                            size="lg"
+                            className="bg-group-danger-soft"
+                            onClick={() => setShowLeaveModal(true)}
+                        >
+                            Abandonar grupo
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {pendingChange && (
@@ -617,6 +633,14 @@ export const ConfigurationScreen = () => {
                     settings={group.settings}
                     onClose={() => setPendingChange(null)}
                     onSubmit={handleConfigChangeSubmit}
+                />
+            )}
+            {showLeaveModal && (
+                <LeaveGroupModal
+                    groupId={group.id}
+                    groupCode={group.joinCode}
+                    groupName={group.name}
+                    onClose={() => setShowLeaveModal(false)}
                 />
             )}
             {showPremiumModal && (

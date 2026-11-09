@@ -10,7 +10,7 @@ import {JOIN_CODE_REGEX} from "@/models/Group.ts";
 import {useGetGroupByCode} from "@/services/GroupServices.ts";
 
 // El backend responde 404 si el grupo no existe o el caller no es miembro, y 403 si tuvo una
-// relación con el grupo pero ya no puede verlo (solicitud pendiente/rechazada, salió, lo removieron).
+// relación con el grupo pero ya no puede verlo (solicitud pendiente/rechazada o salió del grupo).
 // Para el usuario todos son "grupo no disponible".
 const UNAVAILABLE_STATUSES: ReadonlyArray<number> = [403, 404];
 
@@ -20,8 +20,8 @@ interface GroupGuardProps {
 
 /**
  * Protege todo lo que cuelga de `/grupos/:code`, donde `code` es el código del grupo (ABC-1234-XYZ).
- * Solo renderiza `children` si el backend confirma que el usuario puede ver el grupo (miembros ACTIVE
- * o DEACTIVATED), y entrega el grupo resuelto a las pantallas vía `useCurrentGroup()`.
+ * Solo renderiza `children` si el backend confirma que el usuario puede ver el grupo (solo miembros ACTIVE;
+ * quien se fue, DEACTIVATED, es un no miembro), y entrega el grupo resuelto a las pantallas vía `useCurrentGroup()`.
  *
  * Es una barrera de UX: la autorización real vive en el backend.
  */
@@ -54,6 +54,11 @@ function GroupAccessCheck({groupCode, children}: GroupAccessCheckProps) {
         if (status !== null && UNAVAILABLE_STATUSES.includes(status)) {
             return <Redirect href={GROUP_UNAVAILABLE_PATH} replace/>;
         }
+    }
+
+    // Un grupo en caché de alguien que ya se fue (DEACTIVATED) no se muestra: es un no miembro.
+    if (group?.myStatus === "DEACTIVATED") {
+        return <Redirect href={GROUP_UNAVAILABLE_PATH} replace/>;
     }
 
     // Un fallo transitorio (red, 5xx) al refrescar no debe desmontar una pantalla que ya estaba abierta.

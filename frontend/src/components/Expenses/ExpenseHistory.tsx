@@ -24,7 +24,10 @@ const ALL = "ALL";
  */
 interface HistoryExpense {
     readonly id: number;
-    readonly date: string;
+    /** null en una deuda cancelada (no hay fecha de saldado). */
+    readonly date: string | null;
+    /** La deuda se canceló porque el acreedor (`creditor`) salió del grupo: sin comprobantes ni fecha de saldado. */
+    readonly canceled?: boolean;
     readonly title: string;
     readonly category: ExpenseCategory;
     readonly creditor: ExpenseMember;
@@ -78,7 +81,12 @@ function useHistoryExpenses(groupId: number | undefined, source: ExpenseHistoryS
             }]
             : source === "GROUP"
             ? groupExpenses.map(({createdAt, totalAmount, ...expense}) => ({...expense, date: createdAt, amount: totalAmount}))
-            : paidExpenses.map(({paidAt, paidAmount, ...expense}) => ({...expense, date: paidAt, amount: paidAmount})),
+            : paidExpenses.map(({paidAt, paidAmount, canceled, canceledAmount, ...expense}) => ({
+                ...expense,
+                date: paidAt,
+                canceled,
+                amount: canceled ? canceledAmount ?? 0 : paidAmount,
+            })),
         [mocked, source, groupExpenses, paidExpenses],
     );
 }
@@ -186,7 +194,7 @@ interface ExpenseHistoryFilters {
 type FilterKey = keyof ExpenseHistoryFilters;
 
 /**
- * Filtra, ordena (del más nuevo al más viejo) y pagina los gastos. `initial` solo fija el valor inicial de los
+ * Filtra y pagina los gastos, en el orden en que llegan del backend (del más nuevo al más viejo). `initial` solo fija el valor inicial de los
  * filtros; los que no se muestran quedan en `ALL` y no filtran nada.
  */
 function useExpenseHistory(expenses: readonly HistoryExpense[], initial?: Partial<ExpenseHistoryFilters>) {
@@ -205,15 +213,16 @@ function useExpenseHistory(expenses: readonly HistoryExpense[], initial?: Partia
     };
 
     const filtered = useMemo(() => {
+        // El orden lo da el backend.
         return expenses
             .filter((expense) => {
-                const date = new Date(expense.date);
-                if (filters.year !== ALL && date.getFullYear() !== Number(filters.year)) return false;
-                if (filters.month !== ALL && date.getMonth() !== Number(filters.month)) return false;
+                // Sin fecha (deuda cancelada) los filtros de mes y año no aplican.
+                const date = expense.date === null ? null : new Date(expense.date);
+                if (date && filters.year !== ALL && date.getFullYear() !== Number(filters.year)) return false;
+                if (date && filters.month !== ALL && date.getMonth() !== Number(filters.month)) return false;
                 if (filters.category !== ALL && expense.category !== filters.category) return false;
                 return filters.creditorId === ALL || expense.creditor.id === Number(filters.creditorId);
-            })
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            });
     }, [expenses, filters]);
 
     const totalPages = Math.max(Math.ceil(filtered.length / PAGE_SIZE), 1);
@@ -268,11 +277,21 @@ function ExpenseHistoryTable({
 
                     {expenses.map((expense) => (
                         <div key={expense.id} className={`${HISTORY_GRID} border-b border-warm-muted/30 py-4 transition-colors hover:bg-group-paper`}>
-                            <p className="text-xs text-warm-muted ps-3">{formatDate(expense.date)}</p>
+                            <p className="text-xs text-warm-muted ps-3">{expense.date ? formatDate(expense.date) : "-"}</p>
                             <span className={`justify-self-start rounded-full px-2.5 py-1 text-xs font-medium ${categoryBadgeClass(expense.category)}`}>
                                 {categoryLabel(expense.category)}
                             </span>
-                            <p className="text-xs">{expense.title}</p>
+                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                <span>{expense.title}</span>
+                                {expense.canceled && (
+                                    <span
+                                        title={`Cancelada porque ${expense.creditor.nickname} salió del grupo`}
+                                        className="rounded-full bg-group-paper px-2.5 py-1 text-xs font-medium text-brand"
+                                    >
+                                        Cancelada
+                                    </span>
+                                )}
+                            </p>
                             <div className="flex max-w-full items-center gap-1.5 justify-self-start rounded-2xl bg-fondo py-0.5 pr-1.5 pl-0.5">
                                 <Avatar name={expense.creditor.nickname} color={expense.creditor.color} photoUrl={expense.creditor.photoUrl} />
                                 <p className="truncate text-sm font-medium">{expense.creditor.nickname}</p>
@@ -280,6 +299,7 @@ function ExpenseHistoryTable({
                             <p className="text-sm font-semibold">{formatCurrency(expense.amount)}</p>
                             {/* Tooltips hacia arriba: la tabla scrollea y un tooltip hacia abajo se recortaría en la última fila. */}
                             <div className="flex items-center justify-end gap-1">
+                                {!expense.canceled && (<>
                                 <ReceiptAction
                                     title={expense.title}
                                     receiptUrl={expense.receiptUrl}
@@ -296,6 +316,7 @@ function ExpenseHistoryTable({
                                     disabledReason={expense.payments.length > 0 ? null : "Este gasto no tiene comprobantes de pago"}
                                     tooltipPlacement="top"
                                 />
+                                </>)}
                             </div>
                         </div>
                     ))}

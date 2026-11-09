@@ -2,6 +2,7 @@ import { Link } from "wouter";
 
 import { groupPercentagesPath } from "@/constants/routes.ts";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
+import { GROUP_STOPPED_CONSEQUENCE } from "@/constants/group.ts";
 import { cn } from "@/lib/cn.ts";
 
 interface GroupStoppedBannerProps {
@@ -35,7 +36,7 @@ export function GroupStoppedBanner({ className }: GroupStoppedBannerProps) {
                 {isPercentageGroup
                     ? `Los porcentajes de los miembros suman ${group.assignedPercentage}% y faltan ${group.missingPercentage}% para llegar al 100%. `
                     : "El grupo no tiene miembros activos. "}
-                Mientras tanto no se pueden crear gastos, votar ni reservar días.
+                {GROUP_STOPPED_CONSEQUENCE}
                 {canFix && (
                     <>
                         {" "}

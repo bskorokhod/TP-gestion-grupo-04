@@ -41,6 +41,16 @@ function refundTag(expense: Expense, debts: readonly Debt[]): string | undefined
 }
 
 /**
+ * Cartel de un gasto que debe modificarse porque incluye acreedores o deudores inactivos. Es genérico a propósito (no nombra
+ * a nadie). No aplica a gastos eliminados ni rechazados: ya no admiten modificación.
+ */
+function modificationNotice(expense: Expense): string | undefined {
+    if (!expense.requiresModification) return undefined;
+    if (expense.status === "CANCELLED" || expense.status === "REJECTED") return undefined;
+    return "Este gasto debe modificarse: incluye acreedores o deudores que ya no están activos en el grupo.";
+}
+
+/**
  * Por qué el caller no puede reportar o editar el gasto ahora, o null si puede. Espeja las reglas del backend: el gasto
  * tiene que estar aprobado y sin otra votación en curso, el grupo en marcha, y quien reporta tiene que participar del
  * gasto (acreedor o participante). Quien solo tiene una devolución a favor ve el gasto pero no lo puede reportar.
@@ -188,6 +198,7 @@ function ExpenseAsDebtCard({ expense, myMemberId, editDisabledReason, onEdit }: 
             }}
             onEdit={onEdit}
             editDisabledReason={editDisabledReason}
+            notice={modificationNotice(expense)}
         >
             {debtsToShow.map((debt) => {
                 const remaining = roundCents(debt.amount - debt.paidAmount);
@@ -256,6 +267,7 @@ function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onRepor
                         }}
                         onReport={onReport}
                         reportDisabledReason={reportDisabledReason}
+                        notice={modificationNotice(expense)}
                         action={{
                             label: "Marcar como pagado",
                             onClick: () => onPay(myDebt.id, remaining, myDebt.creditor.cvu),

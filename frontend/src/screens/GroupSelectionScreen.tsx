@@ -29,6 +29,10 @@ function iconForGroup(group: Group): GroupCardIcon {
     return ICONS[group.id % ICONS.length];
 }
 
+const JOIN_ERROR_OVERRIDES = {
+    404: "No encontramos un grupo con ese código",
+};
+
 export const GroupSelectionScreen = () => {
     const [modalAbierto, setModalAbierto] = useState<ModalType>(null);
     const [, navigate] = useLocation();
@@ -69,14 +73,15 @@ export const GroupSelectionScreen = () => {
 
     async function handleJoinGroup(data: JoinGroup) {
         try {
-            const request = await joinGroupMutation.mutateAsync(data);
+            await joinGroupMutation.mutateAsync(data);
             showSuccessToast(
                 "Solicitud enviada",
-                `Tu solicitud para unirte a «${request.groupName}» está pendiente de aprobación.`
+                "Un miembro del grupo tiene que aprobarla."
             );
             setModalAbierto(null);
         } catch (err) {
-            showApiError(err as BackendError, "No pudimos enviar la solicitud");
+            // Nunca se muestra el mensaje crudo del backend (viene en inglés): el texto sale del status HTTP.
+            showApiError(err, "No pudimos enviar la solicitud", JOIN_ERROR_OVERRIDES);
         }
     }
 

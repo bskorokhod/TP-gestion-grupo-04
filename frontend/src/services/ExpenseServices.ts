@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { apiErrorMessage } from "@/lib/apiErrors.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BalanceByPerson,
@@ -325,7 +326,7 @@ export function useMarkDebtAsPaid() {
       showSuccessToast("Pago registrado", "El comprobante se subió correctamente.");
     },
     onError: (error): void => {
-      showErrorToast("No se pudo registrar el pago", error.message);
+      showErrorToast("No se pudo registrar el pago", apiErrorMessage(error));
     },
   });
 }
