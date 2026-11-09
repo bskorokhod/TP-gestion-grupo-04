@@ -9,9 +9,10 @@ import java.util.List;
 
 public interface DebtRepository extends JpaRepository<Debt, Long> {
 
-    /** Deudas propias sin saldar por completo, activas o suspendidas. */
+    /** Deudas propias sin saldar por completo, activas o suspendidas; las canceladas no cuentan. */
     @Query("select case when count(d) > 0 then true else false end "
-            + "from Debt d where d.debtor.id = :memberId and d.paidAmount < d.amount")
+            + "from Debt d where d.debtor.id = :memberId and d.paidAmount < d.amount "
+            + "and d.status <> EsNuestro.expense.DebtStatus.CANCELED")
     boolean existsUnsettledByDebtorId(@Param("memberId") Long memberId);
 
     /**
@@ -35,6 +36,23 @@ public interface DebtRepository extends JpaRepository<Debt, Long> {
             @Param("memberId") Long memberId,
             @Param("status") ExpenseStatus status
     );
+
+    /**
+     * Deudas sin saldar de los gastos del grupo que todavía se pueden cobrar (activas o suspendidas), con el gasto, el
+     * acreedor del gasto y el deudor cargados. Quien llama filtra por acreedor, porque en las devoluciones el acreedor
+     * es {@code refundTo} y no el del gasto.
+     */
+    @Query("""
+            select distinct d from Debt d
+              join fetch d.expense e
+              join fetch e.details det
+              join fetch det.creditor
+              join fetch d.debtor
+            where e.group.id = :groupId
+              and d.status <> EsNuestro.expense.DebtStatus.CANCELED
+              and d.paidAmount < d.amount
+            """)
+    List<Debt> findCollectableByGroupId(@Param("groupId") Long groupId);
 
     /**
      * Las deudas con al menos un pago de los gastos dados, con los pagos y el deudor (y su usuario, por la foto) ya

@@ -3,7 +3,8 @@ import { MemberCvuSchema } from "@/models/Cvu.ts";
 
 export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
 
-export const MembershipStatusSchema = z.enum(["REJECTED", "PENDING", "ACTIVE", "DEACTIVATED", "LEFT", "REMOVED",]);
+/** DEACTIVATED: se fue del grupo. Ya no lo ve y, si quiere volver, pide ingreso de nuevo como una persona nueva. */
+export const MembershipStatusSchema = z.enum(["REJECTED", "PENDING", "ACTIVE", "DEACTIVATED"]);
 
 export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
 
@@ -356,8 +357,9 @@ export const JoinGroupSchema = z.object({
 
 export type JoinGroup = z.infer<typeof JoinGroupSchema>;
 
+/** Por privacidad el preview no revela datos identificatorios del grupo (el backend ya no manda `name`); se tolera por si llega. */
 export const GroupPreviewSchema = z.object({
-    name: z.string(),
+    name: z.string().optional(),
     distributionMode: DistributionModeSchema,
 });
 
@@ -404,3 +406,22 @@ export const MemberSchema = z.object({
 });
 
 export type Member = z.infer<typeof MemberSchema>;
+/** Lo que un miembro le debe cobrar a otro y perdería al abandonar el grupo (`GET /groups/:id/leave-preview`). */
+export const LeavePreviewDebtorSchema = z.object({
+  debtorMemberId: z.number(),
+  debtorNickname: z.string(),
+  amount: z.number(),
+});
+export type LeavePreviewDebtor = z.infer<typeof LeavePreviewDebtorSchema>;
+
+/** Vista previa de abandonar el grupo: si el miembro debe plata (lo bloquea) y cuánto le deben (lo perdería). */
+export const LeavePreviewSchema = z.object({
+  hasUnsettledDebts: z.boolean(),
+  owedToMeTotal: z.number(),
+  owedToMe: z.array(LeavePreviewDebtorSchema),
+  /** Al irse, los activos no suman 100%: el grupo queda detenido hasta reclamar el porcentaje libre. */
+  groupWillStop: z.boolean(),
+  /** Porcentaje que quedaría sin asignar (0 si el grupo no se detiene). */
+  missingPercentage: z.number(),
+});
+export type LeavePreview = z.infer<typeof LeavePreviewSchema>;

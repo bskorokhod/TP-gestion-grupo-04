@@ -79,21 +79,38 @@ public class Debt {
     }
 
     void suspend() {
+        if (this.status == DebtStatus.CANCELED) {
+            return;
+        }
         this.status = DebtStatus.SUSPENDED;
     }
 
     void reactivate() {
-        this.status = DebtStatus.ACTIVE;
+        if (this.status != DebtStatus.CANCELED) {
+            this.status = DebtStatus.ACTIVE;
+        }
+    }
+
+    /** Cancela la deuda porque su acreedor abandonó el grupo. No toca el monto ni el historial de pagos. */
+    public void cancel() {
+        this.status = DebtStatus.CANCELED;
+    }
+
+    /** Lo que falta pagar de la deuda. */
+    public BigDecimal remaining() {
+        return amount.subtract(paidAmount);
     }
 
     /**
      * Fija el monto de la deuda y cuánto cuenta como pagado (ya conciliado, ver {@link DebtReconciliation}), y la
-     * deja activa. No toca el historial de pagos.
+     * deja activa (salvo que esté cancelada: eso es terminal). No toca el historial de pagos.
      */
     void reconcileTo(BigDecimal newAmount, BigDecimal newPaidAmount) {
         this.amount = newAmount;
         this.paidAmount = newPaidAmount;
-        this.status = DebtStatus.ACTIVE;
+        if (this.status != DebtStatus.CANCELED) {
+            this.status = DebtStatus.ACTIVE;
+        }
     }
 
     /**

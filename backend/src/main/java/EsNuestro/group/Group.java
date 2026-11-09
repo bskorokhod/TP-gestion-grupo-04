@@ -128,6 +128,35 @@ public class Group {
         return assignedPercentage().compareTo(TOTAL_PERCENTAGE) == 0 ? GroupStatus.RUNNING : GroupStatus.STOPPED;
     }
 
+    /**
+     * Cómo quedaría el grupo si {@code leaving} se fuera, con la misma lógica que {@link #refreshOwnership()} pero sin
+     * modificar nada: en modo equitativo el porcentaje se recalcula solo; en modo porcentual un único activo restante
+     * pasa a 100%, y si no, el grupo queda detenido salvo que los restantes sumen exactamente 100%. Sin activos
+     * restantes el grupo queda detenido.
+     */
+    public StatusAfterLeaving statusAfterLeaving(GroupMember leaving) {
+        List<GroupMember> remaining = activeMembers().stream()
+                .filter(member -> !Objects.equals(member.getId(), leaving.getId()) && member != leaving)
+                .toList();
+        if (remaining.isEmpty()) {
+            return new StatusAfterLeaving(true, TOTAL_PERCENTAGE);
+        }
+        if (!settings.getDistributionMode().hasOwnershipPercentages() || remaining.size() == 1) {
+            return new StatusAfterLeaving(false, BigDecimal.ZERO);
+        }
+        BigDecimal assigned = remaining.stream()
+                .map(GroupMember::getPercentage)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new StatusAfterLeaving(
+                assigned.compareTo(TOTAL_PERCENTAGE) != 0, TOTAL_PERCENTAGE.subtract(assigned).max(BigDecimal.ZERO)
+        );
+    }
+
+    /** Resultado de {@link #statusAfterLeaving}: si el grupo quedaría detenido y cuánto porcentaje quedaría libre. */
+    public record StatusAfterLeaving(boolean stopped, BigDecimal missingPercentage) {
+    }
+
     public boolean isStopped() {
         return getStatus() == GroupStatus.STOPPED;
     }

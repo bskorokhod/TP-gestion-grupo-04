@@ -124,17 +124,17 @@ public class PremiumSubscription {
     }
 
     /**
-     * Cancela la suscripción. Una prueba termina en el acto; un plan pago deja de renovarse y el grupo lo conserva hasta
-     * el fin del período pagado ({@link #endsAt}), sin reembolso. Después de cancelada no se cobra más.
+     * Cancela la suscripción. Tanto una prueba como un plan pago deja de renovarse y el grupo lo conserva hasta
+     * el fin de la prueba ({@link #trialEndsAt}) o del período pagado ({@link #endsAt}), respectivamente, sin reembolso.
+     * Después de cancelada no se cobra más.
      */
     void cancel(Instant now) {
         if (!isActive()) {
             throw new IllegalStateException("The subscription is already cancelled");
         }
-        boolean endsNow = isOnTrial() || !nextBillingAt.isAfter(now);
         this.status = PremiumSubscriptionStatus.CANCELLED;
         this.cancelledAt = now;
-        this.endsAt = endsNow ? now : nextBillingAt;
+        this.endsAt = !nextBillingAt.isAfter(now) ? now : nextBillingAt;
     }
 
     /** Débito fallido: la suscripción termina en el acto y el grupo vuelve al plan gratuito. */

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { apiErrorMessage } from "@/lib/apiErrors.ts";
 import { useCurrentGroup } from "@/contexts/GroupContext.tsx";
 import { useMyMember } from "@/hooks/useMyMember.ts";
 import { useToast } from "@/hooks/useToast.ts";
@@ -46,7 +47,7 @@ function daysBookedInMonth(reservations: Reservation[], memberId: number | undef
 }
 
 function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : "Intentá nuevamente.";
+    return apiErrorMessage(error);
 }
 
 /**
@@ -129,7 +130,7 @@ export function useReservationsCalendar() {
         if (getApiErrorStatus(error) === 409) {
             return "Ese período dejó de estar disponible. Elegí otras fechas e intentá nuevamente.";
         }
-        return message || "Revisá las fechas seleccionadas.";
+        return apiErrorMessage(error);
     };
 
     const chooseDate = (key: string) => {

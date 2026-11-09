@@ -1,4 +1,5 @@
 import { useToast, type BackendError } from "@/hooks/useToast"
+import { apiErrorMessage, type ApiErrorOverrides } from "@/lib/apiErrors.ts"
 
 export const useFormToasts = () => {
     const { toast } = useToast()
@@ -11,12 +12,12 @@ export const useFormToasts = () => {
         toast({ variant: "destructive", title: "Error de validación", description })
     }
 
-    const showApiError = (error: BackendError, title: string = "Error en la operación") => {
-        const backendMessage = error?.response?.data?.message || error?.message
+    /** El texto sale del status HTTP (`apiErrorMessage`), nunca del mensaje crudo del backend. `overrides` pisa por status. */
+    const showApiError = (error: BackendError | unknown, title: string = "Error en la operación", overrides?: ApiErrorOverrides) => {
         toast({
             variant: "destructive",
             title,
-            description: backendMessage
+            description: apiErrorMessage(error, overrides)
         })
     }
 

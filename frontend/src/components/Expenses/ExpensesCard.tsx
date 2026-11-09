@@ -55,6 +55,7 @@ export interface DebtCardProps {
     readonly tag?: string;
     readonly onEdit?: () => void;
     readonly editDisabledReason?: string | null;
+    readonly notice?: string;
     readonly children: ReactNode;
 }
 
@@ -68,6 +69,7 @@ export interface OwedCardProps {
     readonly receiptUrl?: string | null;
     readonly onReport?: () => void;
     readonly reportDisabledReason?: string | null;
+    readonly notice?: string;
     /** "Vence el 20 nov, 15:30" / "Vencido hace 2 semanas" / "Sin fecha de vencimiento", igual que en las tarjetas de votación. */
     readonly deadlineLabel?: string | null;
     /** Si el plazo ya pasó: la tarjeta pasa a paleta roja. */
@@ -271,7 +273,15 @@ export function ReceiptAction({
     );
 }
 
-export function DebtCard({title, amount, description, assigned, owner, receiptUrl, tag, onEdit, editDisabledReason, children,}: DebtCardProps): ReactNode {
+function ModificationNotice({ message }: { readonly message: string }): ReactNode {
+    return (
+        <p role="alert" className="mt-3 rounded-xl border border-group-danger/20 bg-group-danger-soft px-3 py-2 text-sm font-medium text-group-danger">
+            {message}
+        </p>
+    );
+}
+
+export function DebtCard({title, amount, description, assigned, owner, receiptUrl, tag, onEdit, editDisabledReason, notice, children,}: DebtCardProps): ReactNode {
     return (
         <ExpenseCard>
             <div className="flex items-start justify-between gap-2">
@@ -282,6 +292,7 @@ export function DebtCard({title, amount, description, assigned, owner, receiptUr
                 </div>
             </div>
             <p className="mt-3 text-sm text-group-muted">{description}</p>
+            {notice && <ModificationNotice message={notice} />}
 
             {assigned && owner && (
                 <div className="mt-3">
@@ -294,7 +305,7 @@ export function DebtCard({title, amount, description, assigned, owner, receiptUr
     );
 }
 
-export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, reportDisabledReason, deadlineLabel, overdue = false, action,}: OwedCardProps): ReactNode {
+export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, reportDisabledReason, notice, deadlineLabel, overdue = false, action,}: OwedCardProps): ReactNode {
     return (
         <ExpenseCard tone={overdue ? "danger" : "default"} className="flex min-h-48 flex-col justify-between">
             <div className="space-y-2">
@@ -309,6 +320,7 @@ export function OwedCard({title, amount, description, assigned, owner, tag, rece
                     <p className={`text-xs font-medium ${overdue ? "text-group-danger" : "text-brand"}`}>{deadlineLabel}</p>
                 )}
                 <p className="text-sm text-group-muted">{description}</p>
+                {notice && <ModificationNotice message={notice} />}
                 {assigned && owner && <PeopleMeta assigned={assigned} owner={owner} />}
             </div>
             {action && (

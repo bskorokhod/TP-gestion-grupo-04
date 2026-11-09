@@ -1,7 +1,9 @@
 
-import React, {Dispatch, useCallback, useContext, useState} from "react";
+import React, {Dispatch, useCallback, useContext, useEffect, useRef, useState} from "react";
 
-import {AuthResponse} from "@/models/User.ts";
+import {AuthResponse, AuthResponseSchema} from "@/models/User.ts";
+import {ApiService} from "@/services/ApiServices.ts";
+import {toast} from "@/hooks/useToast.ts";
 import {useRefresh} from "@/services/AuthServices.ts";
 import {TokenService} from "@/services/TokenService.ts";
 
@@ -35,6 +37,47 @@ export const TokenProvider = ({children}: React.PropsWithChildren) => {
         },
         [setInternalState],
     );
+
+    // Refresh de sesión para `ApiService` ante un 401. Lee siempre el estado más nuevo (ref) y comparte un único refresh
+    // en curso entre pedidos simultáneos. Usa `ApiService.request` (sin auth ni reintento): un 401 del refresh no se reintenta.
+    const stateRef = useRef(state);
+    stateRef.current = state;
+    const inFlightRef = useRef<Promise<string> | null>(null);
+
+    useEffect(() => {
+        ApiService.setRefreshHandler(() => {
+            if (inFlightRef.current) return inFlightRef.current;
+
+            const current = stateRef.current;
+            if (current.state !== "LOGGED_IN") {
+                return Promise.reject(new Error("Cannot refresh without being logged in"));
+            }
+
+            const tokenPromise = ApiService.request("/sessions", {
+                method: "PUT",
+                body: JSON.stringify({refreshToken: current.tokens.refreshToken}),
+            }).then((response) => AuthResponseSchema.parse(response));
+            setState({state: "REFRESHING", tokenPromise});
+
+            const result = tokenPromise
+                .then((tokens) => {
+                    setState({state: "LOGGED_IN", tokens});
+                    return tokens.accessToken;
+                })
+                .catch((error: unknown) => {
+                    setState({state: "LOGGED_OUT"});
+                    toast({variant: "destructive", title: "Tu sesión venció. Volvé a iniciar sesión."});
+                    throw error;
+                })
+                .finally(() => {
+                    inFlightRef.current = null;
+                });
+            inFlightRef.current = result;
+            return result;
+        });
+        return () => ApiService.setRefreshHandler(null);
+    }, [setState]);
+
     return <TokenContext.Provider value={[state, setState]}>{children}</TokenContext.Provider>;
 };
 
