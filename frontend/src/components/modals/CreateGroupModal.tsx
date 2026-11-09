@@ -1,4 +1,6 @@
 import {type FormEvent, type ReactNode, useState} from "react";
+import {faStar} from "@fortawesome/free-solid-svg-icons";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 
 import SelectField, {type SelectOption} from "@/components/Forms/SelectField.tsx";
 import TextField from "@/components/Forms/TextField.tsx";
@@ -7,6 +9,12 @@ import {type DistributionMode, type GroupCreate, GroupCreateSchema, isReservatio
     MAX_FIXED_DAYS_PER_MONTH, MIN_FIXED_DAYS_PER_MONTH, type ReservationLimitPolicy, type VotingModel} from "@/models/Group.ts";
 import {useFormToasts} from "@/hooks/useFormToasts";
 import {DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS} from "@/constants/config_modals.ts";
+import {
+    DEFAULT_DISTRIBUTION_MODE,
+    DEFAULT_RESERVATION_LIMIT_POLICY,
+    DEFAULT_VOTING_MODEL,
+    usesDefaultPremiumSettings,
+} from "@/models/Group.ts";
 
 export interface CreateGroupModalProps {
     onClose: () => void;
@@ -28,15 +36,37 @@ interface FormSectionProps {
 
 function FormSection({id, title, description, children}: FormSectionProps) {
     return (
-        <section aria-labelledby={id} className="flex flex-col gap-6">
+        <section aria-labelledby={id} className="flex flex-col gap-3">
             <div>
-                <h3 id={id} className="text-sm font-bold uppercase tracking-wide text-modal-primary">
+                <h3 id={id} className="text-[10px] font-bold uppercase tracking-wide text-modal-primary">
                     {title}
                 </h3>
-                <p className="mt-1 text-xs text-modal-muted">{description}</p>
+                <p className="mt-0.5 text-[9px] leading-tight text-modal-muted">{description}</p>
             </div>
             {children}
         </section>
+    );
+}
+
+interface PremiumSettingProps {
+    readonly children: ReactNode;
+    readonly onPremiumClick: () => void;
+    readonly label: string;
+}
+
+function PremiumSetting({children, onPremiumClick, label}: PremiumSettingProps) {
+    return (
+        <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">{children}</div>
+            <button
+                type="button"
+                aria-label={`Personalizar ${label} con Premium`}
+                onClick={onPremiumClick}
+                className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-[#f7ead8] text-[#bd7413] transition hover:bg-[#f1ddc2]"
+            >
+                <FontAwesomeIcon icon={faStar} className="text-sm"/>
+            </button>
+        </div>
     );
 }
 
@@ -44,15 +74,21 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
     const { showSchemaError } = useFormToasts();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [distribution, setDistribution] = useState<DistributionMode | "">("");
-    const [voting, setVoting] = useState<VotingModel | "">("");
-    const [reservation, setReservation] = useState<ReservationLimitPolicy | "">("");
+    const [distribution, setDistribution] = useState<DistributionMode | "">(DEFAULT_DISTRIBUTION_MODE);
+    const [voting, setVoting] = useState<VotingModel | "">(DEFAULT_VOTING_MODEL);
+    const [reservation, setReservation] = useState<ReservationLimitPolicy | "">(DEFAULT_RESERVATION_LIMIT_POLICY);
     const [fixedDays, setFixedDays] = useState("");
-    const [threshold, setThreshold] = useState("");
+    const [threshold, setThreshold] = useState("100000");
     const [founderPercentage, setFounderPercentage] = useState("");
 
     const settingsLocked = distribution === "";
     const requiresFounderPercentage = distribution === "PERCENTAGE";
+    const isPremiumConfiguration = distribution !== "" && voting !== "" && reservation !== ""
+        && !usesDefaultPremiumSettings({
+            distributionMode: distribution,
+            votingModel: voting,
+            reservationLimitPolicy: reservation,
+        });
 
     function handleDistributionChange(next: DistributionMode) {
         setDistribution(next);
@@ -122,10 +158,11 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
     return (
         <ModalShell
             title="Crear grupo"
-            submitLabel="Crear grupo"
+            submitLabel={isPremiumConfiguration ? "Crear grupo premium" : "Crear grupo"}
             onClose={onClose}
             onSubmit={handleSubmit}
-            modalClassName="max-w-lg"
+            modalClassName="max-w-md p-4 sm:p-5 [&_input]:mt-1 [&_input]:h-9 [&_input]:rounded-lg [&_input]:px-3 [&_input]:text-xs [&_label]:text-xs [&_[aria-haspopup=listbox]]:mt-1 [&_[aria-haspopup=listbox]]:h-9 [&_[aria-haspopup=listbox]]:rounded-lg [&_[aria-haspopup=listbox]]:px-3 [&_button[type=submit]]:h-8 [&_button[type=submit]]:px-4 [&_button[type=submit]]:text-xs [&_button[type=button]]:h-8 [&_button[type=button]]:px-4 [&_footer]:mt-3"
+            submitClassName={isPremiumConfiguration ? "border-[#bd7413] bg-[#bd7413] text-white hover:bg-[#a6650d]" : undefined}
             isSubmitting={isSubmitting}
         >
             <FormSection
@@ -152,38 +189,47 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                     maxLength={500}
                 />
 
-                <SelectField
-                    id="group-distribution"
-                    label="Reparto del bien"
-                    hint="Elegí esto primero: condiciona las opciones siguientes."
-                    placeholder="Elegí una opción"
-                    options={DISTRIBUTION_OPTIONS}
-                    value={distribution}
-                    onChange={(value) => handleDistributionChange(value as DistributionMode)}
-                    required
-                />
-                <SelectField
-                    id="group-voting"
-                    label="Aprobación de votaciones"
-                    hint="Se cuenta sobre los miembros involucrados en el gasto."
-                    placeholder="Elegí una opción"
-                    options={votingOptions}
-                    value={voting}
-                    onChange={(value) => setVoting(value as VotingModel)}
-                    disabled={settingsLocked}
-                    required
-                />
-                <SelectField
-                    id="group-reservation"
-                    label="Restricción de reservas"
-                    hint="Máximo de días por mes que un miembro puede reservar el bien."
-                    placeholder="Elegí una opción"
-                    options={reservationOptions}
-                    value={reservation}
-                    onChange={(value) => handleReservationChange(value as ReservationLimitPolicy)}
-                    disabled={settingsLocked}
-                    required
-                />
+                <PremiumSetting label="el reparto del bien" onPremiumClick={() => handleDistributionChange("PERCENTAGE")}>
+                    <SelectField
+                        id="group-distribution"
+                        label="Reparto del bien"
+                        hint="Modo de división del bien compartido"
+                        placeholder="Elegí una opción"
+                        options={DISTRIBUTION_OPTIONS}
+                        value={distribution}
+                        onChange={(value) => handleDistributionChange(value as DistributionMode)}
+                        buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
+                        required
+                    />
+                </PremiumSetting>
+                <PremiumSetting label="la aprobación de votaciones" onPremiumClick={() => setVoting("OWNERSHIP_WEIGHTED_MAJORITY")}>
+                    <SelectField
+                        id="group-voting"
+                        label="Aprobación de votaciones"
+                        hint="Método para alcanzar el quórum de las votaciones"
+                        options={votingOptions}
+                        placeholder="Elegí una opción"
+                        value={voting}
+                        onChange={(value) => setVoting(value as VotingModel)}
+                        disabled={settingsLocked}
+                        buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
+                        required
+                    />
+                </PremiumSetting>
+                <PremiumSetting label="la restricción de reservas" onPremiumClick={() => setReservation("OWNERSHIP_PROPORTIONAL")}>
+                    <SelectField
+                        id="group-reservation"
+                        label="Restricción de reservas"
+                        hint="Máximo de días por mes que un miembro puede reservar el bien"
+                        options={reservationOptions}
+                        placeholder="Elegí una opción"
+                        value={reservation}
+                        onChange={(value) => handleReservationChange(value as ReservationLimitPolicy)}
+                        disabled={settingsLocked}
+                        buttonClassName="h-9 rounded-lg border-[#e7cda9] bg-[#faf8f3] px-3 text-xs shadow-none"
+                        required
+                    />
+                </PremiumSetting>
                 {reservation === "FIXED_DAYS_PER_MONTH" && (
                     <TextField
                         id="group-fixed-days"

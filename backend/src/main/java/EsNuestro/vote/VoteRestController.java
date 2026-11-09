@@ -88,8 +88,9 @@ class VoteRestController {
     }
 
     @PostMapping(value = "/config-change", produces = "application/json")
-    @Operation(summary = "Proponer el cambio de una configuración del grupo; requiere unanimidad de los miembros activos y se aplica solo si la votación es positiva")
+    @Operation(summary = "Proponer el cambio de una configuración del grupo; requiere unanimidad de los miembros activos y se aplica solo si la votación es positiva. Salvo el monto del gasto extraordinario, requiere que el grupo sea premium")
     @ResponseStatus(HttpStatus.CREATED)
+    @ApiResponse(responseCode = "403", description = "La configuración requiere premium y el grupo no lo es", content = @Content)
     @ApiResponse(responseCode = "404", description = "Grupo o miembro no encontrado", content = @Content)
     @ApiResponse(responseCode = "409", description = "El valor propuesto ya es el vigente, dejaría la configuración incoherente o ya hay una votación activa sobre esa configuración", content = @Content)
     VoteDTO createConfigChange(
