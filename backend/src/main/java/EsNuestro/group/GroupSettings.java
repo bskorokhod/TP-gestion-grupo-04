@@ -173,7 +173,7 @@ public class GroupSettings {
     public GroupSettings revertedToDefaults() {
         return new GroupSettings(
                 DEFAULT_DISTRIBUTION_MODE, DEFAULT_VOTING_MODEL, DEFAULT_RESERVATION_LIMIT_POLICY,
-                null, extraordinaryExpenseThreshold
+                null, extraordinaryExpenseThreshold, MIN_VOTE_DEADLINE_DAYS
         );
     }
 
