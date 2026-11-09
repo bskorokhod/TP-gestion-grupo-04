@@ -1,3 +1,4 @@
+import { describeFailureReason } from "@/constants/votes.ts";
 import type { Vote } from "@/models/Vote.ts";
 
 /**
@@ -7,6 +8,8 @@ import type { Vote } from "@/models/Vote.ts";
 export function reachesExtraordinaryThreshold(amount: number, threshold: number): boolean {
     return Math.round(amount * 100) >= Math.round(threshold * 100);
 }
+
+const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
 
 export interface ResolvedVoteMessage {
     readonly kind: "success" | "failure";
@@ -29,9 +32,7 @@ export function describeResolvedVote(vote: Vote): ResolvedVoteMessage | null {
             return {
                 kind: "failure",
                 title: "No se pudo aplicar la propuesta",
-                description: vote.failureReason
-                    ? `Se aprobó, pero ya no es posible aplicarla: ${vote.failureReason}`
-                    : "Se aprobó, pero ya no es posible aplicarla.",
+                description: `Se aprobó, pero ya no es posible aplicarla: ${lowerFirst(describeFailureReason(vote.failureReason))}.`,
             };
         default:
             return {

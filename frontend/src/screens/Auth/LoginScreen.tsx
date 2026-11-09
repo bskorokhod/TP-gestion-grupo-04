@@ -1,4 +1,5 @@
 import TextField from "@/components/Forms/TextField.tsx";
+import { apiErrorMessage } from "@/lib/apiErrors.ts"
 import PasswordField from "@/components/Forms/PasswordField.tsx";
 import SubmitButton from "@/components/Forms/SubmitButton.tsx";
 import loginIllustration from "@/assets/login.svg";
@@ -9,6 +10,9 @@ import {useLogin} from "@/services/AuthServices.ts";
 import {LoginSchema} from "@/models/User.ts";
 import {ZodError} from "zod";
 import {BackendError, toast} from "@/hooks/useToast.ts";
+
+/** Credenciales inválidas: el backend responde 400 o 401 según el caso. */
+const LOGIN_ERROR_OVERRIDES = { 400: "Email o contraseña incorrectos.", 401: "Email o contraseña incorrectos." }
 
 export const LoginScreen = () => {
     const [form, setForm] = useState({ username: "", password: "" })
@@ -23,11 +27,10 @@ export const LoginScreen = () => {
             login.mutate(parsed, {
                 onSuccess: () => toast({ title: "Inicio de sesión exitoso" }),
                 onError: (err: BackendError) => {
-                    const backendMessage = err?.response?.data?.message || err?.message
                     toast({
                         variant: "destructive",
                         title: "Error al iniciar sesión",
-                        description: backendMessage,
+                        description: apiErrorMessage(err, LOGIN_ERROR_OVERRIDES),
                     })
                 },
             })
