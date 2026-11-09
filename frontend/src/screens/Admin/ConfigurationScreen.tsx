@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useMemo, useState, type ReactNode} from "react";
 import {Link, useLocation} from "wouter";
 import {MemberInfoCard} from "@/components/AdminCard";
 import Button from "@/components/Button.tsx";
@@ -29,11 +29,12 @@ import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
 
 
 /**
- * Espeja `ConfigSetting#requiresPremium` del backend: el monto del gasto extraordinario se puede cambiar en cualquier
- * grupo; el resto de los ajustes solo en grupos premium (el backend responde 403 si no).
+ * Espeja `ConfigSetting#requiresPremium` del backend: el monto del gasto extraordinario y el plazo de cierre de las
+ * votaciones se pueden cambiar en cualquier grupo; el resto de los ajustes solo en grupos premium (el backend responde
+ * 403 si no).
  */
 function requiresPremium(kind: ConfigChangeKind): boolean {
-    return kind !== "threshold";
+    return kind !== "threshold" && kind !== "voteDeadline";
 }
 
 const CONFIG_BLOCKED_WHEN_STOPPED_LABEL =
@@ -85,6 +86,24 @@ function ModalSettingRow({
                 </Button>
             </div>
         </div>
+    );
+}
+
+interface SettingsSectionProps {
+    readonly title: string;
+    readonly children: ReactNode;
+    readonly className?: string;
+}
+
+/** Sección de ajustes: un título y el contenedor con sus tarjetas. */
+function SettingsSection({ title, children, className }: SettingsSectionProps) {
+    return (
+        <section className={cn("flex flex-col gap-3 items-start self-stretch", className)}>
+            <p className="text-3xl font-extrabold text-brand-hover">{title}</p>
+            <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
+                {children}
+            </div>
+        </section>
     );
 }
 
@@ -531,6 +550,27 @@ export const ConfigurationScreen = () => {
 
     const isPremium = group.isPremium;
 
+    // Un grupo premium ve todos los ajustes como disponibles; uno gratuito solo los que no requieren premium.
+    const availableSettings: ReadonlyArray<ModalSettingItem> = isPremium
+        ? SETTINGS_INFO
+        : SETTINGS_INFO.filter((item) => !requiresPremium(item.kind));
+    const premiumOnlySettings: ReadonlyArray<ModalSettingItem> = isPremium
+        ? []
+        : SETTINGS_INFO.filter((item) => requiresPremium(item.kind));
+    // La tarjeta de porcentajes es exclusiva de premium: en un grupo gratuito no va en ninguna de las dos secciones.
+    const showPercentagesCard = isPercentageGroup && isPremium;
+
+    const renderSettingRow = (item: ModalSettingItem) => (
+        <ModalSettingRow
+            key={item.kind}
+            item={item}
+            settings={group.settings}
+            disabled={isStopped}
+            isPremium={isPremium || !requiresPremium(item.kind)}
+            onRequestChange={(kind) => isPremium || !requiresPremium(kind) ? setPendingChange(kind) : setShowPremiumModal(true)}
+        />
+    );
+
     return (
         <CommonLayout>
             <GroupNavbar>
@@ -559,12 +599,8 @@ export const ConfigurationScreen = () => {
                             showPercentages={isPercentageGroup}
                         />
 
-                        <p className="text-3xl font-extrabold text-brand-hover">
-                            { isPremium ? "Ajustes disponibles" : "Ajustes disponibles (Algunos solo para grupos premium)" }
-                        </p>
-
-                        <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
-                            {isPercentageGroup && (
+                        <SettingsSection title="Ajustes disponibles">
+                            {showPercentagesCard && (
                             <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
                                 <div className="flex flex-row gap-5 items-center">
                                     <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
@@ -595,18 +631,14 @@ export const ConfigurationScreen = () => {
                             </div>
                             )}
 
-                            {SETTINGS_INFO.map((item) => (
-                                <ModalSettingRow
-                                    key={item.kind}
-                                    item={item}
-                                    settings={group.settings}
-                                    disabled={isStopped}
-                                    isPremium={isPremium || !requiresPremium(item.kind)}
-                                    onRequestChange={(kind) => isPremium || !requiresPremium(kind) ? setPendingChange(kind) : setShowPremiumModal(true)}
-                                />
-                            ))}
-                        </div>
+                            {availableSettings.map(renderSettingRow)}
+                        </SettingsSection>
 
+                        {premiumOnlySettings.length > 0 && (
+                            <SettingsSection title="Ajustes exclusivos para grupos premiums" className="mt-6">
+                                {premiumOnlySettings.map(renderSettingRow)}
+                            </SettingsSection>
+                        )}
                     </>
                 ) : (
                     <p className="pt-2 text-base text-warm-muted">
