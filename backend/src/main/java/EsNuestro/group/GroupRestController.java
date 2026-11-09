@@ -153,6 +153,17 @@ class GroupRestController {
         return groupService.changeNickname(groupId, principal.email(), data.nickname());
     }
 
+    @PatchMapping(value = "/{groupId}/members/me/cvu", produces = "application/json")
+    @Operation(summary = "Cambiar el alias/CVU propio; vacío lo borra")
+    @ApiResponse(responseCode = "400", description = "No es un CVU de 22 dígitos ni un alias de 6 a 20 caracteres", content = @Content)
+    MemberDTO changeMyCvu(
+            @PathVariable Long groupId,
+            @Valid @NonNull @RequestBody MemberCvuUpdateDTO data,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException, MethodArgumentNotValidException {
+        return groupService.changeCvu(groupId, principal.email(), data.cvu());
+    }
+
     @PatchMapping(value = "/{groupId}/members/me/percentage", produces = "application/json")
     @Operation(summary = "Cambiar el porcentaje de propiedad propio (solo modo porcentual); sin aprobación y sin tocar a los demás")
     @ApiResponse(responseCode = "400", description = "Porcentaje nulo, negativo, mayor a 100 o con más de 2 decimales", content = @Content)

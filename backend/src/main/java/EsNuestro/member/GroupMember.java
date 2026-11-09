@@ -29,6 +29,9 @@ import java.time.Instant;
 @Getter
 public class GroupMember {
 
+    // CVU de 22 dígitos o alias de 6 a 20 caracteres (letras, números, '.' y '-'); vacío = sin cargar.
+    public static final String CVU_REGEX = "^(\\d{22}|[A-Za-z0-9.-]{6,20})?$";
+
     @Id
     @GeneratedValue
     private Long id;
@@ -47,6 +50,9 @@ public class GroupMember {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private MemberColor color;
+
+    @Column(length = 22)
+    private String cvu;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -137,6 +143,10 @@ public class GroupMember {
     public void changeIdentity(String newNickname, MemberColor newColor) {
         this.nickname = newNickname;
         this.color = newColor;
+    }
+
+    public void changeCvu(String newCvu) {
+        this.cvu = newCvu;
     }
 
     public boolean isActive() {

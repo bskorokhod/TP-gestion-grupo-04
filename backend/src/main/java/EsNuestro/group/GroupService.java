@@ -137,10 +137,11 @@ public class GroupService {
                 .orElseThrow(() -> new ItemNotFoundException("group", normalizedCode));
 
         String nickname = data.nickname().strip();
+        String cvu = normalizeCvu(data.cvu());
         BigDecimal requestedPercentage = requestedPercentageFor(group, data.percentage());
         GroupMember membership = groupMemberRepository.findByGroup_IdAndUser_Email(group.getId(), email)
-                .map(existing -> requestAgain(existing, nickname, requestedPercentage))
-                .orElseGet(() -> createJoinRequest(group, user, nickname, requestedPercentage));
+                .map(existing -> requestAgain(existing, nickname, cvu, requestedPercentage))
+                .orElseGet(() -> createJoinRequest(group, user, nickname, cvu, requestedPercentage));
 
         return JoinRequestDTO.from(membership);
     }
@@ -211,6 +212,13 @@ public class GroupService {
         return MemberDTO.from(membership);
     }
 
+    MemberDTO changeCvu(Long groupId, String email, String newCvu) throws ItemNotFoundException {
+        GroupMember membership = requireActiveMember(groupId, email);
+
+        membership.changeCvu(normalizeCvu(newCvu));
+        return MemberDTO.from(membership);
+    }
+
     MemberDTO updateMyPercentage(Long groupId, PercentageUpdateDTO data, String actingEmail) throws ItemNotFoundException {
         Group group = requireGroupForUpdate(groupId);
         GroupMember member = requireActiveMember(groupId, actingEmail);
@@ -252,16 +260,18 @@ public class GroupService {
         return members.stream().map(MemberDTO::from).toList();
     }
 
-    private GroupMember createJoinRequest(Group group, User user, String nickname, BigDecimal requestedPercentage) {
+    private GroupMember createJoinRequest(Group group, User user, String nickname, String cvu, BigDecimal requestedPercentage) {
         GroupMember request = GroupMember.joinRequest(
                 group, user, nickname, pickColor(group.getId(), nickname, null), requestedPercentage
         );
+        request.changeCvu(cvu);
         return groupMemberRepository.save(request);
     }
 
-    private GroupMember requestAgain(GroupMember member, String nickname, BigDecimal requestedPercentage) {
+    private GroupMember requestAgain(GroupMember member, String nickname, String cvu, BigDecimal requestedPercentage) {
         requireCanRequestAgain(member);
         member.requestAgain(nickname, pickColor(member.getGroup().getId(), nickname, member), requestedPercentage);
+        member.changeCvu(cvu);
         return member;
     }
 
@@ -380,6 +390,10 @@ public class GroupService {
 
     private String normalizeJoinCode(String joinCode) {
         return joinCode.strip().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeCvu(String cvu) {
+        return cvu == null || cvu.isBlank() ? null : cvu.strip();
     }
 
     private GroupDTO toGroupDTO(GroupMember member) {
