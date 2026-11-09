@@ -4,6 +4,8 @@ import EsNuestro.group.Group;
 import EsNuestro.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -20,7 +22,8 @@ import java.time.Instant;
 
 /**
  * Membresía de un usuario en un grupo. Una única entidad cubre el ciclo de vida de la solicitud de ingreso
- * (según {@link #status}). El par (apodo, color) no puede repetirse entre los miembros
+ * (según {@link #status}). Un usuario tiene a lo sumo una fila por grupo: si fue rechazado o se fue (DEACTIVATED) y vuelve a pedir
+ * ingreso, se reutiliza la misma fila ({@link #requestAgain}). El par (apodo, color) no puede repetirse entre los miembros
  * que ocupan identidad en el grupo; esa regla la valida el servicio.
  */
 @Entity(name = "group_members")
@@ -66,8 +69,6 @@ public class GroupMember {
     @Column(precision = 5, scale = 2)
     private BigDecimal percentage;
 
-    @Enumerated(EnumType.STRING)
-    private GroupMemberExitReason exitReason;
 
     private GroupMember(
             Group group, User user, String nickname, MemberColor color,
@@ -114,7 +115,6 @@ public class GroupMember {
         this.color = color;
         this.status = MembershipStatus.PENDING;
         this.percentage = requestedPercentage;
-        this.exitReason = null;
         this.requestedAt = Instant.now();
         this.joinedAt = null;
     }
@@ -123,20 +123,12 @@ public class GroupMember {
         this.percentage = percentage;
     }
 
-    public void deactivateForLeaving() {
+    /**
+     * Abandona el grupo: queda DEACTIVATED y su porcentaje deja de existir. Si vuelve a pedir ingreso se reutiliza esta
+     * misma fila; sus deudas canceladas siguen canceladas.
+     */
+    public void leave() {
         this.status = MembershipStatus.DEACTIVATED;
-        this.exitReason = GroupMemberExitReason.LEAVING;
-    }
-
-    public void deactivateForRemoval() {
-        this.status = MembershipStatus.DEACTIVATED;
-        this.exitReason = GroupMemberExitReason.REMOVED;
-    }
-
-    public void finalizeExit() {
-        this.status = exitReason == GroupMemberExitReason.LEAVING
-                ? MembershipStatus.LEFT
-                : MembershipStatus.REMOVED;
         this.percentage = null;
     }
 
@@ -154,10 +146,10 @@ public class GroupMember {
     }
 
     public boolean isViewer() {
-        return status == MembershipStatus.ACTIVE || status == MembershipStatus.DEACTIVATED;
+        return status == MembershipStatus.ACTIVE;
     }
 
     public boolean canRequestAgain() {
-        return status == MembershipStatus.REJECTED || status == MembershipStatus.LEFT;
+        return status == MembershipStatus.REJECTED || status == MembershipStatus.DEACTIVATED;
     }
 }

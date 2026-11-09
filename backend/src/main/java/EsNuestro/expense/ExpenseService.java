@@ -117,17 +117,27 @@ public class ExpenseService {
      * otros participantes sigan debiendo (el gasto no tiene que estar saldado para todos). Cada fila lleva lo que pagó
      * el caller, a quién y cuándo lo pagó (la fecha de su último pago, no la de creación del gasto), el comprobante de
      * creación del gasto y los comprobantes de sus propios pagos (no los de otros participantes). Las devoluciones no
-     * cuentan y los gastos eliminados no entran. Del pago más nuevo al más viejo.
+     * cuentan y los gastos eliminados no entran. Del pago más nuevo al más viejo. Al final, una fila por cada parte
+     * cancelada porque su acreedor salió del grupo ({@code canceled = true}, sin fecha).
      * Como {@link #listSettledExpenses}, solo exige poder ver el grupo.
      */
     List<PaidExpenseDTO> listPaidByMe(Long groupId, String username) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
 
-        return debtRepository.findByDebtorInGroupAndExpenseStatus(groupId, caller.getId(), ExpenseStatus.APPROVED).stream()
-                .filter(Debt::isPaidShare)
+        List<Debt> debts = debtRepository.findByDebtorInGroupAndExpenseStatus(groupId, caller.getId(), ExpenseStatus.APPROVED);
+        List<PaidExpenseDTO> paid = debts.stream()
+                .filter(debt -> debt.isPaidShare() && debt.getStatus() != DebtStatus.CANCELED)
                 .map(PaidExpenseDTO::from)
                 .sorted(Comparator.comparing(PaidExpenseDTO::paidAt).reversed())
                 .toList();
+        // Las partes canceladas por la salida del acreedor no tienen fecha: van al final, de la más nueva a la más vieja
+        // según la creación del gasto.
+        List<PaidExpenseDTO> canceled = debts.stream()
+                .filter(debt -> debt.getStatus() == DebtStatus.CANCELED && !debt.isRefund() && debt.isUnsettled())
+                .sorted(Comparator.comparing((Debt debt) -> debt.getExpense().getCreatedAt()).reversed())
+                .map(PaidExpenseDTO::fromCanceled)
+                .toList();
+        return java.util.stream.Stream.concat(paid.stream(), canceled.stream()).toList();
     }
 
     ExpenseDTO getExpense(Long groupId, Long expenseId, String username) throws ItemNotFoundException {
@@ -313,7 +323,8 @@ public class ExpenseService {
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
                 .filter(this::hasLiveDebts)
                 .filter(expense -> expense.getDebts().stream().anyMatch(debt ->
-                        debt.getCreditor().getId().equals(caller.getId()) && debt.isUnsettled()))
+                        debt.getCreditor().getId().equals(caller.getId()) && debt.isUnsettled()
+                                && debt.getStatus() != DebtStatus.CANCELED))
                 .map(ExpenseDTO::from)
                 .toList();
     }
@@ -324,7 +335,8 @@ public class ExpenseService {
         return expenseRepository.findByGroup_IdOrderByCreatedAtDesc(groupId).stream()
                 .filter(this::hasLiveDebts)
                 .filter(expense -> expense.getDebts().stream()
-                        .anyMatch(debt -> debt.getDebtor().getId().equals(caller.getId()) && debt.isUnsettled()))
+                        .anyMatch(debt -> debt.getDebtor().getId().equals(caller.getId()) && debt.isUnsettled()
+                                && debt.getStatus() != DebtStatus.CANCELED))
                 .map(ExpenseDTO::from)
                 .toList();
     }
@@ -414,15 +426,23 @@ public class ExpenseService {
      * ejecutarse, y una excepción que cruza este límite transaccional marcaría para rollback a la votación.
      */
     public Optional<String> findRegistrationBlocker(ExpenseDetails details) {
+        return findRegistrationBlocker(details, true);
+    }
+
+    /**
+     * {@code requireActiveCreditor} es false al modificar un gasto ya existente: si su acreedor salió del grupo la
+     * modificación igual se permite, y las deudas hacia él nacen canceladas (ver {@code Expense.applyEdit}).
+     */
+    private Optional<String> findRegistrationBlocker(ExpenseDetails details, boolean requireActiveCreditor) {
         if (details.getCreditor().getGroup().isStopped()) {
             return Optional.of("The group is stopped: the percentages of the active members must add up to exactly 100%");
         }
-        if (!details.getCreditor().isActive()) {
-            return Optional.of("Member '" + details.getCreditor().getNickname() + "' is no longer an active member of this group");
+        if (requireActiveCreditor && !details.getCreditor().isActive()) {
+            return Optional.of("The expense cannot proceed because it involves inactive creditors or debtors");
         }
         for (ExpenseParticipant participant : details.getParticipants()) {
             if (!participant.getMember().isActive()) {
-                return Optional.of("Member '" + participant.getMember().getNickname() + "' is no longer an active member of this group");
+                return Optional.of("The expense cannot proceed because it involves inactive creditors or debtors");
             }
         }
         if (!details.getParticipants().isEmpty()) {
@@ -483,7 +503,7 @@ public class ExpenseService {
         if (expense.getStatus() != ExpenseStatus.APPROVED) {
             return Optional.of("The expense is no longer active, it is " + expense.getStatus());
         }
-        return proposed == null ? Optional.empty() : findRegistrationBlocker(proposed);
+        return proposed == null ? Optional.empty() : findRegistrationBlocker(proposed, false);
     }
 
     /** Gastos con deudas vigentes: los aprobados y los cancelados (que pueden tener devoluciones pendientes). */
@@ -618,7 +638,7 @@ public class ExpenseService {
     private void requireActive(GroupMember member) {
         if (!member.isActive()) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Member '" + member.getNickname() + "' is not an active member of this group"
+                    HttpStatus.CONFLICT, "The expense cannot proceed because it involves inactive creditors or debtors"
             );
         }
     }
@@ -667,6 +687,11 @@ public class ExpenseService {
     }
 
     private void requireDebtActive(Debt debt) {
+        if (debt.getStatus() == DebtStatus.CANCELED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The debt was canceled because its creditor left the group and cannot receive payments"
+            );
+        }
         if (debt.getStatus() != DebtStatus.ACTIVE) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "The debt is suspended and cannot receive payments right now"

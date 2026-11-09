@@ -4,11 +4,12 @@ import EsNuestro.group.DistributionMode;
 import EsNuestro.group.Group;
 
 /**
- * Vista pública previa a unirse. Expone el modo de repartición para que el cliente sepa si pedir un porcentaje;
- * no expone el estado del grupo ni cuánto porcentaje queda disponible.
+ * Vista pública previa a unirse, para quien todavía no es miembro. Expone solo el modo de repartición, para que el
+ * cliente sepa si pedir un porcentaje. Por privacidad no expone nada que identifique al grupo (nombre, descripción,
+ * miembros), ni su estado, ni cuánto porcentaje queda disponible.
  */
-public record GroupPreviewDTO(String name, DistributionMode distributionMode) {
+public record GroupPreviewDTO(DistributionMode distributionMode) {
     public static GroupPreviewDTO from(Group group) {
-        return new GroupPreviewDTO(group.getName(), group.getSettings().getDistributionMode());
+        return new GroupPreviewDTO(group.getSettings().getDistributionMode());
     }
 }
