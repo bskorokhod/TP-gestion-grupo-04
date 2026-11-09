@@ -4,7 +4,7 @@ import TextField from "@/components/Forms/TextField.tsx";
 import { ModalShell } from "./ModalShell";
 import { JoinGroup, JoinGroupSchema } from "@/models/Group.ts";
 import { useFormToasts } from "@/hooks/useFormToasts";
-import { getApiErrorStatus } from "@/lib/api.ts";
+import { apiErrorMessage } from "@/lib/apiErrors.ts";
 import { usePreviewGroup } from "@/services/GroupServices.ts";
 
 export interface JoinGroupModalProps {
@@ -31,9 +31,7 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
 
     const previewErrorMessage = !preview.isError
         ? null
-        : getApiErrorStatus(preview.error) === 404
-            ? "No existe un grupo con ese código."
-            : "No pudimos consultar el grupo. Probá de nuevo en un momento.";
+        : apiErrorMessage(preview.error, { 404: "No encontramos un grupo con ese código" });
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -100,7 +98,7 @@ export function JoinGroupModal({ onClose, onJoin }: JoinGroupModalProps) {
                 )}
                 {!preview.isFetching && group && (
                     <p role="status" className="mt-2 text-center text-sm text-modal-ink">
-                        Te vas a unir a <strong>«{group.name}»</strong>
+                        Código válido
                     </p>
                 )}
                 {!preview.isFetching && previewErrorMessage && (

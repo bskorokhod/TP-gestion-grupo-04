@@ -1,16 +1,19 @@
 package EsNuestro.group;
 
+import EsNuestro.common.exception.CodedResponseStatusException;
+import EsNuestro.common.exception.ErrorCode;
 import EsNuestro.common.exception.ItemNotFoundException;
+import EsNuestro.expense.Debt;
 import EsNuestro.expense.DebtRepository;
 import EsNuestro.group.dtos.GroupCreateDTO;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.group.dtos.GroupPreviewDTO;
 import EsNuestro.group.dtos.JoinGroupDTO;
+import EsNuestro.group.dtos.LeavePreviewDTO;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.GroupMemberRepository;
 import EsNuestro.member.MemberColor;
 import EsNuestro.member.MembershipStatus;
-import EsNuestro.member.dtos.FinalizeExitsDTO;
 import EsNuestro.member.dtos.JoinRequestDTO;
 import EsNuestro.member.dtos.MemberDTO;
 import EsNuestro.member.dtos.PercentageUpdateDTO;
@@ -139,9 +142,13 @@ public class GroupService {
 
         String nickname = data.nickname().strip();
         String cvu = normalizeCvu(data.cvu());
+        Optional<GroupMember> existing = groupMemberRepository.findByGroup_IdAndUser_Email(group.getId(), email);
+        // Primero la membresía: quien ya es ACTIVE o está PENDING recibe ese error y no uno sobre el porcentaje.
+        existing.ifPresent(this::requireCanRequestAgain);
         BigDecimal requestedPercentage = requestedPercentageFor(group, data.percentage());
-        GroupMember membership = groupMemberRepository.findByGroup_IdAndUser_Email(group.getId(), email)
-                .map(existing -> requestAgain(existing, nickname, cvu, requestedPercentage))
+        GroupMember membership = existing
+                // Rechazado o que se fue (DEACTIVATED): vuelve a pedir ingreso con su misma fila.
+                .map(previous -> requestAgain(previous, nickname, cvu, requestedPercentage))
                 .orElseGet(() -> createJoinRequest(group, user, nickname, cvu, requestedPercentage));
 
         return JoinRequestDTO.from(membership);
@@ -171,8 +178,8 @@ public class GroupService {
         // Entre el envío y la aprobación la suma pudo cambiar: se vuelve a validar con el mismo mensaje genérico.
         if (group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
             if (target.getPercentage() == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
+                throw new CodedResponseStatusException(
+                        HttpStatus.CONFLICT, ErrorCode.JOIN_PERCENTAGE_REQUIRED,
                         "The application does not include an ownership percentage, the applicant must send it again"
                 );
             }
@@ -197,11 +204,45 @@ public class GroupService {
         GroupMember membership = requireActiveMember(groupId, email);
 
         requireNoUnsettledDebts(membership);
-        membership.deactivateForLeaving();
+        // Lo que le deben deja de ser cobrable: las deudas a su favor pasan a CANCELED en esta misma transacción.
+        collectableDebtsOwedTo(groupId, membership).forEach(Debt::cancel);
+        membership.leave();
         // Su porcentaje deja de computarse; si queda un único activo en modo porcentual, pasa a tener 100%.
         group.refreshOwnership();
         // Las votaciones activas dejan de contar a este miembro y pueden quedar resueltas.
         eventPublisher.publishEvent(new MemberLeftEvent(groupId, membership.getId()));
+    }
+
+    /**
+     * Lo que el caller perdería si abandonara ahora: sus deudas a favor sin saldar, agrupadas por deudor y por el monto
+     * pendiente. No modifica nada.
+     */
+    @Transactional(readOnly = true)
+    LeavePreviewDTO leavePreview(Long groupId, String email) throws ItemNotFoundException {
+        GroupMember membership = requireActiveMember(groupId, email);
+
+        Map<Long, LeavePreviewDTO.OwedToMe> byDebtor = new LinkedHashMap<>();
+        for (Debt debt : collectableDebtsOwedTo(groupId, membership)) {
+            GroupMember debtor = debt.getDebtor();
+            byDebtor.merge(
+                    debtor.getId(),
+                    new LeavePreviewDTO.OwedToMe(debtor.getId(), debtor.getNickname(), debt.remaining()),
+                    (a, b) -> new LeavePreviewDTO.OwedToMe(a.debtorMemberId(), a.debtorNickname(), a.amount().add(b.amount()))
+            );
+        }
+        List<LeavePreviewDTO.OwedToMe> owedToMe = List.copyOf(byDebtor.values());
+        BigDecimal total = owedToMe.stream().map(LeavePreviewDTO.OwedToMe::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        Group.StatusAfterLeaving after = membership.getGroup().statusAfterLeaving(membership);
+        return new LeavePreviewDTO(
+                debtRepository.existsUnsettledByDebtorId(membership.getId()), total, owedToMe,
+                after.stopped(), after.missingPercentage()
+        );
+    }
+
+    private List<Debt> collectableDebtsOwedTo(Long groupId, GroupMember member) {
+        return debtRepository.findCollectableByGroupId(groupId).stream()
+                .filter(debt -> debt.getCreditor().getId().equals(member.getId()))
+                .toList();
     }
 
     MemberDTO changeNickname(Long groupId, String email, String newNickname) throws ItemNotFoundException {
@@ -238,29 +279,6 @@ public class GroupService {
         return MemberDTO.from(member);
     }
 
-    List<MemberDTO> finalizeExits(Long groupId, FinalizeExitsDTO data, String actingEmail) throws ItemNotFoundException {
-        requireGroupForUpdate(groupId);
-        requireActiveMember(groupId, actingEmail);
-
-        List<GroupMember> members = groupMemberRepository.findByGroup_Id(groupId);
-        Map<Long, GroupMember> byId = indexById(members);
-
-        List<GroupMember> toFinalize = new ArrayList<>();
-        for (Long memberId : new LinkedHashSet<>(data.memberIds())) {
-            GroupMember member = byId.get(memberId);
-            if (member == null) {
-                throw new ItemNotFoundException("group member", memberId);
-            }
-            requireStatus(member, MembershipStatus.DEACTIVATED);
-            toFinalize.add(member);
-        }
-
-        // Los porcentajes de los inactivos ya no se computan desde la baja: acá solo se cierra la salida.
-        toFinalize.forEach(GroupMember::finalizeExit);
-
-        return members.stream().map(MemberDTO::from).toList();
-    }
-
     private GroupMember createJoinRequest(Group group, User user, String nickname, String cvu, BigDecimal requestedPercentage) {
         GroupMember request = GroupMember.joinRequest(
                 group, user, nickname, pickColor(group.getId(), nickname, null), requestedPercentage
@@ -284,7 +302,8 @@ public class GroupService {
         if (!group.getSettings().getDistributionMode().hasOwnershipPercentages()) {
             return null;
         }
-        BigDecimal percentage = PercentageDistribution.requireValidPercentage(requested);
+        BigDecimal percentage = PercentageDistribution.requireValidPercentage(
+                requested, ErrorCode.JOIN_PERCENTAGE_REQUIRED, ErrorCode.JOIN_PERCENTAGE_NOT_AVAILABLE);
         PercentageDistribution.requireRoomToJoin(group, percentage);
         return percentage;
     }
@@ -293,17 +312,21 @@ public class GroupService {
         if (member.canRequestAgain()) {
             return;
         }
-        String reason = member.getStatus() == MembershipStatus.REMOVED
-                ? "You were removed from this group and cannot request to join again"
-                : "You already belong to this group or have a pending request";
-        throw new ResponseStatusException(HttpStatus.CONFLICT, reason);
+        throw new CodedResponseStatusException(
+                HttpStatus.CONFLICT, ErrorCode.ALREADY_MEMBER_OR_PENDING,
+                "You already belong to this group or have a pending request"
+        );
     }
 
     private GroupMember requirePendingRequestManagedBy(Long groupId, Long memberId, String actingEmail) throws ItemNotFoundException {
         requireActiveMember(groupId, actingEmail);
 
         GroupMember target = requireMemberById(groupId, memberId);
-        requireStatus(target, MembershipStatus.PENDING);
+        if (target.getStatus() != MembershipStatus.PENDING) {
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT, ErrorCode.JOIN_REQUEST_NOT_PENDING, "The join request is no longer pending"
+            );
+        }
         return target;
     }
 
@@ -313,8 +336,8 @@ public class GroupService {
      */
     public void requireRunning(Group group) {
         if (group.isStopped()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT, ErrorCode.GROUP_STOPPED,
                     "The group is stopped. Another " + PercentageDistribution.format(group.missingPercentage()) +
                             "% needs to be allocated to reach 100%"
             );
@@ -367,8 +390,8 @@ public class GroupService {
                 .filter(color -> !sameNickTaken.contains(color))
                 .toList();
         if (allowed.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Nickname is already used by too many members in this group"
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT, ErrorCode.NICKNAME_NOT_AVAILABLE, "That nickname is not available in this group"
             );
         }
 
@@ -401,10 +424,6 @@ public class GroupService {
         return GroupDTO.from(member.getGroup(), member);
     }
 
-    private Map<Long, GroupMember> indexById(List<GroupMember> members) {
-        return members.stream().collect(Collectors.toMap(GroupMember::getId, Function.identity()));
-    }
-
     private User requireUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
@@ -426,7 +445,11 @@ public class GroupService {
 
     public GroupMember requireActiveMember(Long groupId, String email) throws ItemNotFoundException {
         GroupMember membership = requireMembership(groupId, email);
-        requireStatus(membership, MembershipStatus.ACTIVE);
+        if (membership.getStatus() != MembershipStatus.ACTIVE) {
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT, ErrorCode.NOT_ACTIVE_MEMBER, "You are not an active member of this group"
+            );
+        }
         return membership;
     }
 
@@ -447,15 +470,6 @@ public class GroupService {
         return member;
     }
 
-    private void requireStatus(GroupMember member, MembershipStatus expected) {
-        if (member.getStatus() != expected) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Expected membership status " + expected + " but was " + member.getStatus()
-            );
-        }
-    }
-
     /**
      * Apodo por defecto cuando el usuario no elige uno: «Nombre Apellido» si cabe en 20
      * caracteres, solo «Nombre» en caso contrario.
@@ -467,8 +481,9 @@ public class GroupService {
 
     private void requireNoUnsettledDebts(GroupMember member) {
         if (debtRepository.existsUnsettledByDebtorId(member.getId())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "The member has unsettled debts and cannot leave the group yet"
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT, ErrorCode.DEBTS_UNSETTLED,
+                    "The member has unsettled debts and cannot leave the group yet"
             );
         }
     }

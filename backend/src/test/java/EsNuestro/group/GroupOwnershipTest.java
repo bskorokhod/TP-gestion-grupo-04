@@ -104,7 +104,7 @@ class GroupOwnershipTest {
         GroupMember leaving = activeMember(group, "20");
         assertThat(group.assignedPercentage()).isEqualByComparingTo("120");
 
-        leaving.deactivateForLeaving();
+        leaving.leave();
 
         assertThat(group.assignedPercentage()).isEqualByComparingTo("100");
         assertThat(group.getStatus()).isEqualTo(GroupStatus.RUNNING);
@@ -118,7 +118,7 @@ class GroupOwnershipTest {
         activeMember(group, "25");
         GroupMember leaving = activeMember(group, "25");
 
-        leaving.deactivateForLeaving();
+        leaving.leave();
         group.refreshOwnership();
 
         assertThat(group.getStatus()).isEqualTo(GroupStatus.STOPPED);
@@ -131,7 +131,7 @@ class GroupOwnershipTest {
         GroupMember first = founder(group, "60");
         GroupMember second = activeMember(group, "40");
 
-        second.deactivateForLeaving();
+        second.leave();
         group.refreshOwnership();
 
         assertThat(first.getPercentage()).isEqualByComparingTo("100");
@@ -178,7 +178,7 @@ class GroupOwnershipTest {
         GroupMember second = activeMember(group, "0");
         GroupMember leaving = activeMember(group, "0");
 
-        leaving.deactivateForLeaving();
+        leaving.leave();
         group.refreshOwnership();
 
         assertThat(first.getPercentage()).isEqualByComparingTo("50");

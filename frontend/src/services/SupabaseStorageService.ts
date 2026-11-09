@@ -1,3 +1,4 @@
+import { UploadError } from "@/lib/apiErrors.ts";
 import { supabase, DEBT_RECEIPTS_BUCKET } from "@/lib/supabase";
 
 /**
@@ -13,7 +14,7 @@ export async function uploadDebtReceipt(file: File, groupId: number): Promise<st
         .upload(path, file, { upsert: false, contentType: file.type });
 
     if (uploadError) {
-        throw new Error(`No se pudo subir el comprobante: ${uploadError.message}`);
+        throw new UploadError();
     }
 
     const { data } = supabase.storage.from(DEBT_RECEIPTS_BUCKET).getPublicUrl(path);

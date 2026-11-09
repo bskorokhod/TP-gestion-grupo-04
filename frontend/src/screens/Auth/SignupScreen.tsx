@@ -71,7 +71,7 @@ export const SignupScreen = () => {
                     showSuccessToast("Cuenta creada correctamente");
                 },
                 onError: (err) =>
-                    showApiError(err, "¡Hubo un problema!")
+                    showApiError(err, "¡Hubo un problema!", { 409: "Ya existe una cuenta con esos datos." })
             }
         )
     }

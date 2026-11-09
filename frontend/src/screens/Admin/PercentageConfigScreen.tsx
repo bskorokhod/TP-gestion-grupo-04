@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import {missingPercentageText} from "@/constants/group.ts";
 import {
     Cell,
     Pie,
@@ -204,7 +205,7 @@ export const PercentageConfigScreen = () => {
                                     {totalIsComplete
                                         ? "Total asignado: 100%"
                                         : difference > 0
-                                            ? `Falta asignar ${difference}% para llegar al 100%`
+                                            ? missingPercentageText(difference)
                                             : `Te pasaste ${Math.abs(difference)}% del 100%`}
                                 </p>
                             </div>

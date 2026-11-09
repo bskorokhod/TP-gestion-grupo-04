@@ -1,3 +1,4 @@
+import { UploadError } from "@/lib/apiErrors.ts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://hosxzydkpstptmwjnhzh.supabase.co";
@@ -22,7 +23,7 @@ async function uploadAt(bucket: string, path: string, file: File): Promise<strin
         .upload(path, file, { upsert: false, contentType: file.type });
 
     if (error) {
-        throw new Error(`No se pudo subir el archivo: ${error.message}`);
+        throw new UploadError();
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);

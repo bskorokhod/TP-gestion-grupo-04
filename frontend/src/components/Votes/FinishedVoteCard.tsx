@@ -3,7 +3,7 @@ import type { ReactElement } from "react";
 import { ConfigChangeDetails, ExpenseProposalDetails, ExpenseReportDetails, ReservationClaimDetails, TopRow } from "@/components/Votes/VoteCard.tsx";
 import { VOTING_MODEL_LABEL } from "@/constants/config_modals.ts";
 import type { FinishedVote } from "@/models/Vote.ts";
-import {FAILURE_REASON_LABEL} from "@/constants/votes.ts";
+import {describeFailureReason} from "@/constants/votes.ts";
 
 interface ResultBadge {
     readonly label: string;
@@ -88,7 +88,7 @@ export function FinishedVoteCard({ vote }: FinishedVoteCardProps): ReactElement 
             )}
 
             {vote.failureReason ? (
-                <p className="text-xs text-ink-soft">{FAILURE_REASON_LABEL[vote.failureReason] ?? vote.failureReason}</p>
+                <p className="text-xs text-ink-soft">{describeFailureReason(vote.failureReason)}</p>
             ) : null}
 
             <FinishedProgress vote={vote} />

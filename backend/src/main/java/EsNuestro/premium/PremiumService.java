@@ -4,6 +4,7 @@ import EsNuestro.common.exception.ItemNotFoundException;
 import EsNuestro.common.time.AppTime;
 import EsNuestro.group.Group;
 import EsNuestro.group.GroupService;
+import EsNuestro.group.MemberLeftEvent;
 import EsNuestro.group.PremiumEndedEvent;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.member.GroupMember;
@@ -19,6 +20,7 @@ import EsNuestro.user.User;
 import EsNuestro.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -163,9 +165,9 @@ public class PremiumService {
     }
 
     /**
-     * Cancela la suscripción del grupo. Una prueba termina en el acto y no se puede volver a activar. Un plan pago deja de
-     * renovarse y el grupo lo conserva hasta el fin del período ya pagado, sin reembolso. Cualquier miembro activo puede
-     * hacerlo, igual que contratarlo.
+     * Cancela la suscripción del grupo. Una prueba no se puede volver a activar. Tanto una prueba como un plan pago
+     * deja de renovarse y el grupo lo conserva hasta el fin del período ya pagado, sin reembolso.
+     * Cualquier miembro activo puede hacerlo, igual que contratarlo.
      */
     PremiumSubscriptionDTO cancel(Long groupId, String callerEmail) throws ItemNotFoundException {
         GroupMember member = groupService.requireActiveMember(groupId, callerEmail);
@@ -180,14 +182,32 @@ public class PremiumService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The premium plan is already cancelled");
         }
 
-        boolean wasTrial = subscription.isOnTrial();
-        subscription.cancel(Instant.now());
-        if (wasTrial) {
-            endPremium(group);
-        }
-        notice(group, wasTrial ? PremiumNoticeType.TRIAL_CANCELLED : PremiumNoticeType.PLAN_CANCELLED,
-                member.getUser(), subscription.getPayer(), subscription.getEndsAt());
+        cancelSubscription(group, subscription, member.getUser());
         return PremiumSubscriptionDTO.from(subscription);
+    }
+
+    /**
+     * Si quien abandona el grupo es el pagador de una suscripción activa, se cancela automáticamente (con las mismas reglas
+     * que {@link #cancel}). Si la suscripción ya estaba cancelada, o la pagó otro miembro, no se toca. Corre en la
+     * transacción de {@code GroupService.leaveGroup}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onMemberLeft(MemberLeftEvent event) {
+        GroupMember member = groupMemberRepository.findById(event.memberId()).orElse(null);
+        if (member == null) {
+            return;
+        }
+        subscriptionRepository.findByGroup_Id(event.groupId())
+                .filter(PremiumSubscription::isActive)
+                .filter(subscription -> subscription.getPayer().getId().equals(member.getUser().getId()))
+                .ifPresent(subscription -> cancelSubscription(member.getGroup(), subscription, member.getUser()));
+    }
+
+    /** Cancela una suscripción activa y deja el aviso para los demás miembros. */
+    private void cancelSubscription(Group group, PremiumSubscription subscription, User actor) {
+        subscription.cancel(Instant.now());
+        notice(group, subscription.isOnTrial() ? PremiumNoticeType.TRIAL_CANCELLED : PremiumNoticeType.PLAN_CANCELLED,
+                actor, subscription.getPayer(), subscription.getEndsAt());
     }
 
     /** Oferta del plan (precio y días de prueba): no depende de ningún grupo ni usuario. */

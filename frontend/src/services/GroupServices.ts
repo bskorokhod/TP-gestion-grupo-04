@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import {useMutation, useQueries, useQuery, useQueryClient,} from "@tanstack/react-query";
 import { useApiClient } from "@/hooks/useApiClient";
 import { useToken } from "@/contexts/TokenContext.tsx";
-import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumEligibility, PremiumEligibilitySchema, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema, PremiumStatus, PremiumStatusSchema, PremiumNotice, PremiumNoticeSchema, PremiumPlan, PremiumPlanSchema,} from "@/models/Group.ts";
+import {Group, GroupCreate, GroupCreateSchema, GroupPreview, GroupPreviewSchema, GroupSchema, JoinGroup, JoinGroupSchema, JOIN_CODE_REGEX, JoinRequest, JoinRequestSchema, Member, MemberSchema, MembershipStatus, PremiumEligibility, PremiumEligibilitySchema, PremiumSubscribe, PremiumSubscribeSchema, PremiumSubscription, PremiumSubscriptionSchema, PremiumStatus, PremiumStatusSchema, PremiumNotice, PremiumNoticeSchema, PremiumPlan, PremiumPlanSchema, LeavePreview, LeavePreviewSchema,} from "@/models/Group.ts";
 import { ApiService } from "@/services/ApiServices.ts";
 import { getApiErrorStatus } from "@/lib/api.ts";
 import { TokenService } from "@/services/TokenService";
@@ -399,4 +399,40 @@ export function useMyMember(groupId?: number): Member | undefined {
     if (!myUsername) return undefined;
 
     return members.find((m) => m.username === myUsername);
+}
+
+/**
+ * Qué pasaría si el miembro abandona el grupo: si tiene deudas propias sin saldar (no puede irse) y cuánto le deben
+ * (lo perdería). Sin caché: cada vez que se abre el diálogo se pregunta de nuevo, porque las deudas cambian.
+ */
+export function useGetLeavePreview(groupId: number) {
+    const api = useApiClient();
+    return useQuery({
+        queryKey: ["groups", groupId, "leave-preview"] as const,
+        enabled: Number.isFinite(groupId) && groupId > 0,
+        gcTime: 0,
+        staleTime: 0,
+        retry: false,
+        refetchOnWindowFocus: false,
+        queryFn: async (): Promise<LeavePreview> => {
+            const data = await api.get(`/groups/${groupId}/leave-preview`);
+            return LeavePreviewSchema.parse(data);
+        },
+    });
+}
+
+/** Abandona el grupo (`DELETE /groups/:id/members/me`, 204). Al terminar se refrescan los grupos del usuario. */
+export function useLeaveGroup(groupId: number) {
+    const api = useApiClient();
+    const qc = useQueryClient();
+
+    return useMutation<void, Error, void>({
+        mutationFn: async (): Promise<void> => {
+            await api.del(`/groups/${groupId}/members/me`);
+        },
+        onSuccess: (): void => {
+            qc.removeQueries({ queryKey: ["groups", groupId] });
+            void qc.invalidateQueries({ queryKey: ["groups"] });
+        },
+    });
 }

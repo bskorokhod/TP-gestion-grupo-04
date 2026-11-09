@@ -319,5 +319,40 @@ public class Expense {
                 debts.add(Debt.refund(this, details.getCreditor(), membersById.get(memberId), outcome.refundAmount()));
             }
         }
+        cancelDebtsOfInactiveMembers();
+    }
+
+    /**
+     * Una deuda sin saldar cuyo acreedor o deudor ya no está en el grupo nace (o queda) cancelada: nadie la va a cobrar
+     * ni pagar, y no genera deuda nueva para quien sigue en el grupo. Incluye la devolución de lo que alguien pagó de
+     * más: si quien pagó ya salió, ese dinero queda en manos del acreedor y no se recupera (es una decisión
+     * deliberada, igual que perder lo que le deben al irse).
+     */
+    private void cancelDebtsOfInactiveMembers() {
+        debts.stream()
+                .filter(Debt::isUnsettled)
+                .filter(debt -> !debt.getCreditor().isActive() || !debt.getDebtor().isActive())
+                .forEach(Debt::cancel);
+    }
+
+    /**
+     * Miembros del acreedor y de los participantes (de la edición en revisión si hay una) que ya no están activos, sin
+     * repetir. Si el gasto sigue vigente, requiere una modificación para sacarlos o reasignarlos.
+     */
+    public List<GroupMember> inactiveInvolvedMembers() {
+        ExpenseDetails current = detailsUnderReview();
+        Map<Long, GroupMember> byId = new LinkedHashMap<>();
+        byId.put(current.getCreditor().getId(), current.getCreditor());
+        current.getParticipants().forEach(p -> byId.putIfAbsent(p.getMember().getId(), p.getMember()));
+        return byId.values().stream().filter(member -> !member.isActive()).toList();
+    }
+
+    /**
+     * Solo un gasto pendiente de aprobación (nuevo, o una edición en revisión: sus detalles pendientes) cuyo acreedor o
+     * algún participante ya no está activo requiere modificarse. Un gasto aprobado nunca: quien se va no deja partes
+     * propias sin pagar (no puede irse con deudas) y las deudas hacia un acreedor que se fue ya se cancelan.
+     */
+    public boolean requiresModification() {
+        return status == ExpenseStatus.PENDING_APPROVAL && !inactiveInvolvedMembers().isEmpty();
     }
 }

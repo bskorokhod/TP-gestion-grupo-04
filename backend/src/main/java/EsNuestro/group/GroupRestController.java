@@ -6,6 +6,7 @@ import EsNuestro.group.dtos.GroupCreateDTO;
 import EsNuestro.group.dtos.GroupDTO;
 import EsNuestro.group.dtos.GroupPreviewDTO;
 import EsNuestro.group.dtos.JoinGroupDTO;
+import EsNuestro.group.dtos.LeavePreviewDTO;
 import EsNuestro.member.dtos.*;
 import EsNuestro.member.MembershipStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,7 +73,7 @@ class GroupRestController {
     }
 
     @GetMapping(value = "/join/{joinCode}", produces = "application/json")
-    @Operation(summary = "Obtener el nombre de un grupo a partir de su código de unión")
+    @Operation(summary = "Obtener el modo de repartición de un grupo a partir de su código de unión (no expone datos que identifiquen al grupo)")
     @ApiResponse(responseCode = "404", description = "No existe un grupo con ese código", content = @Content)
     GroupPreviewDTO previewByJoinCode(@PathVariable String joinCode) throws ItemNotFoundException {
         return groupService.previewGroup(joinCode);
@@ -131,10 +132,19 @@ class GroupRestController {
         return groupService.rejectJoinRequest(groupId, memberId, principal.email());
     }
 
+    @GetMapping(value = "/{groupId}/leave-preview", produces = "application/json")
+    @Operation(summary = "Qué perdería el caller al abandonar el grupo: si debe plata y lo que le deben, por deudor")
+    LeavePreviewDTO leavePreview(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal JwtUserDetails principal
+    ) throws ItemNotFoundException {
+        return groupService.leavePreview(groupId, principal.email());
+    }
+
     @DeleteMapping("/{groupId}/members/me")
     @Operation(summary = "Leave the group")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiResponse(responseCode = "409", description = "The founder cannot leave the group", content = @Content)
+    @ApiResponse(responseCode = "409", description = "El miembro tiene deudas propias sin saldar", content = @Content)
     void leave(
             @PathVariable Long groupId,
             @AuthenticationPrincipal JwtUserDetails principal
@@ -174,17 +184,5 @@ class GroupRestController {
             @AuthenticationPrincipal JwtUserDetails principal
     ) throws ItemNotFoundException {
         return groupService.updateMyPercentage(groupId, data, principal.email());
-    }
-
-    @DeleteMapping(value = "/{groupId}/members/percentages", produces = "application/json")
-    @Operation(summary = "Confirmar la salida de miembros DEACTIVATED; su porcentaje ya no se computaba desde la baja")
-    @ApiResponse(responseCode = "403", description = "Caller lacks permission", content = @Content)
-    @ApiResponse(responseCode = "409", description = "Un miembro no está DEACTIVATED", content = @Content)
-    List<MemberDTO> finalizeExits(
-            @PathVariable Long groupId,
-            @Valid @NonNull @RequestBody FinalizeExitsDTO data,
-            @AuthenticationPrincipal JwtUserDetails principal
-    ) throws ItemNotFoundException {
-        return groupService.finalizeExits(groupId, data, principal.email());
     }
 }
