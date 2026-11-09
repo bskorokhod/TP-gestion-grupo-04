@@ -92,6 +92,7 @@ public class GroupService {
         GroupMember founderMembership = GroupMember.founder(
                 group, founder, nickname, pickColor(group.getId(), nickname, null), founderPercentage
         );
+        founderMembership.changeCvu(normalizeCvu(data.founderCvu()));
         groupMemberRepository.save(founderMembership);
 
         return toGroupDTO(founderMembership);

@@ -127,11 +127,13 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
         const rawName = formData.get("groupName")?.toString().trim() ?? "";
         const rawDescription = formData.get("description")?.toString().trim() ?? "";
         const rawFounderNickname = formData.get("founderNickname")?.toString().trim() ?? "";
+        const rawFounderCvu = formData.get("founderCvu")?.toString().trim() ?? "";
 
         const payload = {
             name: rawName,
             description: rawDescription,
             ...(rawFounderNickname && { founderNickname: rawFounderNickname }),
+            ...(rawFounderCvu && { founderCvu: rawFounderCvu }),
             ...(requiresFounderPercentage && { founderPercentage: parseOptionalNumber(founderPercentage) }),
             settings: {
                 distributionMode: distribution === "" ? undefined : distribution,
@@ -302,21 +304,32 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                         autoComplete="off"
                         maxLength={30}
                     />
+                    <TextField
+                        id="founder-cvu"
+                        name="founderCvu"
+                        label="Tu alias o CVU (opcional)"
+                        /*hint="Se lo mostramos a quienes tengan que pagarte. CVU de 22 dígitos o alias de 6 a 20 caracteres."*/
+                        placeholder="Ej. juan.perez.mp"
+                        autoComplete="off"
+                        maxLength={22}
+                    />
                     {requiresFounderPercentage && (
-                        <TextField
-                            id="founder-percentage"
-                            label="Tu porcentaje de propiedad"
-                            hint="El grupo queda detenido hasta que los porcentajes de todos los miembros sumen 100%."
-                            type="number"
-                            inputMode="decimal"
-                            min={0.01}
-                            max={100}
-                            step={0.01}
-                            placeholder="Ej. 50"
-                            value={founderPercentage}
-                            onChange={(event) => setFounderPercentage(event.target.value)}
-                            required
-                        />
+                        <div className="md:col-span-2">
+                            <TextField
+                                id="founder-percentage"
+                                label="Tu porcentaje de propiedad"
+                                hint="El grupo queda detenido hasta que los porcentajes de todos los miembros sumen 100%."
+                                type="number"
+                                inputMode="decimal"
+                                min={0.01}
+                                max={100}
+                                step={0.01}
+                                placeholder="Ej. 50"
+                                value={founderPercentage}
+                                onChange={(event) => setFounderPercentage(event.target.value)}
+                                required
+                            />
+                        </div>
                     )}
                 </div>
             </FormSection>

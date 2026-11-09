@@ -322,6 +322,7 @@ export const GroupCreateSchema = z.object({
         .trim()
         .max(30, "El apodo no puede superar los 30 caracteres")
         .optional(),
+    founderCvu: MemberCvuSchema.optional(),
     /** Porcentaje de propiedad del fundador: obligatorio en modo porcentual, se omite en equitativo. */
     founderPercentage: OwnershipPercentageSchema.optional(),
     settings: GroupSettingsCreateSchema,
