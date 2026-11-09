@@ -8,6 +8,7 @@ export interface ExpenseFormInitialValues {
     readonly category: ExpenseCategory;
     readonly amount: string;
     readonly splitMethod: SplitMethod;
+    readonly closingDeadlineDays: string;
     readonly participantIds: ReadonlySet<number>;
 }
 
@@ -25,6 +26,8 @@ export interface ExpenseForm {
     readonly setFile: (file: File | null) => void;
     readonly splitMethod: SplitMethod;
     readonly setSplitMethod: (splitMethod: SplitMethod) => void;
+    readonly closingDeadlineDays: string;
+    readonly setClosingDeadlineDays: (closingDeadlineDays: string) => void;
     readonly participantIds: ReadonlySet<number>;
     readonly addParticipant: (memberId: number) => void;
     readonly removeParticipant: (memberId: number) => void;
@@ -38,6 +41,7 @@ export function useExpenseForm(initial: ExpenseFormInitialValues): ExpenseForm {
     const [amount, setAmount] = useState<string>(initial.amount);
     const [file, setFile] = useState<File | null>(null);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>(initial.splitMethod);
+    const [closingDeadlineDays, setClosingDeadlineDays] = useState<string>(initial.closingDeadlineDays);
     const [participantIds, setParticipantIds] = useState<ReadonlySet<number>>(initial.participantIds);
 
     const addParticipant = (memberId: number): void => {
@@ -69,6 +73,8 @@ export function useExpenseForm(initial: ExpenseFormInitialValues): ExpenseForm {
         setFile,
         splitMethod,
         setSplitMethod,
+        closingDeadlineDays,
+        setClosingDeadlineDays,
         participantIds,
         addParticipant,
         removeParticipant,

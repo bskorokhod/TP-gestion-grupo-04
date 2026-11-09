@@ -13,7 +13,7 @@ class ExpenseDetailsCategoryTest {
     private static ExpenseDetails details(ExpenseCategory category) {
         // El acreedor no se usa en estos casos: no hace falta armar un miembro.
         return new ExpenseDetails(
-                "Techo", null, category, new BigDecimal("100.00"), SplitMethod.EQUAL, null, "https://receipt", List.of()
+                "Techo", null, category, new BigDecimal("100.00"), SplitMethod.EQUAL, null, "https://receipt", 10, List.of()
         );
     }
 

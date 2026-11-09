@@ -22,7 +22,7 @@ class ConfigChangeVoteTest {
     private static GroupSettings settings(
             DistributionMode distribution, VotingModel voting, ReservationLimitPolicy reservation, Integer fixedDays
     ) {
-        return new GroupSettings(distribution, voting, reservation, fixedDays, new BigDecimal("1000"));
+        return new GroupSettings(distribution, voting, reservation, fixedDays, new BigDecimal("1000"), 10);
     }
 
     private static GroupSettings percentageSettings() {

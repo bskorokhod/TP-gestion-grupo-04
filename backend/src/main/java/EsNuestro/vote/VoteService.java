@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -361,6 +362,33 @@ class VoteService {
         }
     }
 
+    /**
+     * Asigna el plazo a las votaciones activas de un grupo que todavía no lo tienen (datos anteriores a esta
+     * funcionalidad), con el plazo configurado hoy en el grupo. No toca las que ya lo tienen, así que es segura
+     * de correr en cada arranque. Lo invoca {@code VoteExpirationJob}, antes de rechazar lo vencido.
+     */
+    void backfillMissingVoteDeadlines(Long groupId) throws ItemNotFoundException {
+        groupService.requireGroupForUpdate(groupId);
+        voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(groupId, VoteStatus.ACTIVE).stream()
+                .filter(vote -> vote.getDeadline() == null)
+                .forEach(Vote::backfillDeadlineIfMissing);
+    }
+
+    /**
+     * Rechaza las votaciones activas de un grupo cuyo plazo ya venció: si no se decidieron a tiempo no hay
+     * quorum, así que se rechazan, sin importar el tipo de votación. Rechazar no ejecuta nada, así que se hace
+     * aún con el grupo detenido. Lo invoca {@code VoteExpirationJob}, una transacción por grupo, tomando el lock
+     * del grupo como el resto de las operaciones.
+     */
+    void rejectExpiredVotes(Long groupId, Instant now) throws ItemNotFoundException {
+        groupService.requireGroupForUpdate(groupId);
+        for (Vote vote : voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(groupId, VoteStatus.ACTIVE)) {
+            if (vote.getDeadline() != null && vote.getDeadline().isBefore(now)) {
+                reject(vote, "The vote did not reach a quorum before its deadline");
+            }
+        }
+    }
+
     private ConfigChangeVote buildConfigChangeVote(Group group, GroupMember proposer, ConfigChangeDTO data) {
         return switch (data.setting()) {
             case DISTRIBUTION_MODE -> ConfigChangeVote.ofDistributionMode(group, proposer, data.distributionMode());
@@ -371,6 +399,7 @@ class VoteService {
             case EXTRAORDINARY_EXPENSE_THRESHOLD -> ConfigChangeVote.ofExtraordinaryExpenseThreshold(
                     group, proposer, data.extraordinaryExpenseThreshold()
             );
+            case VOTE_DEADLINE_DAYS -> ConfigChangeVote.ofVoteDeadlineDays(group, proposer, data.voteDeadlineDays());
         };
     }
 
