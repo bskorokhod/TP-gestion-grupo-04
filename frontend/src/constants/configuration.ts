@@ -1,6 +1,6 @@
 import type { GroupSettings } from "@/models/Group.ts";
 import type { ModalSettingItem } from "@/models/Config.ts";
-import {faCalendarCheck, faChartPie, faCheckToSlot, faCoins} from "@fortawesome/free-solid-svg-icons";
+import {faCalendarCheck, faChartPie, faCheckToSlot, faCoins, faHourglassHalf} from "@fortawesome/free-solid-svg-icons";
 
 export const MODIFY_CONFIG_LABEL = "Solicitar modificación de configuración";
 export const MODIFY_PERCENTAGES_LABEL = "Modificar porcentajes";
@@ -35,6 +35,14 @@ function reservationValue(settings: GroupSettings): string {
 
 export const SETTINGS_INFO: ReadonlyArray<ModalSettingItem> = [
     {
+        kind: "distribution",
+        icon: faChartPie,
+        title: "Modo de repartición del bien",
+        description:
+            "Definí si el bien se reparte en partes iguales entre los miembros o según el porcentaje de cada uno.",
+        currentValue: (settings) => DISTRIBUTION_VALUE_LABELS[settings.distributionMode],
+    },
+    {
         kind: "voting",
         icon: faCheckToSlot,
         title: "Modo de aprobación de votación",
@@ -60,11 +68,11 @@ export const SETTINGS_INFO: ReadonlyArray<ModalSettingItem> = [
             `$ ${settings.extraordinaryExpenseThreshold.toLocaleString("es-AR")}`,
     },
     {
-        kind: "distribution",
-        icon: faChartPie,
-        title: "Modo de repartición del bien",
+        kind: "voteDeadline",
+        icon: faHourglassHalf,
+        title: "Plazo de cierre de las votaciones",
         description:
-            "Definí si el bien se reparte en partes iguales entre los miembros o según el porcentaje de cada uno.",
-        currentValue: (settings) => DISTRIBUTION_VALUE_LABELS[settings.distributionMode],
+            "Días que tienen los miembros para votar antes de que la votación se cierre automáticamente y se rechace.",
+        currentValue: (settings) => `${settings.voteDeadlineDays} días`,
     },
 ];

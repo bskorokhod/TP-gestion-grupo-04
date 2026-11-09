@@ -14,14 +14,14 @@ class GroupOwnershipTest {
     private static GroupSettings percentageSettings() {
         return new GroupSettings(
                 DistributionMode.PERCENTAGE, VotingModel.OWNERSHIP_WEIGHTED_MAJORITY,
-                ReservationLimitPolicy.OWNERSHIP_PROPORTIONAL, null, new BigDecimal("1000")
+                ReservationLimitPolicy.OWNERSHIP_PROPORTIONAL, null, new BigDecimal("1000"), 10
         );
     }
 
     private static GroupSettings equalSettings() {
         return new GroupSettings(
                 DistributionMode.EQUAL, VotingModel.SIMPLE_MAJORITY,
-                ReservationLimitPolicy.EQUAL, null, new BigDecimal("1000")
+                ReservationLimitPolicy.EQUAL, null, new BigDecimal("1000"), 10
         );
     }
 
@@ -104,7 +104,7 @@ class GroupOwnershipTest {
         GroupMember leaving = activeMember(group, "20");
         assertThat(group.assignedPercentage()).isEqualByComparingTo("120");
 
-        leaving.deactivateForLeaving();
+        leaving.leave();
 
         assertThat(group.assignedPercentage()).isEqualByComparingTo("100");
         assertThat(group.getStatus()).isEqualTo(GroupStatus.RUNNING);
@@ -118,7 +118,7 @@ class GroupOwnershipTest {
         activeMember(group, "25");
         GroupMember leaving = activeMember(group, "25");
 
-        leaving.deactivateForLeaving();
+        leaving.leave();
         group.refreshOwnership();
 
         assertThat(group.getStatus()).isEqualTo(GroupStatus.STOPPED);
@@ -131,7 +131,7 @@ class GroupOwnershipTest {
         GroupMember first = founder(group, "60");
         GroupMember second = activeMember(group, "40");
 
-        second.deactivateForLeaving();
+        second.leave();
         group.refreshOwnership();
 
         assertThat(first.getPercentage()).isEqualByComparingTo("100");
@@ -178,7 +178,7 @@ class GroupOwnershipTest {
         GroupMember second = activeMember(group, "0");
         GroupMember leaving = activeMember(group, "0");
 
-        leaving.deactivateForLeaving();
+        leaving.leave();
         group.refreshOwnership();
 
         assertThat(first.getPercentage()).isEqualByComparingTo("50");

@@ -13,3 +13,5 @@ export { NewExpenseModal } from "./NewExpenseModal/NewExpenseModal";
 export type { NewExpenseModalProps } from "./NewExpenseModal/NewExpenseModal";
 export { ReportExpenseModal } from "./ReportExpenseModal";
 export type { ReportExpenseModalProps } from "./ReportExpenseModal";
+export { LeaveGroupModal } from "./LeaveGroupModal";
+export type { LeaveGroupModalProps } from "./LeaveGroupModal";

@@ -32,7 +32,7 @@ export const DEFAULT_EXPENSE_CATEGORY: ExpenseCategory = "SIN_CATEGORIA";
 export const ReviewOutcomeSchema = z.enum(["APPROVED", "REJECTED"]);
 export type ReviewOutcome = z.infer<typeof ReviewOutcomeSchema>;
 
-export const DebtStatusSchema = z.enum(["ACTIVE", "SUSPENDED"]);
+export const DebtStatusSchema = z.enum(["ACTIVE", "SUSPENDED", "CANCELED"]);
 export type DebtStatus = z.infer<typeof DebtStatusSchema>;
 
 /** SHARE: la parte de un participante. REFUND: lo que el acreedor del gasto le debe a quien pagó de más. */
@@ -49,6 +49,7 @@ export const ExpenseMemberSchema = z.object({
   nickname: z.string(),
   color: MemberColorSchema,
   photoUrl: z.string().nullable().optional(),
+  cvu: z.string().nullish(),
 });
 export type ExpenseMember = z.infer<typeof ExpenseMemberSchema>;
 
@@ -69,6 +70,8 @@ export const ExpenseDetailsSchema = z.object({
   splitMethod: SplitMethodSchema,
   creditor: ExpenseMemberSchema,
   receiptUrl: z.string().nullable().optional(),
+  /** Días desde la creación o última edición/reporte hasta el vencimiento. Null en gastos anteriores a esta funcionalidad. */
+  closingDeadlineDays: z.number().nullish(),
   participants: z.array(ExpenseParticipantSchema),
 });
 export type ExpenseDetails = z.infer<typeof ExpenseDetailsSchema>;
@@ -115,13 +118,22 @@ export const ExpenseSchema = z.object({
   debts: z.array(DebtSchema),
   /** Alguien ya pagó algo: modificar o eliminar el gasto exige una votación. */
   hasPayments: z.boolean(),
+  /** Un participante ya no está activo en el grupo: el gasto debe modificarse para sacarlo. */
+  requiresModification: z.boolean(),
+  /** Los participantes que ya no están activos (con `requiresModification`). */
+  inactiveMembers: z.array(z.object({ id: z.number(), nickname: z.string() })),
   /** Hay una votación para modificar o eliminar el gasto: no se puede pagar, editar ni reportar hasta que termine. */
   reportInProgress: z.boolean(),
   createdAt: z.string(),
+  /** Momento a partir del cual se considera vencido para quien todavía debe su parte. Null en gastos viejos. */
+  closingDeadline: z.string().nullish(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
 // ─── Payload de creación/edición ────────────────────────────────────────────
+
+export const MIN_CLOSING_DEADLINE_DAYS = 7;
+export const MAX_CLOSING_DEADLINE_DAYS = 30;
 
 export const ExpenseDataSchema = z.object({
   title: z.string().trim().min(1).max(150),
@@ -132,6 +144,11 @@ export const ExpenseDataSchema = z.object({
   splitMethod: SplitMethodSchema,
   participants: z.array(z.object({ memberId: z.number() })).nonempty(),
   receiptUrl: z.url().max(2048),
+  closingDeadlineDays: z
+    .number({ error: "Indicá el plazo de cierre" })
+    .int("El plazo debe ser un número entero de días")
+    .min(MIN_CLOSING_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_CLOSING_DEADLINE_DAYS} y ${MAX_CLOSING_DEADLINE_DAYS} días`)
+    .max(MAX_CLOSING_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_CLOSING_DEADLINE_DAYS} y ${MAX_CLOSING_DEADLINE_DAYS} días`),
 });
 export type ExpenseData = z.infer<typeof ExpenseDataSchema>;
 
@@ -195,16 +212,20 @@ export type SettledExpense = z.infer<typeof SettledExpenseSchema>;
 /**
  * Fila del historial personal (`GET /groups/:id/expenses/paid-by-me`): un gasto en el que el usuario tenía una parte y ya
  * la pagó por completo, aunque el gasto no esté saldado para todos. `paidAmount` es lo que pagó él, `creditor` a quien
- * se lo pagó y `paidAt` cuándo (la fecha de su último pago, no la de creación del gasto). Además lleva el comprobante de
+ * se lo pagó y `paidAt` cuándo (null si la deuda se canceló) (la fecha de su último pago, no la de creación del gasto). Además lleva el comprobante de
  * creación del gasto (`receiptUrl`) y solo los comprobantes de los pagos del propio usuario (`payments`).
  */
 export const PaidExpenseSchema = z.object({
   id: z.number(),
-  paidAt: z.string(),
+  /** null en una fila cancelada: nunca se terminó de pagar. */
+  paidAt: z.string().nullable(),
   title: z.string(),
   category: ExpenseCategorySchema,
   creditor: ExpenseMemberSchema,
   paidAmount: z.number(),
+  /** La deuda quedó cancelada porque `creditor` salió del grupo; `canceledAmount` es el monto pendiente que se canceló. */
+  canceled: z.boolean(),
+  canceledAmount: z.number().nullable(),
   receiptUrl: z.string().nullish(),
   payments: z.array(PaymentReceiptSchema),
 });

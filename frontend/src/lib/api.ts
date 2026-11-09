@@ -22,7 +22,7 @@ export async function fetchApi(url: string, options: RequestInit = {}) {
     }
 
     if (!response.ok) {
-        let errorData: { message: string };
+        let errorData: { message: string; code?: string };
         const contentType = response.headers.get('content-type');
 
         try {

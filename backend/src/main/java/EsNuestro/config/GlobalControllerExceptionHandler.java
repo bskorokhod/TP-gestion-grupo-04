@@ -2,6 +2,7 @@ package EsNuestro.config;
 
 import EsNuestro.common.api.response.JsonResponse;
 import EsNuestro.common.api.response.JsonResponseDirector;
+import EsNuestro.common.exception.CodedResponseStatusException;
 import EsNuestro.common.exception.ItemNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -57,6 +58,9 @@ public class GlobalControllerExceptionHandler {
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<JsonResponse> handleResponseStatusException(ResponseStatusException ex) {
         JsonResponse response = JsonResponseDirector.createUnsuccessfulResponse(ex.getReason());
+        if (ex instanceof CodedResponseStatusException coded) {
+            response.buildField("code", coded.getCode().name());
+        }
         return ResponseEntity.status(ex.getStatusCode()).body(response);
     }
 }

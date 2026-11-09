@@ -1,5 +1,7 @@
 package EsNuestro.group;
 
+import EsNuestro.common.exception.CodedResponseStatusException;
+import EsNuestro.common.exception.ErrorCode;
 import EsNuestro.member.GroupMember;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,22 +30,36 @@ final class PercentageDistribution {
      * decimales: 0.001 se redondearía a 0.00, un porcentaje nulo.
      */
     static BigDecimal requireValidPercentage(BigDecimal percentage) {
+        return requireValidPercentage(percentage, null, null);
+    }
+
+    /**
+     * Igual que {@link #requireValidPercentage(BigDecimal)} pero los errores llevan código: {@code missingCode} si no
+     * hay porcentaje e {@code invalidCode} si el valor no es válido. Con null no llevan código.
+     */
+    static BigDecimal requireValidPercentage(BigDecimal percentage, ErrorCode missingCode, ErrorCode invalidCode) {
         if (percentage == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The percentage is required");
+            throw badRequest(missingCode, "The percentage is required");
         }
         if (percentage.signum() < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Negative percentages cannot be assigned");
+            throw badRequest(invalidCode, "Negative percentages cannot be assigned");
         }
         if (percentage.signum() == 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zero percentages cannot be assigned");
+            throw badRequest(invalidCode, "Zero percentages cannot be assigned");
         }
         if (percentage.compareTo(TOTAL) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Percentages greater than 100% cannot be assigned");
+            throw badRequest(invalidCode, "Percentages greater than 100% cannot be assigned");
         }
         if (percentage.stripTrailingZeros().scale() > MAX_DECIMALS) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The percentage allows up to two decimal places");
+            throw badRequest(invalidCode, "The percentage allows up to two decimal places");
         }
         return percentage.setScale(MAX_DECIMALS);
+    }
+
+    private static ResponseStatusException badRequest(ErrorCode code, String message) {
+        return code == null
+                ? new ResponseStatusException(HttpStatus.BAD_REQUEST, message)
+                : new CodedResponseStatusException(HttpStatus.BAD_REQUEST, code, message);
     }
 
     /**
@@ -71,7 +87,8 @@ final class PercentageDistribution {
      */
     static void requireRoomToJoin(Group group, BigDecimal requestedPercentage) {
         if (group.assignedPercentage().add(requestedPercentage).compareTo(TOTAL) > 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, JOIN_BLOCKED_MESSAGE);
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT, ErrorCode.JOIN_PERCENTAGE_NOT_AVAILABLE, JOIN_BLOCKED_MESSAGE);
         }
     }
 

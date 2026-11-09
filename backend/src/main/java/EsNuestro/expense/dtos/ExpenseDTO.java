@@ -11,6 +11,10 @@ import java.util.List;
  * gasto aprobado (null si no hay). {@code lastResolution} es la última aprobación o rechazo.
  * {@code hasPayments} es si alguien ya pagó algo (con pagos, modificar o eliminar el gasto exige una votación) y
  * {@code reportInProgress} si hay una votación de reporte en curso sobre este gasto (bloquea pagos, ediciones y reportes).
+ * {@code requiresModification} es true si el acreedor o algún participante ya no está activo y el gasto sigue vigente;
+ * {@code inactiveMembers} los lista (vacía si no requiere modificación). Se deriva, no se guarda.
+ * {@code closingDeadline} es el momento a partir del cual el gasto se considera vencido para quien todavía debe su
+ * parte (null en gastos anteriores a esta funcionalidad); no implica que el gasto se haya cerrado ni modificado.
  */
 public record ExpenseDTO(
         Long id,
@@ -23,8 +27,16 @@ public record ExpenseDTO(
         List<DebtDTO> debts,
         boolean hasPayments,
         boolean reportInProgress,
-        Instant createdAt
+        Instant createdAt,
+        boolean requiresModification,
+        List<InactiveMember> inactiveMembers,
+        Instant closingDeadline
 ) {
+
+    /** Miembro del gasto (acreedor o participante) que ya no está activo en el grupo. */
+    public record InactiveMember(Long id, String nickname) {
+    }
+
 
     public record Details(
             String title,
@@ -34,6 +46,7 @@ public record ExpenseDTO(
             SplitMethod splitMethod,
             ExpenseMemberDTO creditor,
             String receiptUrl,
+            Integer closingDeadlineDays,
             List<Participant> participants
     ) {
         public static Details from(ExpenseDetails details) {
@@ -48,6 +61,7 @@ public record ExpenseDTO(
                     details.getSplitMethod(),
                     ExpenseMemberDTO.from(details.getCreditor()),
                     details.getReceiptUrl(),
+                    details.getClosingDeadlineDays(),
                     details.getParticipants().stream().map(Participant::from).toList()
             );
         }
@@ -84,7 +98,13 @@ public record ExpenseDTO(
                 expense.getDebts().stream().map(DebtDTO::from).toList(),
                 expense.hasPayments(),
                 expense.isReportInProgress(),
-                expense.getCreatedAt()
+                expense.getCreatedAt(),
+                expense.requiresModification(),
+                expense.requiresModification()
+                        ? expense.inactiveInvolvedMembers().stream()
+                                .map(member -> new InactiveMember(member.getId(), member.getNickname())).toList()
+                        : List.of(),
+                expense.getClosingDeadline()
         );
     }
 }

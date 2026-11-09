@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { MemberCvuSchema } from "@/models/Cvu.ts";
 
 export const GroupRoleSchema = z.enum(["FOUNDER", "ADMIN", "MEMBER"]);
 
-export const MembershipStatusSchema = z.enum(["REJECTED", "PENDING", "ACTIVE", "DEACTIVATED", "LEFT", "REMOVED",]);
+/** DEACTIVATED: se fue del grupo. Ya no lo ve y, si quiere volver, pide ingreso de nuevo como una persona nueva. */
+export const MembershipStatusSchema = z.enum(["REJECTED", "PENDING", "ACTIVE", "DEACTIVATED"]);
 
 export type MembershipStatus = z.infer<typeof MembershipStatusSchema>;
 
@@ -43,6 +45,9 @@ export type ReservationLimitPolicy = z.infer<typeof ReservationLimitPolicySchema
 export const MIN_FIXED_DAYS_PER_MONTH = 1;
 export const MAX_FIXED_DAYS_PER_MONTH = 31;
 
+export const MIN_VOTE_DEADLINE_DAYS = 7;
+export const MAX_VOTE_DEADLINE_DAYS = 30;
+
 /** Las opciones que dependen del % de propiedad solo tienen sentido si el bien se reparte por porcentaje. */
 export const VOTING_MODELS_REQUIRING_PERCENTAGE: readonly VotingModel[] = ["OWNERSHIP_WEIGHTED_MAJORITY"];
 export const RESERVATION_POLICIES_REQUIRING_PERCENTAGE: readonly ReservationLimitPolicy[] = ["OWNERSHIP_PROPORTIONAL"];
@@ -65,6 +70,7 @@ export const GroupSettingsSchema = z.object({
     reservationLimitPolicy: ReservationLimitPolicySchema,
     reservationFixedDaysPerMonth: z.number().nullish(),
     extraordinaryExpenseThreshold: z.number(),
+    voteDeadlineDays: z.number(),
 });
 
 export type GroupSettings = z.infer<typeof GroupSettingsSchema>;
@@ -89,6 +95,11 @@ export const GroupSettingsCreateSchema = z
                 (value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6,
                 "El monto extraordinario admite hasta 2 decimales",
             ),
+        voteDeadlineDays: z
+            .number({ error: "Indicá el plazo de cierre de las votaciones" })
+            .int("El plazo debe ser un número entero de días")
+            .min(MIN_VOTE_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_VOTE_DEADLINE_DAYS} y ${MAX_VOTE_DEADLINE_DAYS} días`)
+            .max(MAX_VOTE_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_VOTE_DEADLINE_DAYS} y ${MAX_VOTE_DEADLINE_DAYS} días`),
     })
     .superRefine((settings, ctx) => {
         if (!isVotingModelAllowed(settings.distributionMode, settings.votingModel)) {
@@ -129,6 +140,7 @@ export const GroupSchema = z.object({
     name: z.string(),
     description: z.string(),
     createdAt: z.string(),
+    isPremium: z.boolean(),
     memberCount: z.number(),
     joinCode: z.string(),
     myStatus: MembershipStatusSchema,
@@ -141,6 +153,156 @@ export const GroupSchema = z.object({
 });
 
 export type Group = z.infer<typeof GroupSchema>;
+
+// ---- Suscripción premium (pago simulado; espeja PremiumSubscribeDTO / PremiumSubscriptionDTO del backend) ----
+
+function isExpiredCard(expiration: string, today: Date = new Date()): boolean {
+    const [month, year] = expiration.split("/").map(Number);
+    return 2000 + year < today.getFullYear() || (2000 + year === today.getFullYear() && month < today.getMonth() + 1);
+}
+
+export const PremiumSubscribeSchema = z.object({
+    cardholderName: z
+        .string()
+        .trim()
+        .min(1, "El nombre del titular es obligatorio")
+        .max(100, "El nombre del titular no puede superar los 100 caracteres"),
+    cardNumber: z
+        .string()
+        .trim()
+        .refine(
+            (value) => /^\d{13,19}$/.test(value.replace(/[ -]/g, "")) && /^[0-9 -]+$/.test(value),
+            "El número de tarjeta debe tener entre 13 y 19 dígitos",
+        ),
+    expiration: z
+        .string()
+        .trim()
+        .regex(/^(0[1-9]|1[0-2])\/\d{2}$/, "El vencimiento debe tener el formato MM/AA")
+        .refine((value) => !isExpiredCard(value), "La tarjeta está vencida"),
+    securityCode: z.string().trim().regex(/^\d{3,4}$/, "El código de seguridad debe tener 3 o 4 dígitos"),
+});
+
+export type PremiumSubscribe = z.infer<typeof PremiumSubscribeSchema>;
+
+export const PremiumSubscriptionStatusSchema = z.enum(["ACTIVE", "CANCELLED"]);
+
+export type PremiumSubscriptionStatus = z.infer<typeof PremiumSubscriptionStatusSchema>;
+
+/**
+ * Respuesta de suscribir y de cancelar. `trial` indica si la suscripción vigente arrancó con la prueba gratuita (una por
+ * usuario y una por grupo). Una suscripción cancelada no trae `nextBillingAt` ni `trialEndsAt`, y una activa no trae
+ * `cancelledAt`.
+ */
+export const PremiumSubscriptionSchema = z.object({
+    groupId: z.number(),
+    status: PremiumSubscriptionStatusSchema,
+    trial: z.boolean(),
+    trialEndsAt: z.string().nullish(),
+    startedAt: z.string(),
+    nextBillingAt: z.string().nullish(),
+    cancelledAt: z.string().nullish(),
+    /** Hasta cuándo el grupo conserva el premium tras cancelar (el momento de cancelar si era una prueba). */
+    endsAt: z.string().nullish(),
+    cardLast4: z.string(),
+});
+
+export type PremiumSubscription = z.infer<typeof PremiumSubscriptionSchema>;
+
+/**
+ * Si al usuario le corresponde la prueba gratuita al suscribir el grupo. Es orientativo: el backend lo vuelve a decidir
+ * al suscribir, y la respuesta de `PremiumSubscription.trial` es la que manda.
+ */
+export const PremiumEligibilitySchema = z.object({
+    trialAvailable: z.boolean(),
+});
+
+export type PremiumEligibility = z.infer<typeof PremiumEligibilitySchema>;
+
+/**
+ * En qué punto del plan premium está el grupo. NEVER: nunca tuvo premium ni prueba. TRIAL: en prueba gratuita. ACTIVE: premium
+ * pago que se renueva. CANCELLED_IN_FORCE: cancelado pero vigente hasta el fin del período pagado. EXPIRED: tuvo premium
+ * (o prueba) y ya no.
+ */
+export const PremiumStateSchema = z.enum(["NEVER", "TRIAL", "ACTIVE", "CANCELLED_IN_FORCE", "EXPIRED"]);
+
+export type PremiumState = z.infer<typeof PremiumStateSchema>;
+
+/** Estado del plan del grupo para cualquier miembro activo (espeja PremiumStatusDTO). Las fechas vienen solo si aplican. */
+export const PremiumStatusSchema = z.object({
+    state: PremiumStateSchema,
+    premium: z.boolean(),
+    /** Si al usuario le corresponde la prueba gratuita al suscribir (siempre false si el grupo ya es premium). */
+    trialAvailable: z.boolean(),
+    trialEndsAt: z.string().nullish(),
+    trialDaysLeft: z.number().nullish(),
+    nextBillingAt: z.string().nullish(),
+    endsAt: z.string().nullish(),
+    payerName: z.string().nullish(),
+    /** Apodo del pagador en el grupo; lo ven todos los miembros. */
+    payerNickname: z.string().nullish(),
+    youArePayer: z.boolean(),
+    /** Datos privados de la tarjeta: solo llegan al pagador y mientras el plan está activo. */
+    cardLast4: z.string().nullish(),
+    cardholderName: z.string().nullish(),
+    /** Días completos hasta el próximo cobro o hasta que termine el premium cancelado (0 = menos de un día). */
+    daysLeft: z.number().nullish(),
+    monthlyPrice: z.number(),
+    trialDays: z.number(),
+});
+
+export type PremiumStatus = z.infer<typeof PremiumStatusSchema>;
+
+/** Oferta del plan premium, independiente de cualquier grupo o usuario (espeja PremiumPlanDTO). */
+export const PremiumPlanSchema = z.object({
+    monthlyPrice: z.number(),
+    trialDays: z.number(),
+});
+
+export type PremiumPlan = z.infer<typeof PremiumPlanSchema>;
+
+export const PremiumNoticeTypeSchema = z.enum([
+    "TRIAL_STARTED",
+    "PLAN_ACTIVATED",
+    "PLAN_UPGRADED",
+    "PLAN_REACTIVATED",
+    "TRIAL_CANCELLED",
+    "PLAN_CANCELLED",
+    "TRIAL_ENDING",
+    "TRIAL_CONVERTED",
+    "PAYMENT_FAILED",
+    "PLAN_ENDED",
+]);
+
+export type PremiumNoticeType = z.infer<typeof PremiumNoticeTypeSchema>;
+
+/** Aviso sobre el plan premium que el usuario todavía no vio; se muestra como toast al entrar al grupo. */
+export const PremiumNoticeSchema = z.object({
+    id: z.number(),
+    type: PremiumNoticeTypeSchema,
+    actorName: z.string().nullish(),
+    payerName: z.string().nullish(),
+    youArePayer: z.boolean(),
+    until: z.string().nullish(),
+    occurredAt: z.string(),
+});
+
+export type PremiumNotice = z.infer<typeof PremiumNoticeSchema>;
+
+/** Valores por defecto de las tres configuraciones exclusivas de premium (espeja GroupSettings del backend). */
+export const DEFAULT_DISTRIBUTION_MODE: DistributionMode = "EQUAL";
+export const DEFAULT_VOTING_MODEL: VotingModel = "SIMPLE_MAJORITY";
+export const DEFAULT_RESERVATION_LIMIT_POLICY: ReservationLimitPolicy = "EQUAL";
+
+/** Personalizar el reparto, las votaciones o las reservas es premium; cualquier otra combinación es la predeterminada. */
+export function usesDefaultPremiumSettings(settings: {
+    distributionMode: DistributionMode;
+    votingModel: VotingModel;
+    reservationLimitPolicy: ReservationLimitPolicy;
+}): boolean {
+    return settings.distributionMode === DEFAULT_DISTRIBUTION_MODE
+        && settings.votingModel === DEFAULT_VOTING_MODEL
+        && settings.reservationLimitPolicy === DEFAULT_RESERVATION_LIMIT_POLICY;
+}
 
 // Formato exigido por el backend: 3 letras - 4 números - 3 letras (ej. ABC-1234-XYZ)
 export const JOIN_CODE_REGEX = /^[A-Za-z]{3}-\d{4}-[A-Za-z]{3}$/;
@@ -161,6 +323,7 @@ export const GroupCreateSchema = z.object({
         .trim()
         .max(30, "El apodo no puede superar los 30 caracteres")
         .optional(),
+    founderCvu: MemberCvuSchema.optional(),
     /** Porcentaje de propiedad del fundador: obligatorio en modo porcentual, se omite en equitativo. */
     founderPercentage: OwnershipPercentageSchema.optional(),
     settings: GroupSettingsCreateSchema,
@@ -187,14 +350,17 @@ export const JoinGroupSchema = z.object({
         .trim()
         .min(1, "El apodo es obligatorio")
         .max(30, "El apodo no puede superar los 30 caracteres"),
+    /** Alias o CVU para recibir pagos: opcional; vacío = sin cargar. */
+    cvu: MemberCvuSchema.optional(),
     /** Porcentaje que se pide al unirse: obligatorio si el grupo es porcentual, se omite si es equitativo. */
     percentage: OwnershipPercentageSchema.optional(),
 });
 
 export type JoinGroup = z.infer<typeof JoinGroupSchema>;
 
+/** Por privacidad el preview no revela datos identificatorios del grupo (el backend ya no manda `name`); se tolera por si llega. */
 export const GroupPreviewSchema = z.object({
-    name: z.string(),
+    name: z.string().optional(),
     distributionMode: DistributionModeSchema,
 });
 
@@ -231,6 +397,7 @@ export const MemberSchema = z.object({
     userId: z.number(),
     username: z.string(),
     nickname: z.string(),
+    cvu: z.string().nullish(),
     color: MemberColorSchema,
     status: MembershipStatusSchema,
     percentage: z.number().nullable(),
@@ -240,3 +407,22 @@ export const MemberSchema = z.object({
 });
 
 export type Member = z.infer<typeof MemberSchema>;
+/** Lo que un miembro le debe cobrar a otro y perdería al abandonar el grupo (`GET /groups/:id/leave-preview`). */
+export const LeavePreviewDebtorSchema = z.object({
+  debtorMemberId: z.number(),
+  debtorNickname: z.string(),
+  amount: z.number(),
+});
+export type LeavePreviewDebtor = z.infer<typeof LeavePreviewDebtorSchema>;
+
+/** Vista previa de abandonar el grupo: si el miembro debe plata (lo bloquea) y cuánto le deben (lo perdería). */
+export const LeavePreviewSchema = z.object({
+  hasUnsettledDebts: z.boolean(),
+  owedToMeTotal: z.number(),
+  owedToMe: z.array(LeavePreviewDebtorSchema),
+  /** Al irse, los activos no suman 100%: el grupo queda detenido hasta reclamar el porcentaje libre. */
+  groupWillStop: z.boolean(),
+  /** Porcentaje que quedaría sin asignar (0 si el grupo no se detiene). */
+  missingPercentage: z.number(),
+});
+export type LeavePreview = z.infer<typeof LeavePreviewSchema>;

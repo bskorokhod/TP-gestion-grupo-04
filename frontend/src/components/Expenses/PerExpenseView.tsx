@@ -7,6 +7,7 @@ import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
 import {isVisibleToCreditor, useGetExpensesIOwe, useGetExpensesOwedToMe, useGetGroupSummary} from "@/services/ExpenseServices.ts";
 import type { Debt, Expense } from "@/models/Expense.ts";
 import {formatCurrency, roundCents} from "@/lib/format.ts";
+import {formatDeadline, formatElapsedSince, isOverdue} from "@/lib/dates.ts";
 import {useIsGroupStopped} from "@/contexts/GroupContext.tsx";
 import {GROUP_STOPPED_EXPENSE_TITLE} from "@/constants/group.ts";
 import {REFUND_OF_CANCELLED_EXPENSE_TAG, REFUND_TAG, REPORT_IN_PROGRESS_TITLE,} from "@/constants/expenses.ts";
@@ -18,6 +19,7 @@ interface PerExpenseViewProps {
 interface PayTarget {
     expenseId: number;
     debtId: number;
+    cvu: string | null | undefined;
     amount: number;
 }
 
@@ -37,6 +39,16 @@ function isOpenDebt(debt: Debt): boolean {
 function refundTag(expense: Expense, debts: readonly Debt[]): string | undefined {
     if (!debts.some((debt) => debt.kind === "REFUND")) return undefined;
     return expense.status === "CANCELLED" ? REFUND_OF_CANCELLED_EXPENSE_TAG : REFUND_TAG;
+}
+
+/**
+ * Cartel de un gasto que debe modificarse porque incluye acreedores o deudores inactivos. Es genérico a propósito (no nombra
+ * a nadie). No aplica a gastos eliminados ni rechazados: ya no admiten modificación.
+ */
+function modificationNotice(expense: Expense): string | undefined {
+    if (!expense.requiresModification) return undefined;
+    if (expense.status === "CANCELLED" || expense.status === "REJECTED") return undefined;
+    return "Este gasto debe modificarse: incluye acreedores o deudores que ya no están activos en el grupo.";
 }
 
 /**
@@ -120,8 +132,8 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                                 myMemberId={myMemberId}
                                 reportDisabledReason={findReportBlockedReason(expense, myMemberId, isGroupStopped)}
                                 onReport={() => setReportTarget(expense)}
-                                onPay={(debtId, amount) =>
-                                    setPayTarget({ expenseId: expense.id, debtId, amount })
+                                onPay={(debtId, amount, cvu) =>
+                                    setPayTarget({ expenseId: expense.id, debtId, cvu, amount })
                                 }
                             />
                         ))}
@@ -149,6 +161,7 @@ export const PerExpenseView = ({ groupId }: PerExpenseViewProps) => {
                     groupId={groupId}
                     expenseId={payTarget.expenseId}
                     debtId={payTarget.debtId}
+                    cvu={payTarget.cvu}
                     debtAmount={payTarget.amount}
                     onClose={() => setPayTarget(null)}
                     onPaid={() => setPayTarget(null)}
@@ -186,6 +199,7 @@ function ExpenseAsDebtCard({ expense, myMemberId, editDisabledReason, onEdit }: 
             }}
             onEdit={onEdit}
             editDisabledReason={editDisabledReason}
+            notice={modificationNotice(expense)}
         >
             {debtsToShow.map((debt) => {
                 const remaining = roundCents(debt.amount - debt.paidAmount);
@@ -215,7 +229,7 @@ interface ExpenseAsOwedCardsProps {
     readonly myMemberId?: number;
     readonly reportDisabledReason: string | null;
     readonly onReport: () => void;
-    readonly onPay: (debtId: number, amount: number) => void;
+    readonly onPay: (debtId: number, amount: number, cvu: string | null | undefined) => void;
 }
 
 /**
@@ -226,6 +240,13 @@ function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onRepor
     if (myMemberId == null) return null;
 
     const myDebts = expense.debts.filter((d) => d.debtor.id === myMemberId && isOpenDebt(d));
+    const { closingDeadline } = expense;
+    const overdue = closingDeadline ? isOverdue(closingDeadline) : false;
+    const deadlineLabel = !closingDeadline
+        ? "Sin fecha de vencimiento"
+        : overdue
+            ? `Vencido ${formatElapsedSince(closingDeadline)}`
+            : `Vence el ${formatDeadline(closingDeadline)}`;
 
     return (
         <>
@@ -254,9 +275,12 @@ function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onRepor
                         }}
                         onReport={onReport}
                         reportDisabledReason={reportDisabledReason}
+                        notice={modificationNotice(expense)}
+                        deadlineLabel={deadlineLabel}
+                        overdue={overdue}
                         action={{
                             label: "Marcar como pagado",
-                            onClick: () => onPay(myDebt.id, remaining),
+                            onClick: () => onPay(myDebt.id, remaining, myDebt.creditor.cvu),
                             disabledReason: expense.reportInProgress ? REPORT_IN_PROGRESS_TITLE : null,
                         }}
                     />

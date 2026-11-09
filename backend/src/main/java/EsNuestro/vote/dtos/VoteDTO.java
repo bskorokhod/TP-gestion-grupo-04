@@ -28,7 +28,9 @@ import java.util.List;
  * RESERVATION_CLAIM y {@code expenseReport} solo en EXPENSE_REPORT (un tipo nuevo agrega su propia propuesta).
  * <p>
  * Una votación recién creada o votada puede volver ya finalizada (status/outcome): así el cliente sabe
- * si el gasto se creó, se rechazó o no pudo ejecutarse ({@code failureReason}).
+ * si el gasto se creó, se rechazó o no pudo ejecutarse ({@code failureReason}). {@code deadline} es el momento
+ * en que se rechaza automáticamente si sigue activa (puede ser null en votaciones anteriores a esta
+ * funcionalidad que todavía no pasaron por el backfill de {@code VoteExpirationJob}).
  */
 public record VoteDTO(
         Long id,
@@ -40,6 +42,7 @@ public record VoteDTO(
         String failureReason,
         ExpenseMemberDTO proposer,
         Instant createdAt,
+        Instant deadline,
         List<ExpenseMemberDTO> involved,
         Progress progress,
         VoteChoice myChoice,
@@ -105,6 +108,7 @@ public record VoteDTO(
                 vote.getFailureReason(),
                 ExpenseMemberDTO.from(vote.getProposer()),
                 vote.getCreatedAt(),
+                vote.getDeadline(),
                 eligible.stream().map(ballot -> ExpenseMemberDTO.from(ballot.getMember())).toList(),
                 progress,
                 mine == null ? null : mine.getChoice(),

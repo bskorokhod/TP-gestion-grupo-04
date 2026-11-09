@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -51,12 +52,41 @@ public class Group {
     @Embedded
     private GroupSettings settings;
 
+    /**
+     * Si el grupo tiene el plan premium. Es un atributo del grupo, no de sus miembros. Solo cambia por
+     * {@link #activatePremium()}. El default de la base hace que los grupos anteriores a este campo valgan false.
+     */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean premium;
+
     public Group(String name, String description, String joinCode, GroupSettings settings) {
         this.name = name;
         this.description = description;
         this.joinCode = joinCode;
         this.settings = settings;
         this.createdAt = Instant.now();
+    }
+
+    public void activatePremium() {
+        if (premium) {
+            throw new IllegalStateException("The group is already premium");
+        }
+        this.premium = true;
+    }
+
+    /**
+     * Fin del premium (se terminó el período pagado, se canceló la prueba o falló el débito): el grupo deja de ser
+     * premium y sus configuraciones exclusivas vuelven a los valores por defecto (reparto equitativo, reservas
+     * equitativas y mayoría simple). Si el reparto cambia, los porcentajes se recalculan en partes iguales. Lo orquesta
+     * {@code PremiumService}.
+     */
+    public void deactivatePremium() {
+        if (!premium) {
+            throw new IllegalStateException("The group is not premium");
+        }
+        this.premium = false;
+        changeSettings(settings.revertedToDefaults());
     }
 
     public void addMember(GroupMember member) {
@@ -96,6 +126,35 @@ public class Group {
             return GroupStatus.RUNNING;
         }
         return assignedPercentage().compareTo(TOTAL_PERCENTAGE) == 0 ? GroupStatus.RUNNING : GroupStatus.STOPPED;
+    }
+
+    /**
+     * Cómo quedaría el grupo si {@code leaving} se fuera, con la misma lógica que {@link #refreshOwnership()} pero sin
+     * modificar nada: en modo equitativo el porcentaje se recalcula solo; en modo porcentual un único activo restante
+     * pasa a 100%, y si no, el grupo queda detenido salvo que los restantes sumen exactamente 100%. Sin activos
+     * restantes el grupo queda detenido.
+     */
+    public StatusAfterLeaving statusAfterLeaving(GroupMember leaving) {
+        List<GroupMember> remaining = activeMembers().stream()
+                .filter(member -> !Objects.equals(member.getId(), leaving.getId()) && member != leaving)
+                .toList();
+        if (remaining.isEmpty()) {
+            return new StatusAfterLeaving(true, TOTAL_PERCENTAGE);
+        }
+        if (!settings.getDistributionMode().hasOwnershipPercentages() || remaining.size() == 1) {
+            return new StatusAfterLeaving(false, BigDecimal.ZERO);
+        }
+        BigDecimal assigned = remaining.stream()
+                .map(GroupMember::getPercentage)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new StatusAfterLeaving(
+                assigned.compareTo(TOTAL_PERCENTAGE) != 0, TOTAL_PERCENTAGE.subtract(assigned).max(BigDecimal.ZERO)
+        );
+    }
+
+    /** Resultado de {@link #statusAfterLeaving}: si el grupo quedaría detenido y cuánto porcentaje quedaría libre. */
+    public record StatusAfterLeaving(boolean stopped, BigDecimal missingPercentage) {
     }
 
     public boolean isStopped() {

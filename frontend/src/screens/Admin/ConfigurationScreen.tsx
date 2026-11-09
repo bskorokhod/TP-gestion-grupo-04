@@ -1,4 +1,7 @@
-import {useMemo, useState} from "react";
+
+
+import {useMemo, useState, type ReactNode} from "react";
+import {apiErrorMessage} from "@/lib/apiErrors.ts";
 import {Link, useLocation} from "wouter";
 import {MemberInfoCard} from "@/components/AdminCard";
 import Button from "@/components/Button.tsx";
@@ -6,12 +9,16 @@ import {CommonLayout} from "@/components/CommonLayout/CommonLayout.tsx";
 import {GroupNavbar} from "@/components/GroupNavbar.tsx";
 import {useCurrentGroup} from "@/contexts/GroupContext.tsx";
 import {GroupStoppedBanner} from "@/components/GroupStoppedBanner.tsx";
+import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
+import {Avatar} from "@/components/ui/Avatar.tsx";
+import {CopyChip} from "@/components/ui/CopyChip.tsx";
 import {cn} from "@/lib/cn.ts";
 import type {GroupSettings, Member} from "@/models/Group.ts";
 import type {ConfigChangeKind, ConfigChangeRequest, ModalSettingItem} from "@/models/Config.ts";
 import {useApproveJoinRequest, useGetGroupMembers, useGetPendingMembers, useRejectJoinRequest } from "@/services/GroupServices.ts";
 import {useMyMember} from "@/hooks/useMyMember.ts";
 import {useUpdateMyNickname} from "@/services/NicknameServices.ts";
+import {useUpdateMyCvu} from "@/services/CvuServices.ts";
 import {toast, type BackendError} from "@/hooks/useToast.ts";
 import {useFormToasts} from "@/hooks/useFormToasts.ts";
 import {describeResolvedVote} from "@/lib/votes.ts";
@@ -19,11 +26,20 @@ import type {ConfigChangeCreate} from "@/models/Vote.ts";
 import {useCreateConfigChangeVote} from "@/services/VoteServices.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faPercent, faCopy, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
-import {Avatar} from "@/components/ui/Avatar.tsx";
-import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
+import {faStar, faPercent, faArrowRight, faPenToSquare, faTriangleExclamation, faRightFromBracket} from "@fortawesome/free-solid-svg-icons";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
+import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
+import {LeaveGroupModal} from "@/components/modals";
 
+
+/**
+ * Espeja `ConfigSetting#requiresPremium` del backend: el monto del gasto extraordinario y el plazo de cierre de las
+ * votaciones se pueden cambiar en cualquier grupo; el resto de los ajustes solo en grupos premium (el backend responde
+ * 403 si no).
+ */
+function requiresPremium(kind: ConfigChangeKind): boolean {
+    return kind !== "threshold" && kind !== "voteDeadline";
+}
 
 const CONFIG_BLOCKED_WHEN_STOPPED_LABEL =
     "No disponible: el grupo está detenido hasta que los porcentajes sumen 100%";
@@ -32,10 +48,17 @@ interface ModalSettingRowProps {
     readonly item: ModalSettingItem;
     readonly settings: GroupSettings;
     readonly disabled?: boolean;
+    readonly isPremium: boolean;
     readonly onRequestChange: (kind: ConfigChangeKind) => void;
 }
 
-function ModalSettingRow({ item, settings, disabled = false, onRequestChange }: ModalSettingRowProps) {
+function ModalSettingRow({
+                             item,
+                             settings,
+                             disabled = false,
+                             isPremium,
+                             onRequestChange,
+                         }: ModalSettingRowProps) {
     return (
         <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
             <div className="flex flex-row gap-5 items-center">
@@ -61,11 +84,30 @@ function ModalSettingRow({ item, settings, disabled = false, onRequestChange }: 
                     aria-label={`${MODIFY_CONFIG_LABEL}: ${item.title}`}
                     disabled={disabled}
                     onClick={() => onRequestChange(item.kind)}
+                    className={isPremium ? "bg-brand/10 hover:bg-brand/20" : "bg-amber/10 hover:bg-amber/20"}
                 >
-                    <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" aria-hidden />
+                    <FontAwesomeIcon icon={isPremium ? faPenToSquare : faStar} className={`h-4 w-4 ${isPremium ? "text-brand" : "text-amber"}`} aria-hidden />
                 </Button>
             </div>
         </div>
+    );
+}
+
+interface SettingsSectionProps {
+    readonly title: string;
+    readonly children: ReactNode;
+    readonly className?: string;
+}
+
+/** Sección de ajustes: un título y el contenedor con sus tarjetas. */
+function SettingsSection({ title, children, className }: SettingsSectionProps) {
+    return (
+        <section className={cn("flex flex-col gap-3 items-start self-stretch", className)}>
+            <p className="text-3xl font-extrabold text-brand-hover">{title}</p>
+            <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
+                {children}
+            </div>
+        </section>
     );
 }
 
@@ -77,6 +119,7 @@ function MembersSection({ groupId }: MembersSectionProps) {
     const membersQuery = useGetGroupMembers(groupId, "ACTIVE");
     const myMember = useMyMember(groupId);
     const updateNickname = useUpdateMyNickname(groupId);
+    const updateCvu = useUpdateMyCvu(groupId);
     const { showApiError, showSuccessToast } = useFormToasts();
 
     const members = membersQuery.data ?? [];
@@ -95,6 +138,19 @@ function MembersSection({ groupId }: MembersSectionProps) {
             showSuccessToast("Apodo actualizado", `Tu apodo en el grupo ahora es "${updated.nickname}".`);
         } catch (error) {
             showApiError(error as BackendError, "No se pudo guardar tu apodo");
+            throw error;
+        }
+    }
+
+    async function handleSaveCvu(cvu: string) {
+        try {
+            const updated = await updateCvu.mutateAsync({ cvu });
+            showSuccessToast(
+                updated.cvu ? "Alias/CVU actualizado" : "Alias/CVU eliminado",
+                updated.cvu ? `Tu alias/CVU en el grupo ahora es "${updated.cvu}".` : "Ya no tenés un alias/CVU cargado en el grupo.",
+            );
+        } catch (error) {
+            showApiError(error as BackendError, "No se pudo guardar tu alias/CVU")
             throw error;
         }
     }
@@ -133,7 +189,9 @@ function MembersSection({ groupId }: MembersSectionProps) {
                         member={member}
                         isMine={isMine}
                         onSaveNickname={isMine ? handleSaveNickname : undefined}
-                        isSaving={isMine && updateNickname.isPending}
+                        isSavingNickname={isMine && updateNickname.isPending}
+                        onSaveCvu={isMine ? handleSaveCvu : undefined}
+                        isSavingCvu={isMine && updateCvu.isPending}
                     />
                 );
             })}
@@ -253,8 +311,7 @@ function JoinRequestsSection({ groupId, showPercentages }: JoinRequestsSectionPr
             try {
                 await mutate(id);
             } catch (error) {
-                const message =
-                    error instanceof Error ? error.message : "Error desconocido";
+                const message = apiErrorMessage(error);
                 toast({
                     variant: "destructive",
                     title: `${errorPrefix}: operación abortada`,
@@ -407,54 +464,24 @@ function JoinRequestsSection({ groupId, showPercentages }: JoinRequestsSectionPr
     );
 }
 
-async function copyToClipboard(text: string): Promise<void> {
-    await navigator.clipboard.writeText(text);
-}
-
 interface JoinCodeShareProps {
     readonly joinCode: string;
 }
 
 function JoinCodeShare({ joinCode }: JoinCodeShareProps) {
-    async function handleCopy() {
-        try {
-            await copyToClipboard(joinCode);
-            toast({ title: "Código copiado al portapapeles" });
-        } catch {
-            toast({
-                variant: "destructive",
-                title: "No se pudo copiar el código",
-                description: `Copialo manualmente: ${joinCode}`,
-            });
-        }
-    }
-
     return (
         <div className="flex flex-col items-start gap-1.5 md:items-end">
             <span className="text-xs font-semibold uppercase tracking-wide text-brand-foreground/70">
                 Código de grupo
             </span>
 
-            <div className="inline-flex items-center gap-1 rounded-full bg-modal-surface py-1 pl-5 pr-1 shadow-none">
-                <button
-                    type="button"
-                    onClick={handleCopy}
-                    aria-label={`Copiar código de grupo ${joinCode} al portapapeles`}
-                    title="Copiar al portapapeles"
-                    className="cursor-pointer text-lg font-bold tracking-widest tabular-nums text-modal-ink transition-colors hover:text-modal-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
-                >
-                    {joinCode}
-                </button>
-                <button
-                    type="button"
-                    onClick={handleCopy}
-                    aria-label="Copiar código de grupo al portapapeles"
-                    title="Copiar al portapapeles"
-                    className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-modal-primary transition-colors hover:bg-modal-field focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                    <FontAwesomeIcon icon={faCopy} className="h-4 w-4" aria-hidden />
-                </button>
-            </div>
+            <CopyChip
+                value={joinCode}
+                label="código de grupo"
+                successTitle="Código copiado al portapapeles"
+                errorTitle="No se pudo copiar el código"
+                className="bg-modal-surface text-base tracking-normal"
+            />
 
             <span className="max-w-64 text-xs text-brand-foreground/70 md:text-right">
                 Compartí este código para que otros se unan al grupo.
@@ -480,6 +507,11 @@ function toConfigChangeBody(request: ConfigChangeRequest): ConfigChangeCreate {
                 setting: "EXTRAORDINARY_EXPENSE_THRESHOLD",
                 extraordinaryExpenseThreshold: request.extraordinaryExpenseThreshold,
             };
+        case "voteDeadline":
+            return {
+                setting: "VOTE_DEADLINE_DAYS",
+                voteDeadlineDays: request.voteDeadlineDays,
+            };
     }
 }
 
@@ -487,6 +519,8 @@ export const ConfigurationScreen = () => {
     const [location] = useLocation();
     const group = useCurrentGroup();
     const [pendingChange, setPendingChange] = useState<ConfigChangeKind | null>(null);
+    const [showPremiumModal, setShowPremiumModal] = useState(false);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
     const createConfigChange = useCreateConfigChangeVote(group.id);
     const { showApiError, showSuccessToast, showErrorToast } = useFormToasts();
 
@@ -518,6 +552,29 @@ export const ConfigurationScreen = () => {
 
     const configBasePath = location.replace(/\/$/, "");
 
+    const isPremium = group.isPremium;
+
+    // Un grupo premium ve todos los ajustes como disponibles; uno gratuito solo los que no requieren premium.
+    const availableSettings: ReadonlyArray<ModalSettingItem> = isPremium
+        ? SETTINGS_INFO
+        : SETTINGS_INFO.filter((item) => !requiresPremium(item.kind));
+    const premiumOnlySettings: ReadonlyArray<ModalSettingItem> = isPremium
+        ? []
+        : SETTINGS_INFO.filter((item) => requiresPremium(item.kind));
+    // La tarjeta de porcentajes es exclusiva de premium: en un grupo gratuito no va en ninguna de las dos secciones.
+    const showPercentagesCard = isPercentageGroup && isPremium;
+
+    const renderSettingRow = (item: ModalSettingItem) => (
+        <ModalSettingRow
+            key={item.kind}
+            item={item}
+            settings={group.settings}
+            disabled={isStopped}
+            isPremium={isPremium || !requiresPremium(item.kind)}
+            onRequestChange={(kind) => isPremium || !requiresPremium(kind) ? setPendingChange(kind) : setShowPremiumModal(true)}
+        />
+    );
+
     return (
         <CommonLayout>
             <GroupNavbar>
@@ -546,53 +603,46 @@ export const ConfigurationScreen = () => {
                             showPercentages={isPercentageGroup}
                         />
 
-                        <p className="text-3xl font-extrabold text-brand-hover">
-                            Ajustes disponibles
-                        </p>
-
-                        <div className="flex flex-col gap-4 items-start self-stretch pt-2 overflow-hidden">
-                            {isPercentageGroup && (
-                            <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
-                                <div className="flex flex-row gap-5 items-center">
-                                    <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
-                                        <p className="text-lg font-semibold text-brand">
-                                            <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />
-                                        </p>
+                        <SettingsSection title="Ajustes disponibles">
+                            {showPercentagesCard && (
+                                <div className="flex flex-row justify-between items-center gap-6 self-stretch bg-panel rounded-4xl border border-field/50 py-6 px-7 overflow-hidden text-left">
+                                    <div className="flex flex-row gap-5 items-center">
+                                        <div className="flex flex-row justify-center items-center w-12 h-12 bg-brand/15 rounded-[14px] overflow-hidden shrink-0">
+                                            <p className="text-lg font-semibold text-brand">
+                                                <FontAwesomeIcon icon={faPercent} className="h-5 w-5" aria-hidden />
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col gap-1 items-start max-w-140">
+                                            <p className="text-lg font-semibold text-ink">
+                                                {PERCENTAGES_SETTING.title}
+                                            </p>
+                                            <p className="text-base font-normal text-warm-muted">
+                                                {PERCENTAGES_SETTING.description}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col gap-1 items-start max-w-140">
-                                        <p className="text-lg font-semibold text-ink">
-                                            {PERCENTAGES_SETTING.title}
-                                        </p>
-                                        <p className="text-base font-normal text-warm-muted">
-                                            {PERCENTAGES_SETTING.description}
-                                        </p>
-                                    </div>
+                                    <Link href={`${configBasePath}/porcentajes`}>
+                                        <Button
+                                            type="button"
+                                            variant="modalPrimary"
+                                            size="cardAction"
+                                            title={MODIFY_PERCENTAGES_LABEL}
+                                            aria-label={MODIFY_PERCENTAGES_LABEL}
+                                        >
+                                            <FontAwesomeIcon icon={faArrowRight} aria-hidden />
+                                        </Button>
+                                    </Link>
                                 </div>
-                                <Link href={`${configBasePath}/porcentajes`}>
-                                    <Button
-                                        type="button"
-                                        variant="modalPrimary"
-                                        size="cardAction"
-                                        title={MODIFY_PERCENTAGES_LABEL}
-                                        aria-label={MODIFY_PERCENTAGES_LABEL}
-                                    >
-                                        <FontAwesomeIcon icon={faArrowRight} aria-hidden />
-                                    </Button>
-                                </Link>
-                            </div>
                             )}
 
-                            {SETTINGS_INFO.map((item) => (
-                                <ModalSettingRow
-                                    key={item.kind}
-                                    item={item}
-                                    settings={group.settings}
-                                    disabled={isStopped}
-                                    onRequestChange={setPendingChange}
-                                />
-                            ))}
-                        </div>
+                            {availableSettings.map(renderSettingRow)}
+                        </SettingsSection>
 
+                        {premiumOnlySettings.length > 0 && (
+                            <SettingsSection title="Ajustes exclusivos para grupos premiums" className="mt-6">
+                                {premiumOnlySettings.map(renderSettingRow)}
+                            </SettingsSection>
+                        )}
                     </>
                 ) : (
                     <p className="pt-2 text-base text-warm-muted">
@@ -600,6 +650,44 @@ export const ConfigurationScreen = () => {
                         esta configuración.
                     </p>
                 )}
+
+                {group.myStatus === "ACTIVE" && (
+                    <section className="flex w-full flex-col gap-3 self-stretch pt-10">
+                        <p className="text-3xl font-extrabold text-group-danger">
+                            Zona de peligro
+                        </p>
+                        <div className="flex flex-col gap-6 items-start self-stretch rounded-4xl bg-panel p-7 shadow-group sm:flex-row sm:items-center sm:justify-between sm:p-8">
+                            <div className="flex flex-row gap-5 items-start">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-group-danger/15 text-group-danger">
+                                    <FontAwesomeIcon icon={faTriangleExclamation} className="h-5 w-5" aria-hidden />
+                                </div>
+                                <div className="flex flex-col gap-1 items-start">
+                                    <p className="text-lg font-semibold text-ink">
+                                        Abandonar el grupo
+                                    </p>
+                                    <p className="text-base font-normal text-warm-muted">
+                                        Vas a perder el acceso a las reservas, los gastos y las votaciones del grupo. <br/>
+                                        Para volver a entrar vas a tener que pedir ingreso de nuevo con el código.
+                                    </p>
+                                    <p className="text-sm font-semibold text-group-danger">
+                                        Esta acción no se puede deshacer.
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="danger"
+                                size="lg"
+                                className="shrink-0 self-center sm:self-auto"
+                                onClick={() => setShowLeaveModal(true)}
+                            >
+                                <FontAwesomeIcon icon={faRightFromBracket} className="me-2" aria-hidden />
+                                Abandonar grupo
+                            </Button>
+                        </div>
+                    </section>
+                )}
+
             </div>
 
             {pendingChange && (
@@ -610,6 +698,23 @@ export const ConfigurationScreen = () => {
                     onSubmit={handleConfigChangeSubmit}
                 />
             )}
+            {showLeaveModal && (
+                <LeaveGroupModal
+                    groupId={group.id}
+                    groupCode={group.joinCode}
+                    groupName={group.name}
+                    onClose={() => setShowLeaveModal(false)}
+                />
+            )}
+            {showPremiumModal && (
+                <PremiumContentModal
+                    groupCode={group.joinCode}
+                    title="Ajustes premium"
+                    description="Esta modificación de configuración solo está disponible para grupos premium."
+                    onClose={() => setShowPremiumModal(false)}
+                />
+            )}
         </CommonLayout>
     );
 };
+

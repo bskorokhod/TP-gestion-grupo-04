@@ -1,5 +1,5 @@
 import { BASE_API_URL } from "@/config/app-query-client";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, getApiErrorStatus } from "@/lib/api";
 
 export class ApiService {
     private static readonly jsonHeaders: Readonly<Record<string, string>> = {
@@ -7,9 +7,13 @@ export class ApiService {
         "Content-Type": "application/json",
     };
 
-    private static refreshHandler: (() => Promise<void>) | null = null;
+    /**
+     * Renueva la sesión y devuelve el access token nuevo. Lo registra el `TokenProvider`; debe compartir un único
+     * refresh en curso entre varios 401 simultáneos y pasar a LOGGED_OUT si falla.
+     */
+    private static refreshHandler: (() => Promise<string>) | null = null;
 
-    static setRefreshHandler(handler: () => Promise<void>): void {
+    static setRefreshHandler(handler: (() => Promise<string>) | null): void {
         this.refreshHandler = handler;
     }
 
@@ -32,13 +36,13 @@ export class ApiService {
         endpoint: string,
         options: RequestInit = {},
     ): Promise<T> {
-        const tryRequest = async (): Promise<T> => {
-            const token = await getAccessToken();
+        const tryRequest = async (token?: string): Promise<T> => {
+            const accessToken = token ?? await getAccessToken();
             return this.request<T>(endpoint, {
                 ...options,
                 headers: {
                     ...options.headers,
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${accessToken}`,
                 },
             });
         };
@@ -46,18 +50,16 @@ export class ApiService {
         try {
             return await tryRequest();
         } catch (error: unknown) {
-            const status: number | null =
-                typeof error === "object" && error !== null && "status" in error
-                    ? typeof (error as { status: unknown }).status === "number"
-                        ? ((error as { status: number }).status)
-                        : null
-                    : null;
-
-            const isAuthError = status === 401 || status === 403;
-
-            if (isAuthError && this.refreshHandler) {
-                await this.refreshHandler();
-                return tryRequest();
+            // Solo el 401 (token vencido o inválido) renueva la sesión; un 403 es "no tenés permiso" y no se reintenta.
+            // Se reintenta una sola vez, con el token nuevo; si el refresh falla se informa el 401 original.
+            if (getApiErrorStatus(error) === 401 && this.refreshHandler) {
+                let newToken: string;
+                try {
+                    newToken = await this.refreshHandler();
+                } catch {
+                    throw error;
+                }
+                return tryRequest(newToken);
             }
             throw error;
         }

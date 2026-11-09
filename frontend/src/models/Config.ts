@@ -1,7 +1,7 @@
 import type { DistributionMode, GroupSettings, ReservationLimitPolicy, VotingModel } from "@/models/Group";
 import {IconDefinition} from "@fortawesome/fontawesome-svg-core";
 
-export type ConfigChangeKind = "voting" | "reservation" | "threshold" | "distribution";
+export type ConfigChangeKind = "voting" | "reservation" | "threshold" | "distribution" | "voteDeadline";
 
 export type ConfigChangeRequest =
     | { kind: "voting"; votingModel: VotingModel }
@@ -11,7 +11,8 @@ export type ConfigChangeRequest =
     reservationFixedDaysPerMonth?: number;
 }
     | { kind: "threshold"; extraordinaryExpenseThreshold: number }
-    | { kind: "distribution"; distributionMode: DistributionMode };
+    | { kind: "distribution"; distributionMode: DistributionMode }
+    | { kind: "voteDeadline"; voteDeadlineDays: number };
 
 export interface ModalSettingItem {
     readonly kind: ConfigChangeKind;

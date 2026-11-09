@@ -10,6 +10,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
@@ -18,9 +20,9 @@ import java.math.BigDecimal;
  * Cambio propuesto a una configuración del grupo: sirve de cuerpo al proponerlo y de vista dentro de
  * {@code VoteDTO}. Va {@code setting} (qué configuración cambia) y solo el nuevo valor de esa configuración:
  * {@code distributionMode}, {@code votingModel}, {@code reservationLimitPolicy} (con
- * {@code reservationFixedDaysPerMonth} si y solo si es FIXED_DAYS_PER_MONTH) o
- * {@code extraordinaryExpenseThreshold}. La regla de coherencia es un método {@code @AssertTrue} (y no una
- * restricción de clase) para que el error llegue como error de campo, que es lo que lee el handler global.
+ * {@code reservationFixedDaysPerMonth} si y solo si es FIXED_DAYS_PER_MONTH), {@code extraordinaryExpenseThreshold}
+ * o {@code voteDeadlineDays}. La regla de coherencia es un método {@code @AssertTrue} (y no una restricción de
+ * clase) para que el error llegue como error de campo, que es lo que lee el handler global.
  */
 public record ConfigChangeDTO(
         @NotNull(message = "La configuración a modificar es obligatoria")
@@ -31,7 +33,10 @@ public record ConfigChangeDTO(
         Integer reservationFixedDaysPerMonth,
         @DecimalMin(value = "0.01", message = "El monto extraordinario debe ser mayor a 0")
         @Digits(integer = 10, fraction = 2, message = "El monto extraordinario admite hasta 10 enteros y 2 decimales")
-        BigDecimal extraordinaryExpenseThreshold
+        BigDecimal extraordinaryExpenseThreshold,
+        @Min(value = GroupSettings.MIN_VOTE_DEADLINE_DAYS, message = "El plazo de votación debe ser de al menos 7 días")
+        @Max(value = GroupSettings.MAX_VOTE_DEADLINE_DAYS, message = "El plazo de votación no puede superar los 30 días")
+        Integer voteDeadlineDays
 ) {
 
     public static ConfigChangeDTO from(ConfigChangeVote vote) {
@@ -41,7 +46,8 @@ public record ConfigChangeDTO(
                 vote.getProposedVotingModel(),
                 vote.getProposedReservationLimitPolicy(),
                 vote.getProposedReservationFixedDaysPerMonth(),
-                vote.getProposedExtraordinaryExpenseThreshold()
+                vote.getProposedExtraordinaryExpenseThreshold(),
+                vote.getProposedVoteDeadlineDays()
         );
     }
 
@@ -55,16 +61,23 @@ public record ConfigChangeDTO(
         return switch (setting) {
             case DISTRIBUTION_MODE -> distributionMode != null
                     && votingModel == null && reservationLimitPolicy == null
-                    && reservationFixedDaysPerMonth == null && extraordinaryExpenseThreshold == null;
+                    && reservationFixedDaysPerMonth == null && extraordinaryExpenseThreshold == null
+                    && voteDeadlineDays == null;
             case VOTING_MODEL -> votingModel != null
                     && distributionMode == null && reservationLimitPolicy == null
-                    && reservationFixedDaysPerMonth == null && extraordinaryExpenseThreshold == null;
+                    && reservationFixedDaysPerMonth == null && extraordinaryExpenseThreshold == null
+                    && voteDeadlineDays == null;
             case RESERVATION_LIMIT_POLICY -> reservationLimitPolicy != null
                     && GroupSettings.isFixedDaysConsistent(reservationLimitPolicy, reservationFixedDaysPerMonth)
-                    && distributionMode == null && votingModel == null && extraordinaryExpenseThreshold == null;
+                    && distributionMode == null && votingModel == null && extraordinaryExpenseThreshold == null
+                    && voteDeadlineDays == null;
             case EXTRAORDINARY_EXPENSE_THRESHOLD -> extraordinaryExpenseThreshold != null
                     && distributionMode == null && votingModel == null
-                    && reservationLimitPolicy == null && reservationFixedDaysPerMonth == null;
+                    && reservationLimitPolicy == null && reservationFixedDaysPerMonth == null
+                    && voteDeadlineDays == null;
+            case VOTE_DEADLINE_DAYS -> voteDeadlineDays != null
+                    && distributionMode == null && votingModel == null && reservationLimitPolicy == null
+                    && reservationFixedDaysPerMonth == null && extraordinaryExpenseThreshold == null;
         };
     }
 }

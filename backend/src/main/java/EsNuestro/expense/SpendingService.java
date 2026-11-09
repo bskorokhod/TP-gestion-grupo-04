@@ -27,7 +27,7 @@ import java.util.stream.IntStream;
 /**
  * Balance del grupo: cuánto se gastó por mes y por categoría. Solo cuentan los gastos saldados (aprobados y sin deudas
  * pendientes, ver {@link ExpenseRepository#findSettledBetween}), ubicados en el mes de su fecha de creación. Es de solo
- * lectura: solo exige poder ver el grupo, así que sigue disponible con el grupo detenido.
+ * lectura: exige poder ver el grupo, así que sigue disponible con el grupo detenido, y que el grupo sea premium.
  */
 @Service
 @Transactional
@@ -53,6 +53,7 @@ class SpendingService {
             Long groupId, int year, int month, SpendingScope scope, String zone, String username
     ) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
+        groupService.requirePremium(caller.getGroup());
         ZoneId zoneId = parseZone(zone);
         requireYear(year);
         YearMonth yearMonth = parseYearMonth(year, month);
@@ -75,6 +76,7 @@ class SpendingService {
             Long groupId, int year, SpendingScope scope, String zone, String username
     ) throws ItemNotFoundException {
         GroupMember caller = groupService.requireViewer(groupId, username);
+        groupService.requirePremium(caller.getGroup());
         ZoneId zoneId = parseZone(zone);
         requireYear(year);
 

@@ -15,7 +15,7 @@ interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     /**
      * Gastos del grupo en el estado {@code status} sin ninguna deuda pendiente (ninguna con {@code paidAmount < amount},
-     * incluidas las devoluciones), del más nuevo al más viejo. Un gasto sin deudas, porque no tiene participantes,
+     * incluidas las devoluciones; las canceladas por la salida del acreedor cuentan como saldadas), del más nuevo al más viejo. Un gasto sin deudas, porque no tiene participantes,
      * cuenta como saldado. Trae los datos y el acreedor en la misma consulta para no hacer una por gasto.
      */
     @Query("""
@@ -28,6 +28,7 @@ interface ExpenseRepository extends JpaRepository<Expense, Long> {
               and not exists (
                 select debt.id from Debt debt
                 where debt.expense = e and debt.paidAmount < debt.amount
+                  and debt.status <> EsNuestro.expense.DebtStatus.CANCELED
               )
             order by e.createdAt desc, e.id desc
             """)
@@ -48,6 +49,7 @@ interface ExpenseRepository extends JpaRepository<Expense, Long> {
               and not exists (
                 select debt.id from Debt debt
                 where debt.expense = e and debt.paidAmount < debt.amount
+                  and debt.status <> EsNuestro.expense.DebtStatus.CANCELED
               )
             """)
     List<Expense> findSettledBetween(

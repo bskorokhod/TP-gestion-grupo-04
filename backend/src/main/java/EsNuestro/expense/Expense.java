@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -30,6 +31,9 @@ import java.util.Set;
 @NoArgsConstructor
 @Getter
 public class Expense {
+
+    public static final int MIN_CLOSING_DEADLINE_DAYS = 7;
+    public static final int MAX_CLOSING_DEADLINE_DAYS = 30;
 
     @Id
     @GeneratedValue
@@ -79,12 +83,22 @@ public class Expense {
     @Column(name = "report_in_progress")
     private Boolean reportInProgress = false;
 
+    /**
+     * Momento a partir del cual el gasto se considera vencido para quien todavía debe su parte: no dispara ninguna
+     * acción automática (nada se cierra ni se borra), solo habilita avisos al deudor. Se calcula a partir de
+     * {@link ExpenseDetails#getClosingDeadlineDays()} y se recalcula desde "ahora" en cada edición directa o
+     * ejecución de un reporte (ver {@link #applyEdit}), así que el plazo se reinicia con cada cambio. Es nullable
+     * en la base porque los gastos anteriores a esta funcionalidad no tienen un plazo asignado.
+     */
+    private Instant closingDeadline;
+
     private Expense(GroupMember creator, ExpenseDetails details) {
         this.group = creator.getGroup();
         this.creator = creator;
         this.details = details;
         this.status = ExpenseStatus.PENDING_APPROVAL;
         this.createdAt = Instant.now();
+        this.closingDeadline = closingDeadlineFrom(details, this.createdAt);
     }
 
     /** Nace pendiente y sin deudas; si lo registra un admin, el servicio lo aprueba de inmediato. */
@@ -145,10 +159,12 @@ public class Expense {
 
     /**
      * Aplica una modificación a un gasto aprobado (directa del creador sin pagos, o aprobada por votación): reemplaza
-     * los datos vigentes y concilia las deudas con lo ya pagado. Quien pagó de más queda con una devolución a favor.
+     * los datos vigentes, reinicia el plazo de cierre desde ahora con los días propuestos, y concilia las deudas con
+     * lo ya pagado. Quien pagó de más queda con una devolución a favor.
      */
     public void applyEdit(ExpenseDetails newDetails) {
         details = newDetails;
+        closingDeadline = closingDeadlineFrom(details, Instant.now());
         reconcileDebts(currentShares());
     }
 
@@ -224,6 +240,12 @@ public class Expense {
         this.lastResolvedAt = Instant.now();
     }
 
+    /** {@code null} si los datos no traen plazo (gastos anteriores a esta funcionalidad); si no, {@code from} + los días. */
+    private static Instant closingDeadlineFrom(ExpenseDetails details, Instant from) {
+        Integer days = details.getClosingDeadlineDays();
+        return days == null ? null : from.plus(days, ChronoUnit.DAYS);
+    }
+
     /**
      * La parte de cada deudor según los datos vigentes (id de miembro -> importe). Quien no debe nada (el acreedor,
      * o quien tiene parte en cero) no figura; sin participantes el acreedor cubre todo y no hay partes.
@@ -297,5 +319,40 @@ public class Expense {
                 debts.add(Debt.refund(this, details.getCreditor(), membersById.get(memberId), outcome.refundAmount()));
             }
         }
+        cancelDebtsOfInactiveMembers();
+    }
+
+    /**
+     * Una deuda sin saldar cuyo acreedor o deudor ya no está en el grupo nace (o queda) cancelada: nadie la va a cobrar
+     * ni pagar, y no genera deuda nueva para quien sigue en el grupo. Incluye la devolución de lo que alguien pagó de
+     * más: si quien pagó ya salió, ese dinero queda en manos del acreedor y no se recupera (es una decisión
+     * deliberada, igual que perder lo que le deben al irse).
+     */
+    private void cancelDebtsOfInactiveMembers() {
+        debts.stream()
+                .filter(Debt::isUnsettled)
+                .filter(debt -> !debt.getCreditor().isActive() || !debt.getDebtor().isActive())
+                .forEach(Debt::cancel);
+    }
+
+    /**
+     * Miembros del acreedor y de los participantes (de la edición en revisión si hay una) que ya no están activos, sin
+     * repetir. Si el gasto sigue vigente, requiere una modificación para sacarlos o reasignarlos.
+     */
+    public List<GroupMember> inactiveInvolvedMembers() {
+        ExpenseDetails current = detailsUnderReview();
+        Map<Long, GroupMember> byId = new LinkedHashMap<>();
+        byId.put(current.getCreditor().getId(), current.getCreditor());
+        current.getParticipants().forEach(p -> byId.putIfAbsent(p.getMember().getId(), p.getMember()));
+        return byId.values().stream().filter(member -> !member.isActive()).toList();
+    }
+
+    /**
+     * Solo un gasto pendiente de aprobación (nuevo, o una edición en revisión: sus detalles pendientes) cuyo acreedor o
+     * algún participante ya no está activo requiere modificarse. Un gasto aprobado nunca: quien se va no deja partes
+     * propias sin pagar (no puede irse con deudas) y las deudas hacia un acreedor que se fue ya se cancelan.
+     */
+    public boolean requiresModification() {
+        return status == ExpenseStatus.PENDING_APPROVAL && !inactiveInvolvedMembers().isEmpty();
     }
 }

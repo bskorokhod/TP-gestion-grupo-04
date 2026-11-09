@@ -5,6 +5,7 @@ import EsNuestro.common.time.AppTime;
 import EsNuestro.group.Group;
 import EsNuestro.group.ReservationLimitPolicy;
 import EsNuestro.group.GroupService;
+import EsNuestro.group.MemberLeftEvent;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.MembershipStatus;
 import EsNuestro.reservation.dtos.CancellationRequestCreateDTO;
@@ -12,6 +13,7 @@ import EsNuestro.reservation.dtos.CancellationRequestDTO;
 import EsNuestro.reservation.dtos.ReservationCreateDTO;
 import EsNuestro.reservation.dtos.ReservationDTO;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -88,6 +90,22 @@ class ReservationService {
         requireActive(reservation);
         reservation.cancel();
         eventPublisher.publishEvent(new ReservationCancelledEvent(groupId, reservationId));
+    }
+
+    /**
+     * Quien abandona el grupo deja sus reservas vigentes (activas que todavía no terminaron): se cancelan. Por cada una
+     * se publica {@link ReservationCancelledEvent}, que cierra los reclamos abiertos sobre ella, igual que cuando el dueño
+     * la cancela a mano. Las reservas de otros y las ya pasadas o canceladas no se tocan. Corre en la transacción de
+     * {@code GroupService.leaveGroup}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onMemberLeft(MemberLeftEvent event) {
+        reservationRepository.findByMember_IdAndStatusAndEndDateGreaterThanEqual(
+                        event.memberId(), ReservationStatus.ACTIVE, AppTime.today())
+                .forEach(reservation -> {
+                    reservation.cancel();
+                    eventPublisher.publishEvent(new ReservationCancelledEvent(event.groupId(), reservation.getId()));
+                });
     }
 
     CancellationRequestDTO requestCancellation(

@@ -12,9 +12,9 @@ import java.math.RoundingMode;
 
 /**
  * Configuración que se elige al crear el grupo. Sus columnas viven en la tabla {@code groups}.
- * Hoy solo se aplica en gastos (en un grupo EQUAL se rechaza el reparto proporcional); el resto de
- * las opciones (votaciones, reservas) solo se persiste: cada enum documenta cómo se usará. Las
- * combinaciones incoherentes se rechazan acá, de modo que no
+ * Hoy solo se aplica en gastos (en un grupo EQUAL se rechaza el reparto proporcional) y en el plazo de
+ * cierre de las votaciones; el resto de las opciones (reservas) solo se persiste: cada enum documenta
+ * cómo se usará. Las combinaciones incoherentes se rechazan acá, de modo que no
  * pueda existir un grupo con ellas aunque se salte la validación del DTO.
  */
 @Embeddable
@@ -24,6 +24,9 @@ public class GroupSettings {
 
     public static final int MIN_FIXED_DAYS_PER_MONTH = 1;
     public static final int MAX_FIXED_DAYS_PER_MONTH = 31;
+
+    public static final int MIN_VOTE_DEADLINE_DAYS = 7;
+    public static final int MAX_VOTE_DEADLINE_DAYS = 30;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -47,15 +50,24 @@ public class GroupSettings {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal extraordinaryExpenseThreshold;
 
+    /**
+     * Días que tiene una votación para cerrarse antes de rechazarse automáticamente por no alcanzar el
+     * quórum a tiempo. Se fija al crear cada votación (ver {@code EsNuestro.vote.Vote}), así que cambiar
+     * este valor no altera el plazo de una votación en curso. Lo aplica {@code EsNuestro.vote.VoteExpirationJob}.
+     */
+    @Column(nullable = false)
+    private Integer voteDeadlineDays;
+
     public GroupSettings(
             DistributionMode distributionMode,
             VotingModel votingModel,
             ReservationLimitPolicy reservationLimitPolicy,
             Integer reservationFixedDaysPerMonth,
-            BigDecimal extraordinaryExpenseThreshold
+            BigDecimal extraordinaryExpenseThreshold,
+            Integer voteDeadlineDays
     ) {
         if (distributionMode == null || votingModel == null || reservationLimitPolicy == null
-                || extraordinaryExpenseThreshold == null) {
+                || extraordinaryExpenseThreshold == null || voteDeadlineDays == null) {
             throw new IllegalArgumentException("Group settings are incomplete");
         }
         if (!isVotingModelAllowed(distributionMode, votingModel)) {
@@ -78,12 +90,18 @@ public class GroupSettings {
         if (extraordinaryExpenseThreshold.signum() <= 0) {
             throw new IllegalArgumentException("Extraordinary expense threshold must be positive");
         }
+        if (voteDeadlineDays < MIN_VOTE_DEADLINE_DAYS || voteDeadlineDays > MAX_VOTE_DEADLINE_DAYS) {
+            throw new IllegalArgumentException(
+                    "Vote deadline must be between " + MIN_VOTE_DEADLINE_DAYS + " and " + MAX_VOTE_DEADLINE_DAYS + " days"
+            );
+        }
 
         this.distributionMode = distributionMode;
         this.votingModel = votingModel;
         this.reservationLimitPolicy = reservationLimitPolicy;
         this.reservationFixedDaysPerMonth = reservationFixedDaysPerMonth;
         this.extraordinaryExpenseThreshold = extraordinaryExpenseThreshold.setScale(2, RoundingMode.HALF_UP);
+        this.voteDeadlineDays = voteDeadlineDays;
     }
 
     /**
@@ -95,13 +113,13 @@ public class GroupSettings {
     }
 
     /**
-     * Copia con otro modo de repartición. Las cuatro variantes {@code with...} validan la combinación
+     * Copia con otro modo de repartición. Las cinco variantes {@code with...} validan la combinación
      * resultante con el constructor y lanzan {@link IllegalArgumentException} si es incoherente.
      */
     public GroupSettings withDistributionMode(DistributionMode newDistributionMode) {
         return new GroupSettings(
                 newDistributionMode, votingModel, reservationLimitPolicy,
-                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold
+                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold, voteDeadlineDays
         );
     }
 
@@ -109,21 +127,56 @@ public class GroupSettings {
     public GroupSettings withVotingModel(VotingModel newVotingModel) {
         return new GroupSettings(
                 distributionMode, newVotingModel, reservationLimitPolicy,
-                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold
+                reservationFixedDaysPerMonth, extraordinaryExpenseThreshold, voteDeadlineDays
         );
     }
 
     /** Copia con otra restricción de reservas; los días fijos van si y solo si es FIXED_DAYS_PER_MONTH. */
     public GroupSettings withReservationLimit(ReservationLimitPolicy newPolicy, Integer newFixedDaysPerMonth) {
         return new GroupSettings(
-                distributionMode, votingModel, newPolicy, newFixedDaysPerMonth, extraordinaryExpenseThreshold
+                distributionMode, votingModel, newPolicy, newFixedDaysPerMonth,
+                extraordinaryExpenseThreshold, voteDeadlineDays
         );
     }
 
     /** Copia con otro monto a partir del cual un gasto es extraordinario. */
     public GroupSettings withExtraordinaryExpenseThreshold(BigDecimal newThreshold) {
         return new GroupSettings(
-                distributionMode, votingModel, reservationLimitPolicy, reservationFixedDaysPerMonth, newThreshold
+                distributionMode, votingModel, reservationLimitPolicy, reservationFixedDaysPerMonth,
+                newThreshold, voteDeadlineDays
+        );
+    }
+
+    /** Copia con otro plazo (en días) de cierre de las votaciones. */
+    public GroupSettings withVoteDeadlineDays(Integer newVoteDeadlineDays) {
+        return new GroupSettings(
+                distributionMode, votingModel, reservationLimitPolicy, reservationFixedDaysPerMonth,
+                extraordinaryExpenseThreshold, newVoteDeadlineDays
+        );
+    }
+
+    public static final DistributionMode DEFAULT_DISTRIBUTION_MODE = DistributionMode.EQUAL;
+    public static final VotingModel DEFAULT_VOTING_MODEL = VotingModel.SIMPLE_MAJORITY;
+    public static final ReservationLimitPolicy DEFAULT_RESERVATION_LIMIT_POLICY = ReservationLimitPolicy.EQUAL;
+
+    /**
+     * Si el reparto, la aprobación de votaciones y la restricción de reservas son los valores por defecto. Cualquier otra
+     * combinación es una personalización premium. El monto extraordinario no cuenta: se puede cambiar en cualquier grupo.
+     */
+    public boolean usesDefaultPremiumSettings() {
+        return distributionMode == DEFAULT_DISTRIBUTION_MODE
+                && votingModel == DEFAULT_VOTING_MODEL
+                && reservationLimitPolicy == DEFAULT_RESERVATION_LIMIT_POLICY;
+    }
+
+    /**
+     * Copia con las tres configuraciones exclusivas de premium en sus valores por defecto; el monto extraordinario y el
+     * plazo de cierre de las votaciones se conservan, porque se pueden cambiar en cualquier grupo.
+     */
+    public GroupSettings revertedToDefaults() {
+        return new GroupSettings(
+                DEFAULT_DISTRIBUTION_MODE, DEFAULT_VOTING_MODEL, DEFAULT_RESERVATION_LIMIT_POLICY,
+                null, extraordinaryExpenseThreshold, voteDeadlineDays
         );
     }
 

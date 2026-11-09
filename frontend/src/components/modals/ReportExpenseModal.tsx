@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/format.ts";
 import { uploadExpenseReceipt } from "@/lib/supabase.ts";
 import { describeResolvedVote, reachesExtraordinaryThreshold } from "@/lib/votes.ts";
 import type { Expense, ExpenseData, SplitMethod } from "@/models/Expense.ts";
+import { MAX_CLOSING_DEADLINE_DAYS } from "@/models/Expense.ts";
 import type { Vote } from "@/models/Vote.ts";
 import { useDeleteExpense, useUpdateExpense } from "@/services/ExpenseServices.ts";
 import { useGetGroupMembers, useMyMember } from "@/services/GroupServices.ts";
@@ -74,6 +75,7 @@ export function ReportExpenseModal({ groupId, expense, onClose }: ReportExpenseM
         category: details.category,
         amount: String(details.totalAmount),
         splitMethod: details.splitMethod,
+        closingDeadlineDays: String(details.closingDeadlineDays ?? MAX_CLOSING_DEADLINE_DAYS),
         participantIds: new Set(details.participants.map((participant) => participant.member.id)),
     });
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -120,6 +122,7 @@ export function ReportExpenseModal({ groupId, expense, onClose }: ReportExpenseM
         const validation = validateExpenseFields({
             title: form.title,
             rawAmount: form.amount,
+            rawClosingDeadlineDays: form.closingDeadlineDays,
             participantCount: participants.length,
         });
         if (!validation.isValid) {
@@ -147,6 +150,7 @@ export function ReportExpenseModal({ groupId, expense, onClose }: ReportExpenseM
                 splitMethod: effectiveSplitMethod,
                 participants: participants.map((member) => ({ memberId: member.id })),
                 receiptUrl,
+                closingDeadlineDays: validation.closingDeadlineDays,
             };
 
             if (changesDirectly) {

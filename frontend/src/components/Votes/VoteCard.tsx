@@ -232,6 +232,10 @@ function describeProposedValue(change: ConfigChange): string {
             return change.extraordinaryExpenseThreshold != null
                 ? formatCurrency(change.extraordinaryExpenseThreshold)
                 : "-";
+        case "VOTE_DEADLINE_DAYS":
+            return change.voteDeadlineDays != null
+                ? `${change.voteDeadlineDays} días`
+                : "-";
     }
 }
 
@@ -328,6 +332,11 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
 
     const createdAt = new Date(vote.createdAt).toLocaleDateString("es-AR", { day: "numeric", month: "short" });
 
+    const isExpired = vote.deadline ? new Date(vote.deadline) <= new Date() : false;
+    const deadlineText = vote.deadline
+        ? `Vence el ${new Date(vote.deadline).toLocaleDateString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+        : "Sin fecha de vencimiento";
+
     return (
         <article className="space-y-5 rounded-3xl bg-panel p-6 text-foreground shadow-panel">
             {vote.expenseProposal ? (
@@ -345,10 +354,15 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
             <ProgressBar vote={vote} />
 
             <footer className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-ink-soft">
-                    {vote.type === "RESERVATION_CLAIM" ? "Reclamado por" : "Propuesto por"}{" "}
-                    <strong>{vote.proposer.nickname}</strong> el {createdAt}
-                </p>
+                <div className="space-y-1">
+                    <p className="text-xs text-ink-soft">
+                        {vote.type === "RESERVATION_CLAIM" ? "Reclamado por" : "Propuesto por"}{" "}
+                        <strong>{vote.proposer.nickname}</strong> el {createdAt}
+                    </p>
+                    <p className="text-xs font-medium text-brand">
+                        {isExpired ? "Votación finalizada (plazo vencido)" : deadlineText}
+                    </p>
+                </div>
 
                 {vote.canVote ? (
                     <div className="flex gap-2">
@@ -356,7 +370,8 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
                             type="button"
                             variant={vote.myChoice === "NO" ? "muted" : "success"}
                             aria-pressed={vote.myChoice === "YES"}
-                            disabled={castBallot.isPending || isGroupStopped}
+                            // Bloquear si el grupo está detenido o si la votación ya venció
+                            disabled={castBallot.isPending || isGroupStopped || isExpired}
                             title={isGroupStopped ? GROUP_STOPPED_VOTE_TITLE : undefined}
                             onClick={() => void handleVote("YES")}
                         >
@@ -366,7 +381,7 @@ export function VoteCard({ vote, groupId }: VoteCardProps): ReactElement {
                             type="button"
                             variant={vote.myChoice === "YES" ? "muted" : "danger"}
                             aria-pressed={vote.myChoice === "NO"}
-                            disabled={castBallot.isPending || isGroupStopped}
+                            disabled={castBallot.isPending || isGroupStopped || isExpired}
                             title={isGroupStopped ? GROUP_STOPPED_VOTE_TITLE : undefined}
                             onClick={() => void handleVote("NO")}
                         >
