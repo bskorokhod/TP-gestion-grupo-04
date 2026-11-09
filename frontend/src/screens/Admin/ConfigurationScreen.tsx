@@ -23,9 +23,7 @@ import type {ConfigChangeCreate} from "@/models/Vote.ts";
 import {useCreateConfigChangeVote} from "@/services/VoteServices.ts";
 
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faCopy, faStar, faPercent, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
-import {Avatar} from "@/components/ui/Avatar.tsx";
-import {ConfigChangeModal} from "@/components/modals/ConfigChangeModal.tsx";
+import {faStar, faPercent, faArrowRight, faPenToSquare} from "@fortawesome/free-solid-svg-icons";
 import {MODIFY_CONFIG_LABEL, MODIFY_PERCENTAGES_LABEL, PERCENTAGES_SETTING, SETTINGS_INFO,} from "@/constants/configuration.ts";
 import {PremiumContentModal} from "@/components/modals/PremiumContentModal.tsx";
 
