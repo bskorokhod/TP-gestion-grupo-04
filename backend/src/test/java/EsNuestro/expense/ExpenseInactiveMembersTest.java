@@ -33,7 +33,7 @@ class ExpenseInactiveMembersTest {
     @BeforeEach
     void setUp() {
         Group group = new Group("Casa", "Casa", "ABC-1234-XYZ", new GroupSettings(
-                DistributionMode.EQUAL, VotingModel.SIMPLE_MAJORITY, ReservationLimitPolicy.EQUAL, null, new BigDecimal("100000")));
+                DistributionMode.EQUAL, VotingModel.SIMPLE_MAJORITY, ReservationLimitPolicy.EQUAL, null, new BigDecimal("100000"), 10));
         creditor = member(group, 1, "B");
         debtor = member(group, 2, "A");
         other = member(group, 3, "C");
@@ -41,7 +41,7 @@ class ExpenseInactiveMembersTest {
 
     private ExpenseDetails details(String total, GroupMember... participants) {
         return new ExpenseDetails("Alquiler", null, ExpenseCategory.SIN_CATEGORIA, new BigDecimal(total),
-                SplitMethod.EQUAL, creditor, "https://receipt",
+                SplitMethod.EQUAL, creditor, "https://receipt", 10,
                 java.util.Arrays.stream(participants).map(ExpenseParticipant::new).toList());
     }
 

@@ -59,6 +59,16 @@ public class ExpenseDetails {
     @Column(nullable = false, length = 2048)
     private String receiptUrl;
 
+    /**
+     * Días (entre {@link Expense#MIN_CLOSING_DEADLINE_DAYS} y {@link Expense#MAX_CLOSING_DEADLINE_DAYS}) desde la
+     * creación o la última edición/reporte en que se considera vencido para quien todavía debe su parte. Lo elige
+     * quien registra, edita o reporta el gasto (ver {@code ExpenseDataDTO}); no dispara ningún cierre automático,
+     * solo avisos. Nullable en la base porque los gastos anteriores a esta funcionalidad no lo tienen; el cómputo
+     * del plazo absoluto lo hace {@link Expense}.
+     */
+    @Column(name = "closing_deadline_days")
+    private Integer closingDeadlineDays;
+
     /** Miembros entre los que se reparte el gasto; puede no haber ninguno (lo cubre el acreedor). */
     @ElementCollection
     @CollectionTable(name = "expense_participants", joinColumns = @JoinColumn(name = "details_id"))
@@ -66,7 +76,7 @@ public class ExpenseDetails {
 
     public ExpenseDetails(
             String title, String description, ExpenseCategory category, BigDecimal totalAmount, SplitMethod splitMethod,
-            GroupMember creditor, String receiptUrl, List<ExpenseParticipant> participants
+            GroupMember creditor, String receiptUrl, Integer closingDeadlineDays, List<ExpenseParticipant> participants
     ) {
         this.title = title;
         this.description = description;
@@ -75,6 +85,7 @@ public class ExpenseDetails {
         this.splitMethod = splitMethod;
         this.creditor = creditor;
         this.receiptUrl = receiptUrl;
+        this.closingDeadlineDays = closingDeadlineDays;
         this.participants = new ArrayList<>(participants);
     }
 
@@ -87,13 +98,15 @@ public class ExpenseDetails {
                 .map(participant -> new ExpenseParticipant(participant.getMember()))
                 .toList();
         return new ExpenseDetails(
-                title, description, category, totalAmount, splitMethod, creditor, receiptUrl, participantCopies
+                title, description, category, totalAmount, splitMethod, creditor, receiptUrl, closingDeadlineDays,
+                participantCopies
         );
     }
 
     /**
      * Si tiene el mismo contenido que {@code other} (no compara ids ni el orden de los participantes). Sirve para
-     * rechazar una propuesta de modificación que no cambiaría nada.
+     * rechazar una propuesta de modificación que no cambiaría nada, incluido un reporte que solo pide cambiar el
+     * plazo de cierre.
      */
     public boolean sameContentAs(ExpenseDetails other) {
         return title.equals(other.title)
@@ -103,6 +116,7 @@ public class ExpenseDetails {
                 && splitMethod == other.splitMethod
                 && creditor.getId().equals(other.creditor.getId())
                 && receiptUrl.equals(other.receiptUrl)
+                && Objects.equals(closingDeadlineDays, other.closingDeadlineDays)
                 && participantIds().equals(other.participantIds());
     }
 

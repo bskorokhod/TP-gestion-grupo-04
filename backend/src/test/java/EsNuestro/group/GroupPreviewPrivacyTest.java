@@ -15,7 +15,7 @@ class GroupPreviewPrivacyTest {
     void thePreviewOnlyExposesTheDistributionMode() {
         Group group = new Group("Casa secreta", "Descripción", "ABC-1234-XYZ", new GroupSettings(
                 DistributionMode.PERCENTAGE, VotingModel.SIMPLE_MAJORITY, ReservationLimitPolicy.EQUAL, null,
-                new BigDecimal("1000")));
+                new BigDecimal("1000"), 10));
 
         GroupPreviewDTO preview = GroupPreviewDTO.from(group);
 

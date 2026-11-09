@@ -7,6 +7,7 @@ import { PayDebtModal } from "@/components/modals/PayDebtModal.tsx";
 import {isVisibleToCreditor, useGetExpensesIOwe, useGetExpensesOwedToMe, useGetGroupSummary} from "@/services/ExpenseServices.ts";
 import type { Debt, Expense } from "@/models/Expense.ts";
 import {formatCurrency, roundCents} from "@/lib/format.ts";
+import {formatDeadline, formatElapsedSince, isOverdue} from "@/lib/dates.ts";
 import {useIsGroupStopped} from "@/contexts/GroupContext.tsx";
 import {GROUP_STOPPED_EXPENSE_TITLE} from "@/constants/group.ts";
 import {REFUND_OF_CANCELLED_EXPENSE_TAG, REFUND_TAG, REPORT_IN_PROGRESS_TITLE,} from "@/constants/expenses.ts";
@@ -239,6 +240,13 @@ function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onRepor
     if (myMemberId == null) return null;
 
     const myDebts = expense.debts.filter((d) => d.debtor.id === myMemberId && isOpenDebt(d));
+    const { closingDeadline } = expense;
+    const overdue = closingDeadline ? isOverdue(closingDeadline) : false;
+    const deadlineLabel = !closingDeadline
+        ? "Sin fecha de vencimiento"
+        : overdue
+            ? `Vencido ${formatElapsedSince(closingDeadline)}`
+            : `Vence el ${formatDeadline(closingDeadline)}`;
 
     return (
         <>
@@ -268,6 +276,8 @@ function ExpenseAsOwedCards({ expense, myMemberId, reportDisabledReason, onRepor
                         onReport={onReport}
                         reportDisabledReason={reportDisabledReason}
                         notice={modificationNotice(expense)}
+                        deadlineLabel={deadlineLabel}
+                        overdue={overdue}
                         action={{
                             label: "Marcar como pagado",
                             onClick: () => onPay(myDebt.id, remaining, myDebt.creditor.cvu),

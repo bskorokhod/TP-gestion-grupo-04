@@ -16,7 +16,7 @@ class PercentageDistributionTest {
     private static GroupSettings percentageSettings() {
         return new GroupSettings(
                 DistributionMode.PERCENTAGE, VotingModel.OWNERSHIP_WEIGHTED_MAJORITY,
-                ReservationLimitPolicy.OWNERSHIP_PROPORTIONAL, null, new BigDecimal("1000")
+                ReservationLimitPolicy.OWNERSHIP_PROPORTIONAL, null, new BigDecimal("1000"), 10
         );
     }
 

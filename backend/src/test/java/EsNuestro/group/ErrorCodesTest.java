@@ -45,7 +45,7 @@ class ErrorCodesTest {
         service = new GroupService(groupRepository, memberRepository, userRepository, mock(JoinCodeGenerator.class),
                 debtRepository, mock(ApplicationEventPublisher.class));
         group = new Group("Secreto", "Desc", "ABC-1234-XYZ", new GroupSettings(
-                DistributionMode.PERCENTAGE, VotingModel.SIMPLE_MAJORITY, ReservationLimitPolicy.EQUAL, null, new BigDecimal("1000")));
+                DistributionMode.PERCENTAGE, VotingModel.SIMPLE_MAJORITY, ReservationLimitPolicy.EQUAL, null, new BigDecimal("1000"), 10));
         ReflectionTestUtils.setField(group, "id", 1L);
         when(groupRepository.findWithLockByJoinCode("ABC-1234-XYZ")).thenReturn(Optional.of(group));
         when(groupRepository.findWithLockById(1L)).thenReturn(Optional.of(group));

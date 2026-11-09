@@ -23,6 +23,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,8 +35,9 @@ import java.util.Optional;
  * <p>
  * Una votación finalizada no se borra (borrado lógico): conserva su resultado para el historial.
  * El modelo de votación se fija al crearla, de modo que cambiar la configuración del grupo mientras
- * se vota no altera las reglas de una votación en curso. Las transiciones son cambios de estado puros;
- * las precondiciones y la ejecución las maneja {@code VoteService}.
+ * se vota no altera las reglas de una votación en curso. Lo mismo vale para {@link #deadline}: se calcula
+ * una sola vez, con el plazo configurado en el grupo en ese momento ({@code GroupSettings.voteDeadlineDays}).
+ * Las transiciones son cambios de estado puros; las precondiciones y la ejecución las maneja {@code VoteService}.
  */
 @Entity
 @Table(name = "votes")
@@ -79,6 +81,13 @@ public abstract class Vote {
 
     private Instant finalizedAt;
 
+    /**
+     * Momento en que la votación se rechaza automáticamente si sigue activa. Sin columna {@code NOT NULL}: las
+     * votaciones anteriores a esta funcionalidad no lo tenían y {@code VoteExpirationJob} se lo asigna en el
+     * arranque (ver {@link #backfillDeadlineIfMissing}); toda votación nueva lo trae desde que se crea.
+     */
+    private Instant deadline;
+
     /** Conteo al finalizar; null mientras la votación está activa. Ver {@link TallySnapshot}. */
     @Embedded
     private TallySnapshot finalTally;
@@ -93,6 +102,7 @@ public abstract class Vote {
         this.votingModel = votingModel;
         this.status = VoteStatus.ACTIVE;
         this.createdAt = Instant.now();
+        this.deadline = this.createdAt.plus(group.getSettings().getVoteDeadlineDays(), ChronoUnit.DAYS);
     }
 
     public void addBallot(GroupMember member, BigDecimal weight) {
@@ -138,5 +148,15 @@ public abstract class Vote {
         this.failureReason = failureReason;
         this.finalizedAt = Instant.now();
         this.finalTally = TallySnapshot.of(votingModel, tallyEntries());
+    }
+
+    /**
+     * Asigna el plazo a una votación anterior a esta funcionalidad, que no lo tenía al crearse. Usa el plazo
+     * configurado hoy en el grupo. No hace nada si ya lo tiene, así que es seguro llamarlo en cada arranque.
+     */
+    public void backfillDeadlineIfMissing() {
+        if (this.deadline == null) {
+            this.deadline = this.createdAt.plus(group.getSettings().getVoteDeadlineDays(), ChronoUnit.DAYS);
+        }
     }
 }

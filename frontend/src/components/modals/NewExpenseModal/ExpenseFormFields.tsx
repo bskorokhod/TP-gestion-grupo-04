@@ -2,6 +2,7 @@ import { useState, type ReactElement, type ReactNode } from "react";
 
 import { Field } from "@/components/Forms/Field";
 import { TextArea, TextInput } from "@/components/Forms/TextInput";
+import { MAX_CLOSING_DEADLINE_DAYS, MIN_CLOSING_DEADLINE_DAYS } from "@/models/Expense.ts";
 import type { Member } from "@/models/Group.ts";
 
 import { CategorySelect } from "./CategorySelect";
@@ -162,6 +163,24 @@ export function ExpenseFormFields({
                             <PersonChip name={creditor.nickname} color={creditor.color} photoUrl={creditor.photoUrl} />
                         </div>
                     ) : null}
+                </Field>
+
+                <Field
+                    label="Plazo de cierre (días)"
+                    htmlFor="expense-closing-deadline"
+                    hint={`Entre ${MIN_CLOSING_DEADLINE_DAYS} y ${MAX_CLOSING_DEADLINE_DAYS} días; pasado ese plazo, a quien todavía deba su parte se le avisa que está vencido`}
+                >
+                    <TextInput
+                        id="expense-closing-deadline"
+                        type="number"
+                        inputMode="numeric"
+                        min={MIN_CLOSING_DEADLINE_DAYS}
+                        max={MAX_CLOSING_DEADLINE_DAYS}
+                        step={1}
+                        value={form.closingDeadlineDays}
+                        onChange={(event) => form.setClosingDeadlineDays(event.target.value)}
+                        placeholder={`Ej. ${MAX_CLOSING_DEADLINE_DAYS}`}
+                    />
                 </Field>
             </div>
         </div>

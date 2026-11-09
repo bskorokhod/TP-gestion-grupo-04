@@ -5,16 +5,23 @@ import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import SelectField, {type SelectOption} from "@/components/Forms/SelectField.tsx";
 import TextField from "@/components/Forms/TextField.tsx";
 import {ModalShell} from "@/components/modals/ModalShell.tsx";
-import {type DistributionMode, type GroupCreate, GroupCreateSchema, isReservationPolicyAllowed, isVotingModelAllowed,
-    MAX_FIXED_DAYS_PER_MONTH, MIN_FIXED_DAYS_PER_MONTH, type ReservationLimitPolicy, type VotingModel} from "@/models/Group.ts";
-import {useFormToasts} from "@/hooks/useFormToasts";
-import {DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS} from "@/constants/config_modals.ts";
 import {
+    type DistributionMode,
+    type GroupCreate,
+    GroupCreateSchema,
+    isReservationPolicyAllowed,
+    isVotingModelAllowed,
+    MAX_FIXED_DAYS_PER_MONTH,
+    MIN_FIXED_DAYS_PER_MONTH,
+    type ReservationLimitPolicy,
+    type VotingModel,
     DEFAULT_DISTRIBUTION_MODE,
     DEFAULT_RESERVATION_LIMIT_POLICY,
     DEFAULT_VOTING_MODEL,
     usesDefaultPremiumSettings,
 } from "@/models/Group.ts";
+import {useFormToasts} from "@/hooks/useFormToasts";
+import {DISTRIBUTION_OPTIONS, REQUIRES_PERCENTAGE_NOTE, RESERVATION_OPTIONS, VOTING_OPTIONS} from "@/constants/config_modals.ts";
 
 export interface CreateGroupModalProps {
     onClose: () => void;
@@ -137,6 +144,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                     reservationFixedDaysPerMonth: parseOptionalNumber(fixedDays),
                 }),
                 extraordinaryExpenseThreshold: parseOptionalNumber(threshold),
+                voteDeadlineDays: parseOptionalNumber(formData.get("voteDeadlineDays")?.toString() || ""),
             },
         };
 
@@ -216,6 +224,20 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                         required
                     />
                 </PremiumSetting>
+
+                <TextField
+                    id="group-vote-deadline"
+                    name="voteDeadlineDays"
+                    type="number"
+                    label="Plazo de votación (días)"
+                    hint="Entre 7 y 30 días. Si no se aprueba en este plazo, se rechaza."
+                    placeholder="Ej. 14"
+                    disabled={settingsLocked}
+                    required
+                    min={7}
+                    max={30}
+                />
+
                 <PremiumSetting label="la restricción de reservas" onPremiumClick={() => setReservation("OWNERSHIP_PROPORTIONAL")}>
                     <SelectField
                         id="group-reservation"
@@ -230,6 +252,7 @@ export const CreateGroupModal = ({ onClose, onCreate }: CreateGroupModalProps) =
                         required
                     />
                 </PremiumSetting>
+
                 {reservation === "FIXED_DAYS_PER_MONTH" && (
                     <TextField
                         id="group-fixed-days"

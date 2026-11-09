@@ -48,7 +48,7 @@ class CanceledDebtsRepositoryTest {
     void setUp() {
         group = new Group("Casa", "Casa", "ABC-1234-XYZ", new GroupSettings(
                 DistributionMode.PERCENTAGE, VotingModel.SIMPLE_MAJORITY, ReservationLimitPolicy.EQUAL, null,
-                new BigDecimal("1000")));
+                new BigDecimal("1000"), 10));
         em.persist(group);
         a = member("A", "50");
         b = member("B", "50");
@@ -58,7 +58,7 @@ class CanceledDebtsRepositoryTest {
     /** Gasto aprobado de B (acreedor) con A como único participante, que debe 500. */
     private Expense expenseWhereADebtsB() {
         ExpenseDetails details = new ExpenseDetails("Alquiler", null, ExpenseCategory.SIN_CATEGORIA,
-                new BigDecimal("500.00"), SplitMethod.EQUAL, b, "https://receipt", List.of(new ExpenseParticipant(a)));
+                new BigDecimal("500.00"), SplitMethod.EQUAL, b, "https://receipt", 10, List.of(new ExpenseParticipant(a)));
         Expense expense = Expense.register(b, details);
         expense.approve(b);
         em.persist(expense);

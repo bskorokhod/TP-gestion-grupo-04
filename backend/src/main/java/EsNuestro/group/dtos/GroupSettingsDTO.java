@@ -8,6 +8,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
@@ -30,7 +32,11 @@ public record GroupSettingsDTO(
         @NotNull(message = "El monto extraordinario es obligatorio")
         @DecimalMin(value = "0.01", message = "El monto extraordinario debe ser mayor a 0")
         @Digits(integer = 10, fraction = 2, message = "El monto extraordinario admite hasta 10 enteros y 2 decimales")
-        BigDecimal extraordinaryExpenseThreshold
+        BigDecimal extraordinaryExpenseThreshold,
+        @NotNull(message = "El plazo de cierre de las votaciones es obligatorio")
+        @Min(value = GroupSettings.MIN_VOTE_DEADLINE_DAYS, message = "El plazo de votación debe ser de al menos 7 días")
+        @Max(value = GroupSettings.MAX_VOTE_DEADLINE_DAYS, message = "El plazo de votación no puede superar los 30 días")
+        Integer voteDeadlineDays
 ) {
 
     public static GroupSettingsDTO from(GroupSettings settings) {
@@ -39,7 +45,8 @@ public record GroupSettingsDTO(
                 settings.getVotingModel(),
                 settings.getReservationLimitPolicy(),
                 settings.getReservationFixedDaysPerMonth(),
-                settings.getExtraordinaryExpenseThreshold()
+                settings.getExtraordinaryExpenseThreshold(),
+                settings.getVoteDeadlineDays()
         );
     }
 
@@ -49,7 +56,8 @@ public record GroupSettingsDTO(
                 votingModel,
                 reservationLimitPolicy,
                 reservationFixedDaysPerMonth,
-                extraordinaryExpenseThreshold
+                extraordinaryExpenseThreshold,
+                voteDeadlineDays
         );
     }
 

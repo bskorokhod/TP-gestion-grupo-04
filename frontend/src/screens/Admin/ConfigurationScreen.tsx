@@ -486,6 +486,11 @@ function toConfigChangeBody(request: ConfigChangeRequest): ConfigChangeCreate {
                 setting: "EXTRAORDINARY_EXPENSE_THRESHOLD",
                 extraordinaryExpenseThreshold: request.extraordinaryExpenseThreshold,
             };
+        case "voteDeadline":
+            return {
+                setting: "VOTE_DEADLINE_DAYS",
+                voteDeadlineDays: request.voteDeadlineDays,
+            };
     }
 }
 

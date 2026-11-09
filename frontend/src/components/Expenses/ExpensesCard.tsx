@@ -70,6 +70,10 @@ export interface OwedCardProps {
     readonly onReport?: () => void;
     readonly reportDisabledReason?: string | null;
     readonly notice?: string;
+    /** "Vence el 20 nov, 15:30" / "Vencido hace 2 semanas" / "Sin fecha de vencimiento", igual que en las tarjetas de votación. */
+    readonly deadlineLabel?: string | null;
+    /** Si el plazo ya pasó: la tarjeta pasa a paleta roja. */
+    readonly overdue?: boolean;
     readonly action?: {
         readonly label: string;
         readonly onClick: () => void;
@@ -95,11 +99,14 @@ export interface EmptyStateProps {
 export interface ExpenseCardProps {
     readonly children: ReactNode;
     readonly className?: string;
+    readonly tone?: "default" | "danger";
 }
 
-export function ExpenseCard({ children, className = "" }: ExpenseCardProps): ReactNode {
+export function ExpenseCard({ children, className = "", tone = "default" }: ExpenseCardProps): ReactNode {
+    const toneClasses = tone === "danger" ? "bg-group-danger-soft border border-group-danger/40" : "bg-panel";
+
     return (
-        <article className={`rounded-xl bg-panel p-5 ${className}`}>
+        <article className={`rounded-xl ${toneClasses} p-5 ${className}`}>
             {children}
         </article>
     );
@@ -298,9 +305,9 @@ export function DebtCard({title, amount, description, assigned, owner, receiptUr
     );
 }
 
-export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, reportDisabledReason, notice, action,}: OwedCardProps): ReactNode {
+export function OwedCard({title, amount, description, assigned, owner, tag, receiptUrl, onReport, reportDisabledReason, notice, deadlineLabel, overdue = false, action,}: OwedCardProps): ReactNode {
     return (
-        <ExpenseCard className="flex min-h-48 flex-col justify-between">
+        <ExpenseCard tone={overdue ? "danger" : "default"} className="flex min-h-48 flex-col justify-between">
             <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                     <AmountTitle title={title} amount={amount} tag={tag} />
@@ -309,6 +316,9 @@ export function OwedCard({title, amount, description, assigned, owner, tag, rece
                         <CardActionButton icon={faFlag} label="Reportar" onClick={onReport} disabledReason={reportDisabledReason} tone={"danger"}/>
                     </div>
                 </div>
+                {deadlineLabel && (
+                    <p className={`text-xs font-medium ${overdue ? "text-group-danger" : "text-brand"}`}>{deadlineLabel}</p>
+                )}
                 <p className="text-sm text-group-muted">{description}</p>
                 {notice && <ModificationNotice message={notice} />}
                 {assigned && owner && <PeopleMeta assigned={assigned} owner={owner} />}

@@ -55,7 +55,7 @@ class GroupLeaveTest {
                 mode,
                 percentage ? VotingModel.OWNERSHIP_WEIGHTED_MAJORITY : VotingModel.SIMPLE_MAJORITY,
                 percentage ? ReservationLimitPolicy.OWNERSHIP_PROPORTIONAL : ReservationLimitPolicy.EQUAL,
-                null, new BigDecimal("1000")
+                null, new BigDecimal("1000"), 10
         );
     }
 

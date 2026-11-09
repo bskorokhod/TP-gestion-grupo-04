@@ -12,7 +12,10 @@ public enum ConfigSetting {
     RESERVATION_LIMIT_POLICY,
 
     /** Monto a partir del cual un gasto es extraordinario. */
-    EXTRAORDINARY_EXPENSE_THRESHOLD;
+    EXTRAORDINARY_EXPENSE_THRESHOLD,
+
+    /** Plazo (en días) que tiene una votación para cerrarse antes de rechazarse automáticamente. */
+    VOTE_DEADLINE_DAYS;
 
     /**
      * Solo el monto del gasto extraordinario se puede cambiar en cualquier grupo; el resto requiere premium.

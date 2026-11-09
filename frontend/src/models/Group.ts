@@ -45,6 +45,9 @@ export type ReservationLimitPolicy = z.infer<typeof ReservationLimitPolicySchema
 export const MIN_FIXED_DAYS_PER_MONTH = 1;
 export const MAX_FIXED_DAYS_PER_MONTH = 31;
 
+export const MIN_VOTE_DEADLINE_DAYS = 7;
+export const MAX_VOTE_DEADLINE_DAYS = 30;
+
 /** Las opciones que dependen del % de propiedad solo tienen sentido si el bien se reparte por porcentaje. */
 export const VOTING_MODELS_REQUIRING_PERCENTAGE: readonly VotingModel[] = ["OWNERSHIP_WEIGHTED_MAJORITY"];
 export const RESERVATION_POLICIES_REQUIRING_PERCENTAGE: readonly ReservationLimitPolicy[] = ["OWNERSHIP_PROPORTIONAL"];
@@ -67,6 +70,7 @@ export const GroupSettingsSchema = z.object({
     reservationLimitPolicy: ReservationLimitPolicySchema,
     reservationFixedDaysPerMonth: z.number().nullish(),
     extraordinaryExpenseThreshold: z.number(),
+    voteDeadlineDays: z.number(),
 });
 
 export type GroupSettings = z.infer<typeof GroupSettingsSchema>;
@@ -91,6 +95,11 @@ export const GroupSettingsCreateSchema = z
                 (value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6,
                 "El monto extraordinario admite hasta 2 decimales",
             ),
+        voteDeadlineDays: z
+            .number({ error: "Indicá el plazo de cierre de las votaciones" })
+            .int("El plazo debe ser un número entero de días")
+            .min(MIN_VOTE_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_VOTE_DEADLINE_DAYS} y ${MAX_VOTE_DEADLINE_DAYS} días`)
+            .max(MAX_VOTE_DEADLINE_DAYS, `El plazo debe estar entre ${MIN_VOTE_DEADLINE_DAYS} y ${MAX_VOTE_DEADLINE_DAYS} días`),
     })
     .superRefine((settings, ctx) => {
         if (!isVotingModelAllowed(settings.distributionMode, settings.votingModel)) {
