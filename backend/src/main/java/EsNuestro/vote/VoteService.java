@@ -11,6 +11,7 @@ import EsNuestro.group.GroupService;
 import EsNuestro.group.GroupSettings;
 import EsNuestro.group.MemberJoinedEvent;
 import EsNuestro.group.MemberLeftEvent;
+import EsNuestro.group.PremiumEndedEvent;
 import EsNuestro.group.VotingModel;
 import EsNuestro.member.GroupMember;
 import EsNuestro.reservation.CancellationRequest;
@@ -105,11 +106,15 @@ class VoteService {
      * Abre la votación para cambiar una configuración del grupo. Siempre es unánime: votan todos los miembros
      * activos al momento de proponerla (el padrón queda fijo) y el voto "sí" de quien propone es automático, así
      * que con un único miembro activo el cambio se aplica en el acto. Se rechaza lo que no cambiaría nada, lo que
-     * dejaría la configuración incoherente y una segunda propuesta activa sobre la misma configuración.
+     * dejaría la configuración incoherente y una segunda propuesta activa sobre la misma configuración. Salvo el monto
+     * del gasto extraordinario, cambiar la configuración requiere que el grupo sea premium.
      */
     VoteDTO createConfigChangeVote(Long groupId, ConfigChangeDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
         GroupMember proposer = groupService.requireActiveMember(groupId, username);
+        if (data.setting().requiresPremium()) {
+            groupService.requirePremium(group);
+        }
         groupService.requireRunning(group);
 
         ConfigChangeVote vote = buildConfigChangeVote(group, proposer, data);
@@ -273,6 +278,19 @@ class VoteService {
         voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
                 .filter(vote -> vote.hasBallotOf(event.memberId()))
                 .forEach(this::evaluate);
+    }
+
+    /**
+     * Cuando el grupo deja de ser premium, las votaciones de configuración exclusivas de premium que seguían abiertas se
+     * cierran como rechazadas, sin aplicar el cambio (las configuraciones ya volvieron a los valores por defecto). La del
+     * monto extraordinario no es exclusiva de premium y sigue su curso. Corre en la transacción de
+     * {@code PremiumService}, que ya tiene el lock del grupo.
+     */
+    @EventListener
+    public void onPremiumEnded(PremiumEndedEvent event) {
+        voteRepository.findByGroup_IdAndStatusOrderByCreatedAtDesc(event.groupId(), VoteStatus.ACTIVE).stream()
+                .filter(vote -> vote instanceof ConfigChangeVote change && change.getSetting().requiresPremium())
+                .forEach(vote -> reject(vote, "The group is no longer premium"));
     }
 
     /**

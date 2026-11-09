@@ -15,5 +15,13 @@ public enum ConfigSetting {
     EXTRAORDINARY_EXPENSE_THRESHOLD,
 
     /** Plazo (en días) que tiene una votación para cerrarse antes de rechazarse automáticamente. */
-    VOTE_DEADLINE_DAYS
+    VOTE_DEADLINE_DAYS;
+
+    /**
+     * Solo el monto del gasto extraordinario se puede cambiar en cualquier grupo; el resto requiere premium.
+     * Si cambia, actualizar también {@code requiresPremium} en {@code ConfigurationScreen.tsx} del frontend.
+     */
+    public boolean requiresPremium() {
+        return this != EXTRAORDINARY_EXPENSE_THRESHOLD;
+    }
 }

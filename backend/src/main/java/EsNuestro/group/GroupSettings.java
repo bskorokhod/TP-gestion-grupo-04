@@ -155,6 +155,28 @@ public class GroupSettings {
         );
     }
 
+    public static final DistributionMode DEFAULT_DISTRIBUTION_MODE = DistributionMode.EQUAL;
+    public static final VotingModel DEFAULT_VOTING_MODEL = VotingModel.SIMPLE_MAJORITY;
+    public static final ReservationLimitPolicy DEFAULT_RESERVATION_LIMIT_POLICY = ReservationLimitPolicy.EQUAL;
+
+    /**
+     * Si el reparto, la aprobación de votaciones y la restricción de reservas son los valores por defecto. Cualquier otra
+     * combinación es una personalización premium. El monto extraordinario no cuenta: se puede cambiar en cualquier grupo.
+     */
+    public boolean usesDefaultPremiumSettings() {
+        return distributionMode == DEFAULT_DISTRIBUTION_MODE
+                && votingModel == DEFAULT_VOTING_MODEL
+                && reservationLimitPolicy == DEFAULT_RESERVATION_LIMIT_POLICY;
+    }
+
+    /** Copia con las tres configuraciones exclusivas de premium en sus valores por defecto; el monto se conserva. */
+    public GroupSettings revertedToDefaults() {
+        return new GroupSettings(
+                DEFAULT_DISTRIBUTION_MODE, DEFAULT_VOTING_MODEL, DEFAULT_RESERVATION_LIMIT_POLICY,
+                null, extraordinaryExpenseThreshold
+        );
+    }
+
     /** Un modelo de votación que depende de la propiedad no tiene sentido si el bien se reparte en partes iguales. */
     public static boolean isVotingModelAllowed(DistributionMode distribution, VotingModel voting) {
         return distribution.hasOwnershipPercentages() || !voting.dependsOnOwnership();

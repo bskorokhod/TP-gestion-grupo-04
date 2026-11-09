@@ -4,6 +4,7 @@ import EsNuestro.group.Group;
 import EsNuestro.group.GroupStatus;
 import EsNuestro.member.GroupMember;
 import EsNuestro.member.MembershipStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -24,7 +25,8 @@ public record GroupDTO(
         GroupSettingsDTO settings,
         GroupStatus status,
         BigDecimal assignedPercentage,
-        BigDecimal missingPercentage
+        BigDecimal missingPercentage,
+        @JsonProperty("isPremium") boolean isPremium
 ) {
     public static GroupDTO from(Group group, GroupMember caller) {
         long activeMembers = group.getMembers().stream()
@@ -41,7 +43,8 @@ public record GroupDTO(
                 GroupSettingsDTO.from(group.getSettings()),
                 group.getStatus(),
                 group.assignedPercentage(),
-                group.missingPercentage()
+                group.missingPercentage(),
+                group.isPremium()
         );
     }
 }
