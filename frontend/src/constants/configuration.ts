@@ -35,6 +35,14 @@ function reservationValue(settings: GroupSettings): string {
 
 export const SETTINGS_INFO: ReadonlyArray<ModalSettingItem> = [
     {
+        kind: "distribution",
+        icon: faChartPie,
+        title: "Modo de repartición del bien",
+        description:
+            "Definí si el bien se reparte en partes iguales entre los miembros o según el porcentaje de cada uno.",
+        currentValue: (settings) => DISTRIBUTION_VALUE_LABELS[settings.distributionMode],
+    },
+    {
         kind: "voting",
         icon: faCheckToSlot,
         title: "Modo de aprobación de votación",
@@ -58,14 +66,6 @@ export const SETTINGS_INFO: ReadonlyArray<ModalSettingItem> = [
             "Monto a partir del cual un gasto se considera extraordinario y debe aprobarse por votación.",
         currentValue: (settings) =>
             `$ ${settings.extraordinaryExpenseThreshold.toLocaleString("es-AR")}`,
-    },
-    {
-        kind: "distribution",
-        icon: faChartPie,
-        title: "Modo de repartición del bien",
-        description:
-            "Definí si el bien se reparte en partes iguales entre los miembros o según el porcentaje de cada uno.",
-        currentValue: (settings) => DISTRIBUTION_VALUE_LABELS[settings.distributionMode],
     },
     {
         kind: "voteDeadline",

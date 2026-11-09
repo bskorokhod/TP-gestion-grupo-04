@@ -18,10 +18,11 @@ public enum ConfigSetting {
     VOTE_DEADLINE_DAYS;
 
     /**
-     * Solo el monto del gasto extraordinario se puede cambiar en cualquier grupo; el resto requiere premium.
+     * El monto del gasto extraordinario y el plazo de cierre de las votaciones se pueden cambiar en cualquier grupo; el
+     * resto requiere premium.
      * Si cambia, actualizar también {@code requiresPremium} en {@code ConfigurationScreen.tsx} del frontend.
      */
     public boolean requiresPremium() {
-        return this != EXTRAORDINARY_EXPENSE_THRESHOLD;
+        return this != EXTRAORDINARY_EXPENSE_THRESHOLD && this != VOTE_DEADLINE_DAYS;
     }
 }

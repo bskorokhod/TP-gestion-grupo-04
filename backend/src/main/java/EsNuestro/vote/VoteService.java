@@ -107,7 +107,7 @@ class VoteService {
      * activos al momento de proponerla (el padrón queda fijo) y el voto "sí" de quien propone es automático, así
      * que con un único miembro activo el cambio se aplica en el acto. Se rechaza lo que no cambiaría nada, lo que
      * dejaría la configuración incoherente y una segunda propuesta activa sobre la misma configuración. Salvo el monto
-     * del gasto extraordinario, cambiar la configuración requiere que el grupo sea premium.
+     * del gasto extraordinario y el plazo de cierre de las votaciones, cambiar la configuración requiere que el grupo sea premium.
      */
     VoteDTO createConfigChangeVote(Long groupId, ConfigChangeDTO data, String username) throws ItemNotFoundException {
         Group group = groupService.requireGroupForUpdate(groupId);
@@ -282,8 +282,8 @@ class VoteService {
 
     /**
      * Cuando el grupo deja de ser premium, las votaciones de configuración exclusivas de premium que seguían abiertas se
-     * cierran como rechazadas, sin aplicar el cambio (las configuraciones ya volvieron a los valores por defecto). La del
-     * monto extraordinario no es exclusiva de premium y sigue su curso. Corre en la transacción de
+     * cierran como rechazadas, sin aplicar el cambio (las configuraciones ya volvieron a los valores por defecto). Las del
+     * monto extraordinario y del plazo de cierre no son exclusivas de premium y siguen su curso. Corre en la transacción de
      * {@code PremiumService}, que ya tiene el lock del grupo.
      */
     @EventListener

@@ -169,11 +169,14 @@ public class GroupSettings {
                 && reservationLimitPolicy == DEFAULT_RESERVATION_LIMIT_POLICY;
     }
 
-    /** Copia con las tres configuraciones exclusivas de premium en sus valores por defecto; el monto se conserva. */
+    /**
+     * Copia con las tres configuraciones exclusivas de premium en sus valores por defecto; el monto extraordinario y el
+     * plazo de cierre de las votaciones se conservan, porque se pueden cambiar en cualquier grupo.
+     */
     public GroupSettings revertedToDefaults() {
         return new GroupSettings(
                 DEFAULT_DISTRIBUTION_MODE, DEFAULT_VOTING_MODEL, DEFAULT_RESERVATION_LIMIT_POLICY,
-                null, extraordinaryExpenseThreshold, MIN_VOTE_DEADLINE_DAYS
+                null, extraordinaryExpenseThreshold, voteDeadlineDays
         );
     }
 
